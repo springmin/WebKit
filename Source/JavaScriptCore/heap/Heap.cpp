@@ -2801,6 +2801,7 @@ void Heap::collectIfNecessaryOrDefer(GCDeferralContext* deferralContext)
         // Don't log if we already have a request pending or if we have to come back later so we don't flood dataFile.
         if (UNLIKELY(Options::logGC()))
             logRequestGC = m_requests.isEmpty() && !deferralContext && !isDeferred();
+#if !USE(BUN_JSC_ADDITIONS)
         if (UNLIKELY(Options::gcMaxHeapSize())) {
             size_t bytesAllocatedThisCycle = totalBytesAllocatedThisCycle();
             if (bytesAllocatedThisCycle <= Options::gcMaxHeapSize())
@@ -2808,6 +2809,7 @@ void Heap::collectIfNecessaryOrDefer(GCDeferralContext* deferralContext)
             dataLogLnIf(logRequestGC, "Requesting GC because bytes allocated this cycle: ", bytesAllocatedThisCycle, " exceed Options::gcMaxHeapSize(): ", Options::gcMaxHeapSize());
             return true;
         }
+#endif
 
         size_t bytesAllowedThisCycle = m_maxEdenSize;
 
@@ -2819,6 +2821,16 @@ void Heap::collectIfNecessaryOrDefer(GCDeferralContext* deferralContext)
 #endif
 
         size_t bytesAllocatedThisCycle = totalBytesAllocatedThisCycle();
+
+#if USE(BUN_JSC_ADDITIONS)
+        if (Options::gcMaxHeapSize()) {
+            if (bytesAllocatedThisCycle > Options::gcMaxHeapSize()) {
+                dataLogLnIf(logRequestGC, "Requesting GC because bytes allocated this cycle: ", bytesAllocatedThisCycle, " exceed Options::gcMaxHeapSize(): ", Options::gcMaxHeapSize());
+                return true;
+            }
+        }
+#endif
+
         if (bytesAllocatedThisCycle <= bytesAllowedThisCycle)
             return false;
 
