@@ -23,6 +23,23 @@
 #include "DateInstance.h"
 #include "HeapSnapshotBuilder.h"
 #include "RegExpObject.h"
+#include <wtf/text/WYHash.h>
+
+static unsigned generateHashID(JSCell* cell, void* optionalHashId)
+{
+    // We hash:
+    // - void* optionalHashId
+    // - cell->type()
+    // - cell->classInfo() (pointer)
+    uintptr_t pointerNumber = reinterpret_cast<uintptr_t>(optionalHashId);
+    char bytesToHash[sizeof(uintptr_t) * 2 + 1];
+    std::span<char> span { bytesToHash, sizeof(bytesToHash) };
+    memcpy(span.data(), &pointerNumber, sizeof(uintptr_t));
+    span[sizeof(uintptr_t)] = cell->type();
+    uintptr_t classInfoPtr = reinterpret_cast<uintptr_t>(cell->classInfo());
+    memcpy(&span[sizeof(uintptr_t) + 1], &classInfoPtr, sizeof(uintptr_t));
+    return WTF::WYHash::computeHashAndMaskTop8Bits<char>(span);
+}
 
 namespace JSC {
 
@@ -116,13 +133,11 @@ void BunV8HeapSnapshotBuilder::analyzeNode(JSCell* cell)
     {
         Locker locker { m_cellToNodeIdMutex };
         if (auto existingId = m_cellToNodeId.get(cell)) {
-            Locker locker { m_buildingNodeMutex };
-            WTF::atomicExchangeAdd(&m_nodes[existingId].hitCount, 1);
             return;
         }
     }
 
-    unsigned id = analyzeNodeInternal(cell);
+    unsigned id = analyzeNodeInternal(cell, nullptr);
 
     {
         Locker locker { m_cellToNodeIdMutex };
@@ -130,15 +145,17 @@ void BunV8HeapSnapshotBuilder::analyzeNode(JSCell* cell)
     }
 }
 
-unsigned BunV8HeapSnapshotBuilder::analyzeNodeInternal(JSCell* cell)
+
+unsigned BunV8HeapSnapshotBuilder::analyzeNodeInternal(JSCell* cell, void* optionalHashId)
 {
 
     Locker locker { m_buildingNodeMutex };
     auto typeIndex = getNodeTypeIndex(cell);
     unsigned id = m_nodes.size();
+
     m_nodes.append({
         .cell = cell,
-        .id = id,
+        .id = optionalHashId ? generateHashID(cell, optionalHashId) : id,
         .typeIndex = typeIndex,
         .selfSize = cell->estimatedSizeInBytes(m_profiler.vm()),
         .edges = {},
@@ -177,7 +194,11 @@ void BunV8HeapSnapshotBuilder::analyzeEdge(JSCell* from, JSCell* to, RootMarkRea
     default: {
         Locker locker { m_buildingNodeMutex };
         m_nodes[edge.toNodeId].parentNodeId = edge.fromNodeId;
-    } break;
+        if (edge.typeIndex == static_cast<unsigned>(V8EdgeType::Hidden)) {
+            edge.index = WTF::atomicExchangeAdd(&m_nodes[edge.fromNodeId].edgesCount, 1);
+        }
+        break;
+    }
     }
 
     m_edges.append(WTFMove(edge));
@@ -229,7 +250,14 @@ void BunV8HeapSnapshotBuilder::analyzeIndexEdge(JSCell* from, JSCell* to, uint32
 }
 
 void BunV8HeapSnapshotBuilder::setOpaqueRootReachabilityReasonForCell(JSCell*, ASCIILiteral) {}
-void BunV8HeapSnapshotBuilder::setWrappedObjectForCell(JSCell*, void*) {}
+void BunV8HeapSnapshotBuilder::setWrappedObjectForCell(JSCell* cell, void* wrappedObject) {
+    unsigned id = getOrCreateNodeId(cell, wrappedObject);
+    
+    // TODO: make this one lock instead of two.
+    Locker locker { m_buildingNodeMutex };
+    m_nodes[id].id = generateHashID(cell, wrappedObject);
+}
+
 void BunV8HeapSnapshotBuilder::setLabelForCell(JSCell* cell, const String& label)
 {
     if (!cell || label.isEmpty())
@@ -239,7 +267,7 @@ void BunV8HeapSnapshotBuilder::setLabelForCell(JSCell* cell, const String& label
     m_cellLabels.set(cell, label);
 }
 
-unsigned BunV8HeapSnapshotBuilder::getOrCreateNodeId(JSCell* cell)
+unsigned BunV8HeapSnapshotBuilder::getOrCreateNodeId(JSCell* cell, void* optionalHashId)
 {
     if (!cell)
         return 0; // Only return 0 for root
@@ -250,7 +278,7 @@ unsigned BunV8HeapSnapshotBuilder::getOrCreateNodeId(JSCell* cell)
         return it->value;
 
 
-    unsigned id = analyzeNodeInternal(cell);
+    unsigned id = analyzeNodeInternal(cell, optionalHashId);
     m_cellToNodeId.set(cell, id);
     return id;
 }
@@ -393,7 +421,6 @@ String BunV8HeapSnapshotBuilder::getDetailedNodeType(JSCell* cell)
         }
     }
 
-    // For promises, include the state if available
     if (JSPromise* promise = jsDynamicCast<JSPromise*>(cell)) {
         return "Promise"_s;
     }
@@ -401,7 +428,6 @@ String BunV8HeapSnapshotBuilder::getDetailedNodeType(JSCell* cell)
     auto* object = cell->getObject();
 
     if (object) {
-        // For arrays, include the length
         // For arrays, include the length
         if (JSArray* array = jsDynamicCast<JSArray*>(cell)) {
             return "Array"_s;
@@ -661,7 +687,7 @@ String BunV8HeapSnapshotBuilder::generateV8HeapSnapshot()
         json.append(',');
         json.append(String::number(addString(node.name)));
         json.append(',');
-        json.append(String::number(node.id * NODE_FIELD_COUNT)); // Multiply by field count for V8 format
+        json.append(String::number(node.id));
         json.append(',');
         json.append(String::number(node.selfSize));
         json.append(',');
@@ -688,6 +714,11 @@ String BunV8HeapSnapshotBuilder::generateV8HeapSnapshot()
         json.append(',');
 
         switch (edge.typeIndex) {
+            // Matches the following from V8:
+            //   int edge_name_or_index = edge->type() == HeapGraphEdge::kElement ||
+            //                        edge->type() == HeapGraphEdge::kHidden
+            //                    ? edge->index()
+            //                    : GetStringId(edge->name());
         case static_cast<unsigned>(V8EdgeType::Hidden):
         case static_cast<unsigned>(V8EdgeType::Element):
             json.append(String::number(edge.index));
@@ -703,148 +734,20 @@ String BunV8HeapSnapshotBuilder::generateV8HeapSnapshot()
     json.append("],\n"_s);
 
     // Trace function info array
-    json.append("\"trace_function_infos\":["_s);
-    first = true;
-    // unsigned functionIdCounter = 0;
-    HashMap<unsigned, unsigned> nodeToFunctionId;
-
-    // for (unsigned i = 0; i < m_nodes.size(); ++i) {
-    //     const auto& node = m_nodes[i];
-
-    //     if (!first)
-    //         json.append(',');
-    //     first = false;
-
-    //     nodeToFunctionId.set(i, functionIdCounter);
-
-    //     json.append(String::number(functionIdCounter++)); // Function ID is index in trace_function_infos
-    //     json.append(',');
-    //     json.append(String::number(addString(node.name)));
-    //     json.append(',');
-
-    //     auto traceLocation = node.traceLocation;
-    //     if (!traceLocation.has_value()) {
-    //         json.append("0,0,0,0"_s);
-    //         continue;
-    //     }
-
-    //     traceLocation->sourcemap(m_profiler.vm());
-    //     json.append(String::number(addString(traceLocation->scriptName)));
-    //     json.append(',');
-    //     json.append(String::number(traceLocation->scriptId));
-    //     json.append(',');
-    //     json.append(String::number(traceLocation->line));
-    //     json.append(',');
-    //     json.append(String::number(traceLocation->column));
-    // }
-    json.append("],\n"_s);
+    // We don't implement this yet
+    json.append("\"trace_function_infos\":[],\n"_s);
 
     // Samples array
+    // We don't implement this yet
     json.append("\"samples\":[],\n"_s);
 
     // Locations array - maps nodes to their source locations
-    json.append("\"locations\":["_s);
-    first = true;
-    // for (unsigned i = 0; i < m_nodes.size(); ++i) {
-    //     const auto& node = m_nodes[i];
-    //     if (!first)
-    //         json.append(',');
-    //     first = false;
-
-    //     // object_index
-    //     json.append(String::number(i));
-    //     json.append(',');
-    //     auto traceLocation = node.traceLocation;
-
-    //     if (!traceLocation.has_value()) {
-    //         json.append("0,0,0,0"_s);
-    //         continue;
-    //     }
-
-    //     // script_id
-    //     json.append(String::number(traceLocation->scriptId));
-    //     json.append(',');
-    //     // line
-    //     json.append(String::number(traceLocation->line));
-    //     json.append(',');
-    //     // column
-    //     json.append(String::number(traceLocation->column));
-    // }
-    json.append("],\n"_s);
+    // We don't implement this yet
+    json.append("\"locations\":[],\n"_s);
 
     // Trace tree - represents allocation stack traces
-    json.append("\"trace_tree\": ["_s);
-
-    // // First pass: collect all root level functions (those without parents)
-    // Vector<unsigned> rootFunctions;
-
-    // HashSet<unsigned> visitedNodes;
-
-    // Vector<Vector<unsigned>> childrenVectors;
-
-    // const auto getChildrenVector = [&](unsigned& childrenVectorIndex) -> Vector<unsigned>& {
-    //     if (childrenVectorIndex == std::numeric_limits<unsigned>::max()) {
-    //         childrenVectors.append(Vector<unsigned>());
-    //         childrenVectorIndex = childrenVectors.size() - 1;
-    //     }
-    //     return childrenVectors[childrenVectorIndex];
-    // };
-
-    // for (unsigned i = 0; i < m_nodes.size(); ++i) {
-    //     auto& node = m_nodes[i];
-    //     if (!node.traceLocation)
-    //         continue;
-
-    //     if (!node.parentNodeId) {
-    //         rootFunctions.append(i);
-    //     } else {
-    //         unsigned& childrenVectorIndex = node.childrenVectorIndex;
-    //         getChildrenVector(childrenVectorIndex).append(i);
-    //     }
-    // }
-
-    // // Helper function to recursively build the trace tree
-    // WTF::Function<void(unsigned, bool)> appendTraceNode = [&](unsigned nodeIndex, bool isFirst) {
-    //     // Prevent infinite loops
-    //     if (visitedNodes.contains(nodeIndex))
-    //         return;
-    //     visitedNodes.add(nodeIndex);
-
-    //     const auto& node = m_nodes[nodeIndex];
-
-    //     if (!isFirst)
-    //         json.append(',');
-
-    //     json.append(String::number(nodeIndex));
-    //     json.append(',');
-    //     json.append(String::number(nodeToFunctionId.get(nodeIndex)));
-    //     json.append(',');
-    //     json.append(String::number(node.hitCount));
-    //     json.append(',');
-    //     json.append(String::number(node.selfSize));
-    //     json.append(",["_s);
-
-    //     // Recursively append children
-    //     if (node.childrenVectorIndex != std::numeric_limits<unsigned>::max()) {
-    //         auto& children = childrenVectors[node.childrenVectorIndex];
-    //         bool firstChild = true;
-    //         for (unsigned childIndex : children) {
-    //             appendTraceNode(childIndex, firstChild);
-    //             firstChild = false;
-    //         }
-    //     }
-
-    //     json.append(']');
-    // };
-
-    // // Add trace nodes for root functions
-    // first = true;
-    // for (unsigned rootIndex : rootFunctions) {
-    //     appendTraceNode(rootIndex, first);
-    //     first = false;
-    // }
-
-    json.append("],"_s);
+    // We don't implement this yet
+    json.append("\"trace_tree\": [],\n"_s);
 
     // Strings table
     json.append("\"strings\":["_s);

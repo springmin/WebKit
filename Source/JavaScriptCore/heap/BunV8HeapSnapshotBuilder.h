@@ -40,7 +40,7 @@ public:
 
 private:
     String generateV8HeapSnapshot();
-    unsigned analyzeNodeInternal(JSCell*);
+    unsigned analyzeNodeInternal(JSCell*, void* optionalHashId = nullptr);
 
     struct TraceLocation {
     public:
@@ -61,7 +61,6 @@ private:
         Vector<unsigned> edges;
         std::optional<BunV8HeapSnapshotBuilder::TraceLocation> traceLocation = std::nullopt;
         std::optional<unsigned> parentNodeId = std::nullopt;
-        unsigned hitCount { 0 };
         unsigned edgesCount { 0 };
         unsigned childrenVectorIndex { std::numeric_limits<unsigned>::max() };
     };
@@ -73,7 +72,7 @@ private:
         String name {};
     };
 
-    enum class V8NodeType {
+    enum class V8NodeType : uint8_t {
         Hidden,
         Array,
         String,
@@ -92,7 +91,7 @@ private:
         Count
     };
 
-    enum class V8EdgeType {
+    enum class V8EdgeType : uint8_t {
         Context,
         Element,
         Property,
@@ -126,7 +125,7 @@ private:
     HashMap<JSCell*, String> m_cellLabels;
 
     // Helper methods
-    unsigned getOrCreateNodeId(JSCell*);
+    unsigned getOrCreateNodeId(JSCell*, void* optionalHashId = nullptr);
     unsigned getNodeTypeIndex(JSCell*);
     unsigned getEdgeTypeIndex(RootMarkReason);
     unsigned getEdgeTypeIndex(const String& type);
