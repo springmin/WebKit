@@ -53,19 +53,19 @@ public:
     static Ref<ViewTimeline> create(ViewTimelineOptions&& = { });
     static Ref<ViewTimeline> create(const AtomString&, ScrollAxis, ViewTimelineInsets&&);
 
-    Element* subject() const { return m_subject.get(); }
+    const Element* subject() const { return m_subject.get(); }
     void setSubject(const Element*);
 
     const ViewTimelineInsets& insets() const { return m_insets; }
     void setInsets(ViewTimelineInsets&& insets) { m_insets = WTFMove(insets); }
 
-    Ref<CSSNumericValue> startOffset();
-    Ref<CSSNumericValue> endOffset();
+    Ref<CSSNumericValue> startOffset() const;
+    Ref<CSSNumericValue> endOffset() const;
 
     AnimationTimeline::ShouldUpdateAnimationsAndSendEvents documentWillUpdateAnimationsAndSendEvents() override;
     AnimationTimelinesController* controller() const override;
 
-    RenderBox* sourceScrollerRenderer() const;
+    const RenderBox* sourceScrollerRenderer() const;
     Element* source() const override;
     TimelineRange defaultRange() const final;
 

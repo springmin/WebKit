@@ -328,9 +328,6 @@ bool HTMLTextFormControlElement::setSelectionRange(unsigned start, unsigned end,
         if (!isConnected())
             return cacheSelection(start, end, direction);
 
-        // FIXME: Removing this synchronous layout requires fixing setSelectionWithoutUpdatingAppearance not needing up-to-date style.
-        protectedDocument()->updateLayoutIgnorePendingStylesheets();
-
 #if PLATFORM(COCOA)
         bool cacheSelectionIfNotFocusedOrSelected = WTF::linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::SetSelectionRangeCachesSelectionIfNotFocusedOrSelected);
 #else
@@ -339,6 +336,9 @@ bool HTMLTextFormControlElement::setSelectionRange(unsigned start, unsigned end,
         // Cache selection if neither selection or focus is on the input.
         if (cacheSelectionIfNotFocusedOrSelected && frame && enclosingTextFormControl(frame->selection().selection().start()) != this)
             return cacheSelection(start, end, direction);
+
+        // FIXME: Removing this synchronous layout requires fixing setSelectionWithoutUpdatingAppearance not needing up-to-date style.
+        protectedDocument()->updateLayoutIgnorePendingStylesheets();
 
         // Cache selection if renderer is invisible.
         if (CheckedPtr renderer = this->renderer()) {

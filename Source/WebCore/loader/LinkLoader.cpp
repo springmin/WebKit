@@ -122,10 +122,7 @@ void LinkLoader::loadLinksFromHeader(const String& headerValue, const URL& baseU
         if (equalIgnoringFragmentIdentifier(url, baseURL))
             continue;
 
-        RequestPriority fetchPriorityHint = RequestPriority::Auto;
-        if (document.settings().fetchPriorityEnabled())
-            fetchPriorityHint = parseEnumerationFromString<RequestPriority>(header.fetchPriorityHint()).value_or(RequestPriority::Auto);
-
+        auto fetchPriorityHint = parseEnumerationFromString<RequestPriority>(header.fetchPriorityHint()).value_or(RequestPriority::Auto);
         LinkLoadParameters params { relAttribute, url, header.as(), header.media(), header.mimeType(), header.crossOrigin(), header.imageSrcSet(), header.imageSizes(), header.nonce(),
             parseReferrerPolicy(header.referrerPolicy(), ReferrerPolicySource::ReferrerPolicyAttribute).value_or(ReferrerPolicy::EmptyString), fetchPriorityHint };
 
@@ -186,7 +183,11 @@ std::optional<CachedResource::Type> LinkLoader::resourceTypeFromAsAttribute(cons
     case FetchRequestDestination::Style:
         return CachedResource::Type::CSSStyleSheet;
     case FetchRequestDestination::Track:
+#if ENABLE(VIDEO)
         return CachedResource::Type::TextTrackResource;
+#else
+        return std::nullopt;
+#endif
     case FetchRequestDestination::Video:
         if (document.settings().mediaPreloadingEnabled())
             return CachedResource::Type::MediaResource;
@@ -210,8 +211,10 @@ static std::unique_ptr<LinkPreloadResourceClient> createLinkPreloadResourceClien
         return makeUnique<LinkPreloadStyleResourceClient>(loader, downcast<CachedCSSStyleSheet>(resource));
     case CachedResource::Type::FontResource:
         return makeUnique<LinkPreloadFontResourceClient>(loader, downcast<CachedFont>(resource));
+#if ENABLE(VIDEO)
     case CachedResource::Type::TextTrackResource:
         return makeUnique<LinkPreloadDefaultResourceClient>(loader, downcast<CachedTextTrack>(resource));
+#endif
     case CachedResource::Type::MediaResource:
         ASSERT_UNUSED(document, document.settings().mediaPreloadingEnabled());
         FALLTHROUGH;
@@ -257,8 +260,10 @@ bool LinkLoader::isSupportedType(CachedResource::Type resourceType, const String
         if (!document.settings().mediaPreloadingEnabled())
             ASSERT_NOT_REACHED();
         return MIMETypeRegistry::isSupportedMediaMIMEType(mimeType);
+#if ENABLE(VIDEO)
     case CachedResource::Type::TextTrackResource:
         return MIMETypeRegistry::isSupportedTextTrackMIMEType(mimeType);
+#endif
     case CachedResource::Type::RawResource:
 #if ENABLE(APPLICATION_MANIFEST)
     case CachedResource::Type::ApplicationManifest:

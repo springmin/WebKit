@@ -157,20 +157,29 @@ void ViewTimeline::cacheCurrentTime()
     m_cachedCurrentTimeData = [&] -> CurrentTimeData {
         if (!m_subject)
             return { };
+
         CheckedPtr subjectRenderer = m_subject->renderer();
         if (!subjectRenderer)
             return { };
-        auto* sourceScrollableArea = scrollableAreaForSourceRenderer(sourceScrollerRenderer(), m_subject->document());
+
+        CheckedPtr sourceRenderer = sourceScrollerRenderer();
+        auto* sourceScrollableArea = scrollableAreaForSourceRenderer(sourceRenderer.get(), m_subject->document());
         if (!sourceScrollableArea)
             return { };
+
         auto scrollDirection = resolvedScrollDirection();
         if (!scrollDirection)
             return { };
 
         float scrollOffset = scrollDirection->isVertical ? sourceScrollableArea->scrollOffset().y() : sourceScrollableArea->scrollOffset().x();
         float scrollContainerSize = scrollDirection->isVertical ? sourceScrollableArea->visibleHeight() : sourceScrollableArea->visibleWidth();
-        auto subjectOffsetFromSource = subjectRenderer->localToContainerPoint(pointForLocalToContainer(*sourceScrollableArea), sourceScrollerRenderer());
+        auto subjectOffsetFromSource = subjectRenderer->localToContainerPoint(pointForLocalToContainer(*sourceScrollableArea), sourceRenderer.get());
         float subjectOffset = scrollDirection->isVertical ? subjectOffsetFromSource.y() : subjectOffsetFromSource.x();
+
+        // Ensure borders are subtracted.
+        auto scrollerPaddingBoxOrigin = sourceRenderer->paddingBoxRect().location();
+        subjectOffset -= scrollDirection->isVertical ? scrollerPaddingBoxOrigin.y() : scrollerPaddingBoxOrigin.x();
+
         auto subjectBounds = [&] -> FloatSize {
             if (CheckedPtr subjectRenderBox = dynamicDowncast<RenderBox>(subjectRenderer.get()))
                 return subjectRenderBox->contentBoxRect().size();
@@ -227,12 +236,12 @@ TimelineRange ViewTimeline::defaultRange() const
 
 Element* ViewTimeline::source() const
 {
-    if (auto* sourceRender = sourceScrollerRenderer())
+    if (CheckedPtr sourceRender = sourceScrollerRenderer())
         return sourceRender->element();
     return nullptr;
 }
 
-RenderBox* ViewTimeline::sourceScrollerRenderer() const
+const RenderBox* ViewTimeline::sourceScrollerRenderer() const
 {
     if (!m_subject)
         return nullptr;
@@ -332,12 +341,12 @@ std::pair<WebAnimationTime, WebAnimationTime> ViewTimeline::intervalForAttachmen
     };
 }
 
-Ref<CSSNumericValue> ViewTimeline::startOffset()
+Ref<CSSNumericValue> ViewTimeline::startOffset() const
 {
     return CSSNumericFactory::px(computeTimelineData().rangeStart);
 }
 
-Ref<CSSNumericValue> ViewTimeline::endOffset()
+Ref<CSSNumericValue> ViewTimeline::endOffset() const
 {
     return CSSNumericFactory::px(computeTimelineData().rangeEnd);
 }

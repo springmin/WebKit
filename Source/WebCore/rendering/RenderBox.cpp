@@ -262,6 +262,10 @@ void RenderBox::styleWillChange(StyleDifference diff, const RenderStyle& newStyl
                 // We are about to go out of flow. Before that takes place, we need to mark the
                 // current containing block chain for preferred widths recalculation.
                 setNeedsLayoutAndPrefWidthsRecalc();
+                if (CheckedPtr flexContainer = dynamicDowncast<RenderFlexibleBox>(parent())) {
+                    flexContainer->clearCachedFlexItemIntrinsicContentLogicalHeight(*this);
+                    flexContainer->clearCachedMainSizeForFlexItem(*this);
+                }
             } else
                 scheduleLayout(markContainingBlocksForLayout());
             
@@ -6047,8 +6051,10 @@ bool RenderBox::hasAutoHeightOrContainingBlockWithAutoHeight(UpdatePercentageHei
     if (updatePercentageDescendants == UpdatePercentageHeightDescendants::Yes && logicalHeightLength.isPercentOrCalculated() && containingBlock)
         containingBlock->addPercentHeightDescendant(const_cast<RenderBox&>(*this));
 
-    if (isFlexItem() && downcast<RenderFlexibleBox>(*parent()).canUseFlexItemForPercentageResolution(*this))
-        return false;
+    if (isFlexItem()) {
+        if (downcast<RenderFlexibleBox>(*parent()).canUseFlexItemForPercentageResolutionByStyle(*this) && overridingBorderBoxLogicalHeight())
+            return false;
+    }
 
     if (isGridItem()) {
         if (auto containingBlockContentLogicalHeight = gridAreaContentLogicalHeight())
