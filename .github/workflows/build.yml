@@ -334,79 +334,87 @@ jobs:
       - windows
       - linux-musl
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: bun-webkit-linux-amd64
           path: ${{runner.temp}}/bun-webkit-linux-amd64
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: bun-webkit-linux-arm64
           path: ${{runner.temp}}/bun-webkit-linux-arm64
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: bun-webkit-linux-amd64-debug
           path: ${{runner.temp}}/bun-webkit-linux-amd64-debug
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: bun-webkit-linux-arm64-debug
           path: ${{runner.temp}}/bun-webkit-linux-arm64-debug
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: bun-webkit-macos-arm64
           path: ${{runner.temp}}/bun-webkit-macos-arm64
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: bun-webkit-macos-arm64-debug
-          path: ${{runner.temp}}/bun-webkit-macos-arm64-debug
-      - uses: actions/download-artifact@v3
+          path: ${{runner.temp}}/
+      - uses: actions/download-artifact@v4
+        with:
+          name: bun-webkit-macos-arm64-debug-asan
+          path: ${{runner.temp}}/bun-webkit-macos-arm64-debug-asan
+      - uses: actions/download-artifact@v4
         with:
           name: bun-webkit-macos-amd64-debug
           path: ${{runner.temp}}/bun-webkit-macos-amd64-debug
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
+        with:
+          name: bun-webkit-macos-amd64-debug-asan
+          path: ${{runner.temp}}/bun-webkit-macos-amd64-debug-asan
+      - uses: actions/download-artifact@v4
         with:
           name: bun-webkit-macos-amd64
           path: ${{runner.temp}}/bun-webkit-macos-amd64
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: bun-webkit-linux-amd64-lto
           path: ${{runner.temp}}/bun-webkit-linux-amd64-lto
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: bun-webkit-linux-arm64-lto
           path: ${{runner.temp}}/bun-webkit-linux-arm64-lto
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: bun-webkit-windows-amd64
           path: ${{runner.temp}}/bun-webkit-windows-amd64
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: bun-webkit-windows-amd64-debug
           path: ${{runner.temp}}/bun-webkit-windows-amd64-debug
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: bun-webkit-linux-amd64-musl
           path: ${{runner.temp}}/bun-webkit-linux-amd64-musl
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: bun-webkit-linux-arm64-musl
           path: ${{runner.temp}}/bun-webkit-linux-arm64-musl
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: bun-webkit-linux-amd64-musl-debug
           path: ${{runner.temp}}/bun-webkit-linux-amd64-musl-debug
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: bun-webkit-linux-arm64-musl-debug
           path: ${{runner.temp}}/bun-webkit-linux-arm64-musl-debug
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: bun-webkit-linux-amd64-musl-lto
           path: ${{runner.temp}}/bun-webkit-linux-amd64-musl-lto
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: bun-webkit-linux-arm64-musl-lto
           path: ${{runner.temp}}/bun-webkit-linux-arm64-musl-lto
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: bun-webkit-linux-amd64-smol
           path: ${{runner.temp}}/bun-webkit-linux-amd64-smol
@@ -424,7 +432,9 @@ jobs:
           mv ${{runner.temp}}/bun-webkit-linux-amd64-musl-debug/bun-webkit.tar.gz ${{runner.temp}}/bun-webkit-linux-amd64-musl-debug.tar.gz
           mv ${{runner.temp}}/bun-webkit-linux-arm64-musl-debug/bun-webkit.tar.gz ${{runner.temp}}/bun-webkit-linux-arm64-musl-debug.tar.gz
           mv ${{runner.temp}}/bun-webkit-macos-arm64-debug/bun-webkit.tar.gz ${{runner.temp}}/bun-webkit-macos-arm64-debug.tar.gz
+          mv ${{runner.temp}}/bun-webkit-macos-arm64-debug-asan/bun-webkit.tar.gz ${{runner.temp}}/bun-webkit-macos-arm64-debug-asan.tar.gz
           mv ${{runner.temp}}/bun-webkit-macos-amd64-debug/bun-webkit.tar.gz ${{runner.temp}}/bun-webkit-macos-amd64-debug.tar.gz
+          mv ${{runner.temp}}/bun-webkit-macos-amd64-debug-asan/bun-webkit.tar.gz ${{runner.temp}}/bun-webkit-macos-amd64-debug-asan.tar.gz
           mv ${{runner.temp}}/bun-webkit-linux-amd64-lto/bun-webkit.tar.gz ${{runner.temp}}/bun-webkit-linux-amd64-lto.tar.gz
           mv ${{runner.temp}}/bun-webkit-linux-arm64-lto/bun-webkit.tar.gz ${{runner.temp}}/bun-webkit-linux-arm64-lto.tar.gz
           mv ${{runner.temp}}/bun-webkit-linux-amd64-musl-lto/bun-webkit.tar.gz ${{runner.temp}}/bun-webkit-linux-amd64-musl-lto.tar.gz
@@ -444,7 +454,9 @@ jobs:
             ${{runner.temp}}/bun-webkit-linux-amd64-musl-debug.tar.gz
             ${{runner.temp}}/bun-webkit-linux-arm64-musl-debug.tar.gz
             ${{runner.temp}}/bun-webkit-macos-arm64-debug.tar.gz
+            ${{runner.temp}}/bun-webkit-macos-arm64-debug-asan.tar.gz
             ${{runner.temp}}/bun-webkit-macos-amd64-debug.tar.gz
+            ${{runner.temp}}/bun-webkit-macos-amd64-debug-asan.tar.gz
             ${{runner.temp}}/bun-webkit-linux-amd64.tar.gz
             ${{runner.temp}}/bun-webkit-linux-arm64.tar.gz
             ${{runner.temp}}/bun-webkit-linux-amd64-musl.tar.gz
