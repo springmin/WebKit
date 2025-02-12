@@ -204,8 +204,9 @@ public:
 #endif
 
         class ScheduledTask;
-        // TODO avoid init-ing this in BUN_EVENT_LOOP?
+#if USE(GENERIC_EVENT_LOOP)
         Ref<ScheduledTask> m_scheduledTask;
+#endif
 #endif
 #if USE(BUN_EVENT_LOOP)
         // These functions will be defined in RunLoopGeneric.cpp.
@@ -221,10 +222,10 @@ public:
         bool isActiveGeneric() const;
         Seconds secondsUntilFireGeneric() const;
 
-        inline Kind kind() const { return m_zigTimer ? Kind::Bun : Kind::Generic; }
+        inline Kind kind() const { return std::holds_alternative<Bun__WTFTimer*>(m_impl) ? Kind::Bun : Kind::Generic; }
 
-        // Null if we are not on a Bun JS thread
-        Bun__WTFTimer* const m_zigTimer;
+        // Bun__WTFTimer* for Bun implementation, Ref<ScheduledTask> for generic implementation
+        std::variant<Ref<ScheduledTask>, Bun__WTFTimer*> m_impl;
 #endif
     };
 

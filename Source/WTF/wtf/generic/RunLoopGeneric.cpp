@@ -346,6 +346,8 @@ void RunLoop::unscheduleWithLock(TimerBase::ScheduledTask& task)
 // them access m_genericState (this is undefined behavior if m_genericState is nullopt, but none
 // of these functions should even get called if the run loop is not the generic implementation).
 #define m_runLoop (m_runLoop->m_genericState)
+// And m_scheduledTask needs to be accessed via the std::variant on TimerBase
+#define m_scheduledTask (std::get<Ref<ScheduledTask>>(m_impl))
 #endif
 
 // Since RunLoop does not own the registered TimerBase,
@@ -429,6 +431,7 @@ Seconds RunLoop::TimerBase::secondsUntilFire() const
 
 #if USE(BUN_EVENT_LOOP)
 #undef m_runLoop
+#undef m_scheduledTask
 #endif
 
 } // namespace WTF

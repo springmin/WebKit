@@ -10,6 +10,8 @@
 #error RunLoop was not undef'd
 #elif defined(m_runLoop)
 #error m_runLoop was not undef'd
+#elif defined(m_scheduledTask)
+#error m_scheduledTask was not undef'd
 #endif
 
 namespace WTF {
@@ -42,12 +44,18 @@ bool Bun__thisThreadHasVM()
 
 RunLoop::TimerBase::TimerBase(Ref<RunLoop>&& loop)
     : m_runLoop(WTFMove(loop))
-    , m_scheduledTask(ScheduledTask::create(*this))
-    // check if the zig function is actually available (it won't be in JSC shell, since that doesn't
-    // link Bun's zig code)
-    , m_zigTimer(Bun__thisThreadHasVM() ? WTFTimer__create(this) : nullptr)
+    // We need to init this here since there's no default constructor. We init with a nullptr
+    // WTFTimer. The body of the constructor always initializes it with a proper value.
+    , m_impl(nullptr)
 {
-    ASSERT(kind() == m_runLoop->kind());
+    switch (m_runLoop->kind()) {
+    case Kind::Generic:
+        m_impl.emplace<Ref<ScheduledTask>>(ScheduledTask::create(*this));
+        break;
+    case Kind::Bun:
+        m_impl.emplace<Bun__WTFTimer*>(WTFTimer__create(this));
+        break;
+    }
 }
 
 // Bun might start a JSC::VM without intending to create a Timer.
@@ -61,7 +69,7 @@ RunLoop::TimerBase::~TimerBase()
         destructGeneric();
         break;
     case Kind::Bun:
-        WTFTimer__deinit(m_zigTimer);
+        WTFTimer__deinit(std::get<Bun__WTFTimer*>(m_impl));
         break;
     }
 }
@@ -72,7 +80,7 @@ void RunLoop::TimerBase::stop()
     case Kind::Generic:
         return stopGeneric();
     case Kind::Bun:
-        return WTFTimer__cancel(m_zigTimer);
+        return WTFTimer__cancel(std::get<Bun__WTFTimer*>(m_impl));
     }
 }
 
@@ -82,7 +90,7 @@ bool RunLoop::TimerBase::isActive() const
     case Kind::Generic:
         return isActiveGeneric();
     case Kind::Bun:
-        return WTFTimer__isActive(m_zigTimer);
+        return WTFTimer__isActive(std::get<Bun__WTFTimer*>(m_impl));
     }
 }
 
@@ -92,7 +100,7 @@ Seconds RunLoop::TimerBase::secondsUntilFire() const
     case Kind::Generic:
         return secondsUntilFireGeneric();
     case Kind::Bun:
-        return Seconds(WTFTimer__secondsUntilTimer(m_zigTimer));
+        return Seconds(WTFTimer__secondsUntilTimer(std::get<Bun__WTFTimer*>(m_impl)));
     }
 }
 
@@ -102,7 +110,7 @@ void RunLoop::TimerBase::start(Seconds interval, bool repeat)
     case Kind::Generic:
         return startGeneric(interval, repeat);
     case Kind::Bun:
-        return WTFTimer__update(m_zigTimer, interval.value(), repeat);
+        return WTFTimer__update(std::get<Bun__WTFTimer*>(m_impl), interval.value(), repeat);
     }
 }
 
