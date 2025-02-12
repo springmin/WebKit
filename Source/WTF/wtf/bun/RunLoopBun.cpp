@@ -28,6 +28,14 @@ extern "C" __attribute__((weak)) bool Bun__thisThreadHasVM();
 // works when Bun's event loop is not active.
 bool Bun__thisThreadHasVM()
 {
+    // Bun should override this function, so if we reach here then all the WTFTimer functions should
+    // not be defined
+    ASSERT(!WTFTimer__create);
+    ASSERT(!WTFTimer__update);
+    ASSERT(!WTFTimer__deinit);
+    ASSERT(!WTFTimer__isActive);
+    ASSERT(!WTFTimer__secondsUntilTimer);
+    ASSERT(!WTFTimer__cancel);
     return false;
 }
 
