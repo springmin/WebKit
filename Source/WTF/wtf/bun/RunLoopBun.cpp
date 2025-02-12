@@ -46,6 +46,7 @@ RunLoop::TimerBase::TimerBase(Ref<RunLoop>&& loop)
     // link Bun's zig code)
     , m_zigTimer(Bun__thisThreadHasVM() ? WTFTimer__create(this) : nullptr)
 {
+    ASSERT(kind() == m_runLoop->kind());
 }
 
 // Bun might start a JSC::VM without intending to create a Timer.
@@ -113,7 +114,13 @@ extern "C" void WTFTimer__fire(RunLoop::TimerBase* timer)
 
 RunLoop::RunLoop()
 {
-    if (!Bun__thisThreadHasVM()) {
+    bool useGeneric = WTFTimer__create
+        // Bun function is defined, so we're in Bun, and the main Bun thread should always use the
+        // Bun RunLoop even though it's created when the VM doesn't exist yet
+        ? !(isMainThread() || Bun__thisThreadHasVM())
+        // We're not Bun
+        : true;
+    if (useGeneric) {
         m_genericState.emplace(*this);
     } else {
         // these functions should all be defined if we're in Bun
