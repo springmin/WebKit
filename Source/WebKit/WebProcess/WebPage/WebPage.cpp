@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2012 Intel Corporation. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
  *
@@ -398,11 +398,16 @@
 #endif
 
 #if ENABLE(WEB_AUTHN)
-#include "DigitalCredentialsCoordinator.h"
 #include "WebAuthenticatorCoordinator.h"
 #include <WebCore/AuthenticatorCoordinator.h>
-#include <WebCore/CredentialRequestCoordinatorClient.h>
-#endif
+#endif // ENABLE(WEB_AUTHN)
+
+#if HAVE(DIGITAL_CREDENTIALS_UI)
+#include "DigitalCredentialsCoordinator.h"
+#include <WebCore/DigitalCredentialsRequestData.h>
+#include <WebCore/DigitalCredentialsResponseData.h>
+#include <WebCore/ExceptionData.h>
+#endif // HAVE(DIGITAL_CREDENTIALS_UI)
 
 #if PLATFORM(IOS_FAMILY) && ENABLE(DEVICE_ORIENTATION)
 #include "WebDeviceOrientationUpdateProvider.h"
@@ -686,10 +691,6 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 {
     WEBPAGE_RELEASE_LOG(Loading, "constructor:");
 
-#if PLATFORM(IOS) || PLATFORM(VISION)
-    setAllowsDeprecatedSynchronousXMLHttpRequestDuringUnload(parameters.allowsDeprecatedSynchronousXMLHttpRequestDuringUnload);
-#endif
-
 #if PLATFORM(COCOA)
 #if HAVE(SANDBOX_STATE_FLAGS)
     auto auditToken = WebProcess::singleton().auditTokenForSelf();
@@ -704,6 +705,9 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     auto shouldBlockMobileAsset = parameters.store.getBoolValueForKey(WebPreferencesKey::blockMobileAssetInWebContentSandboxKey());
     if (shouldBlockMobileAsset)
         sandbox_enable_state_flag("BlockMobileAssetInWebContentSandbox", *auditToken);
+    auto unifiedPDFEnabled = parameters.store.getBoolValueForKey(WebPreferencesKey::unifiedPDFEnabledKey());
+    if (unifiedPDFEnabled)
+        sandbox_enable_state_flag("UnifiedPDFEnabled", *auditToken);
 #if PLATFORM(MAC)
     auto shouldBlockFontService = parameters.store.getBoolValueForKey(WebPreferencesKey::blockFontServiceInWebContentSandboxKey());
     if (shouldBlockFontService)
@@ -775,6 +779,9 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
         makeUniqueRef<WebChromeClient>(*this),
         makeUniqueRef<WebCryptoClient>(this->identifier()),
         makeUniqueRef<WebProcessSyncClient>(*this)
+#if HAVE(DIGITAL_CREDENTIALS_UI)
+        , makeUniqueRef<DigitalCredentialsCoordinator>(*this)
+#endif
     );
 
 #if ENABLE(DRAG_SUPPORT)
@@ -804,7 +811,6 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 
 #if ENABLE(WEB_AUTHN)
     pageConfiguration.authenticatorCoordinatorClient = makeUnique<WebAuthenticatorCoordinator>(*this);
-    pageConfiguration.credentialRequestCoordinatorClient = makeUnique<DigitalCredentialsCoordinator>(*this);
 #endif
 
 #if ENABLE(APPLICATION_MANIFEST)
@@ -1027,7 +1033,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     else
         m_scrollbarOverlayStyle = std::optional<ScrollbarOverlayStyle>();
 
-    setTopContentInset(parameters.topContentInset);
+    setObscuredContentInsets(parameters.obscuredContentInsets);
 
     m_userAgent = parameters.userAgent;
 
@@ -1392,7 +1398,7 @@ void WebPage::updateThrottleState()
         m_userActivity.start();
 
     if (m_page && m_page->settings().serviceWorkersEnabled()) {
-        RunLoop::main().dispatch([isThrottleable] {
+        RunLoop::protectedMain()->dispatch([isThrottleable] {
             WebServiceWorkerProvider::singleton().updateThrottleState(isThrottleable);
         });
     }
@@ -1666,12 +1672,14 @@ std::pair<URL, WebCore::DidFilterLinkDecoration> WebPage::applyLinkDecorationFil
     return { url, WebCore::DidFilterLinkDecoration::No };
 }
 
-void WebPage::bindRemoteAccessibilityFrames(int, WebCore::FrameIdentifier, Vector<uint8_t>, CompletionHandler<void(Vector<uint8_t>, int)>&&)
+void WebPage::bindRemoteAccessibilityFrames(int, WebCore::FrameIdentifier, Vector<uint8_t>, CompletionHandler<void(Vector<uint8_t>, int)>&& completionHandler)
 {
+    completionHandler({ }, { });
 }
 
-void WebPage::resolveAccessibilityHitTestForTesting(const WebCore::IntPoint&, CompletionHandler<void(String)>&&)
+void WebPage::resolveAccessibilityHitTestForTesting(WebCore::FrameIdentifier, const WebCore::IntPoint&, CompletionHandler<void(String)>&& completionHandler)
 {
+    completionHandler({ });
 }
 
 void WebPage::updateRemotePageAccessibilityOffset(WebCore::FrameIdentifier, WebCore::IntPoint)
@@ -2441,7 +2449,7 @@ void WebPage::drawRect(GraphicsContext& graphicsContext, const IntRect& rect)
 double WebPage::textZoomFactor() const
 {
 #if ENABLE(PDF_PLUGIN)
-    if (auto* pluginView = mainFramePlugIn())
+    if (RefPtr pluginView = mainFramePlugIn(); pluginView && pluginView->pluginHandlesPageScaleFactor())
         return pluginView->pageScaleFactor();
 #endif
 
@@ -2454,10 +2462,8 @@ double WebPage::textZoomFactor() const
 void WebPage::didSetTextZoomFactor(double zoomFactor)
 {
 #if ENABLE(PDF_PLUGIN)
-    if (auto* pluginView = mainFramePlugIn()) {
-        pluginView->setPageScaleFactor(zoomFactor, std::nullopt);
-        return;
-    }
+    if (RefPtr pluginView = mainFramePlugIn(); pluginView && pluginView->pluginHandlesPageScaleFactor())
+        return pluginView->setPageScaleFactor(zoomFactor, std::nullopt);
 #endif
 
     if (!m_page)
@@ -2470,7 +2476,7 @@ void WebPage::didSetTextZoomFactor(double zoomFactor)
 double WebPage::pageZoomFactor() const
 {
 #if ENABLE(PDF_PLUGIN)
-    if (auto* pluginView = mainFramePlugIn()) {
+    if (RefPtr pluginView = mainFramePlugIn(); pluginView && pluginView->pluginHandlesPageScaleFactor()) {
         // Note that this maps page *scale* factor to page *zoom* factor.
         return pluginView->pageScaleFactor();
     }
@@ -2485,7 +2491,7 @@ double WebPage::pageZoomFactor() const
 void WebPage::didSetPageZoomFactor(double zoomFactor)
 {
 #if ENABLE(PDF_PLUGIN)
-    if (auto* pluginView = mainFramePlugIn()) {
+    if (RefPtr pluginView = mainFramePlugIn(); pluginView && pluginView->pluginHandlesPageScaleFactor()) {
         // Note that this maps page *zoom* factor to page *scale* factor.
         pluginView->setPageScaleFactor(zoomFactor, std::nullopt);
         return;
@@ -2577,14 +2583,12 @@ void WebPage::didScalePage(double scale, const IntPoint& origin)
 #endif
 
 #if ENABLE(PDF_PLUGIN)
-    if (auto* pluginView = mainFramePlugIn()) {
+    if (RefPtr pluginView = mainFramePlugIn(); pluginView && pluginView->pluginHandlesPageScaleFactor()) {
         // Since the main-frame PDF plug-in handles the page scale factor, make sure to reset WebCore's page scale.
         // Otherwise, we can end up with an immutable but non-1 page scale applied by WebCore on top of whatever the plugin does.
-        if (pluginView->shouldRespectPageScaleAdjustments()) {
-            if (m_page->pageScaleFactor() != 1)
-                m_page->setPageScaleFactor(1, origin);
-            pluginView->setPageScaleFactor(totalScale, { origin });
-        }
+        if (m_page->pageScaleFactor() != 1)
+            m_page->setPageScaleFactor(1, origin);
+        pluginView->setPageScaleFactor(totalScale, { origin });
         return;
     }
 #endif
@@ -2597,7 +2601,7 @@ void WebPage::didScalePage(double scale, const IntPoint& origin)
 
 #if ENABLE(PDF_PLUGIN)
     for (auto& pluginView : m_pluginViews) {
-        if (pluginView.shouldRespectPageScaleAdjustments())
+        if (pluginView.pluginHandlesPageScaleFactor())
             pluginView.setPageScaleFactor(totalScale, { origin });
     }
 #endif
@@ -2646,7 +2650,7 @@ void WebPage::scalePage(double scale, const IntPoint& origin)
 double WebPage::totalScaleFactor() const
 {
 #if ENABLE(PDF_PLUGIN)
-    if (auto* pluginView = mainFramePlugIn())
+    if (RefPtr pluginView = mainFramePlugIn(); pluginView && pluginView->pluginHandlesPageScaleFactor())
         return pluginView->pageScaleFactor();
 #endif
     return m_page->pageScaleFactor();
@@ -2687,21 +2691,6 @@ void WebPage::scaleView(double scale)
     didScaleView(scale);
     send(Messages::WebPageProxy::ViewScaleFactorDidChange(scale));
 }
-
-#if ENABLE(PDF_PLUGIN)
-void WebPage::setPluginScaleFactor(double scaleFactor, WebCore::IntPoint origin)
-{
-    if (RefPtr plugin = mainFramePlugIn())
-        plugin->setPageScaleFactor(scaleFactor, origin);
-}
-
-#if PLATFORM(IOS_FAMILY)
-void WebPage::pluginDidInstallPDFDocument(double initialScale)
-{
-    send(Messages::WebPageProxy::PluginDidInstallPDFDocument(initialScale));
-}
-#endif // PLATFORM(IOS_FAMILY)
-#endif // ENABLE(PDF_PLUGIN)
 
 void WebPage::setDeviceScaleFactor(float scaleFactor)
 {
@@ -3952,11 +3941,11 @@ static HandleUserInputEventResult handleGestureEvent(FrameIdentifier frameID, co
     return coreLocalFrame->eventHandler().handleGestureEvent(platform(event));
 }
 
-void WebPage::gestureEvent(FrameIdentifier frameID, const WebGestureEvent& gestureEvent)
+void WebPage::gestureEvent(FrameIdentifier frameID, const WebGestureEvent& gestureEvent, CompletionHandler<void(std::optional<WebEventType>, bool, std::optional<RemoteUserInputEventData>)>&& completionHandler)
 {
     CurrentEvent currentEvent(gestureEvent);
     auto result = handleGestureEvent(frameID, gestureEvent, m_page.get());
-    send(Messages::WebPageProxy::DidReceiveEvent(gestureEvent.type(), result.wasHandled(), result.remoteUserInputEventData()));
+    completionHandler(gestureEvent.type(), result.wasHandled(), result.remoteUserInputEventData());
 }
 #endif
 
@@ -4050,23 +4039,23 @@ void WebPage::setBackgroundColor(const std::optional<WebCore::Color>& background
 }
 
 #if PLATFORM(COCOA)
-void WebPage::setTopContentInsetFenced(float contentInset, const WTF::MachSendRight& machSendRight)
+void WebPage::setObscuredContentInsetsFenced(const FloatBoxExtent& obscuredContentInsets, const WTF::MachSendRight& machSendRight)
 {
     protectedDrawingArea()->addFence(machSendRight);
-    setTopContentInset(contentInset);
+    setObscuredContentInsets(obscuredContentInsets);
 }
 #endif
 
-void WebPage::setTopContentInset(float contentInset)
+void WebPage::setObscuredContentInsets(const FloatBoxExtent& obscuredContentInsets)
 {
-    if (contentInset == m_page->topContentInset())
+    if (obscuredContentInsets == m_page->obscuredContentInsets())
         return;
 
-    m_page->setTopContentInset(contentInset);
+    m_page->setObscuredContentInsets(obscuredContentInsets);
 
 #if ENABLE(PDF_PLUGIN)
     for (auto& pluginView : m_pluginViews)
-        pluginView.topContentInsetDidChange();
+        pluginView.obscuredContentInsetsDidChange();
 #endif
 }
 
@@ -4660,7 +4649,7 @@ void WebPage::getAccessibilityTreeData(CompletionHandler<void(const std::optiona
         auto writeTreeToStream = [&stream](auto& tree) {
             auto utf8 = tree.utf8();
             auto utf8Span = utf8.span();
-            CFWriteStreamWrite(stream.get(), utf8Span.data(), utf8Span.size());
+            CFWriteStreamWrite(stream.get(), byteCast<UInt8>(utf8Span.data()), utf8Span.size());
         };
         writeTreeToStream(treeData->liveTree);
         writeTreeToStream(treeData->isolatedTree);
@@ -6459,7 +6448,7 @@ void WebPage::beginPrinting(FrameIdentifier frameID, const PrintInfo& printInfo)
     if (!coreFrame)
         return;
 
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     if (pdfDocumentForPrintingFrame(coreFrame.get()))
         return;
 #endif
@@ -6607,7 +6596,7 @@ void WebPage::drawRemoteToPDF(FrameIdentifier frameID, const std::optional<Float
     Ref frameView = *localMainFrame->view();
     auto snapshotRect = IntRect { rect.value_or(FloatRect { { }, frameView->contentsSize() }) };
 
-    RefPtr buffer = ImageBuffer::create(snapshotRect.size(), RenderingMode::PDFDocument, RenderingPurpose::Snapshot, 1, DestinationColorSpace::SRGB(), ImageBufferPixelFormat::BGRA8, &m_page->chrome());
+    RefPtr buffer = ImageBuffer::create(snapshotRect.size(), RenderingMode::DisplayList, RenderingPurpose::Snapshot, 1, DestinationColorSpace::SRGB(), ImageBufferPixelFormat::BGRA8, &m_page->chrome());
     if (!buffer)
         return;
 
@@ -6625,12 +6614,7 @@ void WebPage::drawRectToImage(FrameIdentifier frameID, const PrintInfo& printInf
 
 #if USE(CG)
     if (coreFrame) {
-#if PLATFORM(MAC)
         ASSERT(coreFrame->document()->printing() || pdfDocumentForPrintingFrame(coreFrame.get()));
-#else
-        ASSERT(coreFrame->document()->printing());
-#endif
-        
         image = WebImage::create(imageSize, ImageOption::Local, DestinationColorSpace::SRGB(), &m_page->chrome().client());
         if (!image || !image->context()) {
             ASSERT_NOT_REACHED();
@@ -6641,17 +6625,13 @@ void WebPage::drawRectToImage(FrameIdentifier frameID, const PrintInfo& printInf
         float printingScale = static_cast<float>(imageSize.width()) / rect.width();
         graphicsContext.scale(printingScale);
 
-#if PLATFORM(MAC)
         if (RetainPtr<PDFDocument> pdfDocument = pdfDocumentForPrintingFrame(coreFrame.get())) {
             ASSERT(!m_printContext);
             graphicsContext.scale(FloatSize(1, -1));
             graphicsContext.translate(0, -rect.height());
             drawPDFDocument(graphicsContext.platformContext(), pdfDocument.get(), printInfo, rect);
         } else
-#endif
-        {
             m_printContext->spoolRect(graphicsContext, rect);
-        }
     }
 #endif
 
@@ -6679,12 +6659,7 @@ void WebPage::drawPagesToPDFImpl(FrameIdentifier frameID, const PrintInfo& print
 
 #if USE(CG)
     if (coreFrame) {
-#if PLATFORM(MAC)
         ASSERT(coreFrame->document()->printing() || pdfDocumentForPrintingFrame(coreFrame.get()));
-#else
-        ASSERT(coreFrame->document()->printing());
-#endif
-
         // FIXME: Use CGDataConsumerCreate with callbacks to avoid copying the data.
         RetainPtr<CGDataConsumerRef> pdfDataConsumer = adoptCF(CGDataConsumerCreateWithCFData(pdfPageData.get()));
 
@@ -6692,13 +6667,10 @@ void WebPage::drawPagesToPDFImpl(FrameIdentifier frameID, const PrintInfo& print
 
         RetainPtr<CGContextRef> context = adoptCF(CGPDFContextCreate(pdfDataConsumer.get(), &mediaBox, 0));
 
-#if PLATFORM(MAC)
         if (RetainPtr<PDFDocument> pdfDocument = pdfDocumentForPrintingFrame(coreFrame.get())) {
             ASSERT(!m_printContext);
             drawPagesToPDFFromPDFDocument(context.get(), pdfDocument.get(), printInfo, first, count);
-        } else
-#endif
-        {
+        } else {
             if (!m_printContext)
                 return;
 
@@ -7691,7 +7663,7 @@ bool WebPage::canShowMIMEType(const String& mimeType) const
     });
 }
 
-bool WebPage::canShowMIMEType(const String& mimeType, const Function<bool(const String&, PluginData::AllowedPluginTypes)>& pluginsSupport) const
+bool WebPage::canShowMIMEType(const String& mimeType, NOESCAPE const Function<bool(const String&, PluginData::AllowedPluginTypes)>& pluginsSupport) const
 {
     if (MIMETypeRegistry::canShowMIMEType(mimeType))
         return true;
@@ -8660,6 +8632,18 @@ void WebPage::showContactPicker(const WebCore::ContactsRequestData& requestData,
     sendWithAsyncReply(Messages::WebPageProxy::ShowContactPicker(requestData), WTFMove(callback));
 }
 
+#if HAVE(DIGITAL_CREDENTIALS_UI)
+void WebPage::showDigitalCredentialsPicker(const WebCore::DigitalCredentialsRequestData& requestData, CompletionHandler<void(Expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData>&&)>&& completionHandler)
+{
+    sendWithAsyncReply(Messages::WebPageProxy::ShowDigitalCredentialsPicker(requestData), WTFMove(completionHandler));
+}
+
+void WebPage::dismissDigitalCredentialsPicker(CompletionHandler<void(bool)>&& completionHandler)
+{
+    sendWithAsyncReply(Messages::WebPageProxy::DismissDigitalCredentialsPicker(), WTFMove(completionHandler));
+}
+#endif
+
 WebCore::DOMPasteAccessResponse WebPage::requestDOMPasteAccess(DOMPasteAccessCategory pasteAccessCategory, FrameIdentifier frameID, const String& originIdentifier)
 {
 #if PLATFORM(IOS_FAMILY)
@@ -9585,7 +9569,8 @@ bool WebPage::handlesPageScaleGesture()
 #if !ENABLE(PDF_PLUGIN)
     return false;
 #else
-    return mainFramePlugIn();
+    RefPtr plugin = mainFramePlugIn();
+    return plugin && plugin->pluginHandlesPageScaleFactor();
 #endif
 }
 
@@ -10225,7 +10210,7 @@ void WebPage::simulateClickOverFirstMatchingTextInViewportWithUserInteraction(co
 
     auto locationInWindow = view->contentsToWindow(location);
     auto makeSyntheticEvent = [&](PlatformEvent::Type type) -> PlatformMouseEvent {
-        return { locationInWindow, locationInWindow, MouseButton::Left, type, 1, { }, WallTime::now(), ForceAtClick, SyntheticClickType::OneFingerTap, mousePointerEventType(), mousePointerID };
+        return { locationInWindow, locationInWindow, MouseButton::Left, type, 1, { }, WallTime::now(), ForceAtClick, SyntheticClickType::OneFingerTap, mousePointerID };
     };
 
     WEBPAGE_RELEASE_LOG(MouseHandling, "Simulating click - dispatching events");

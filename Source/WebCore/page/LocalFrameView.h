@@ -367,14 +367,14 @@ public:
     
     WEBCORE_EXPORT static LayoutPoint computeLayoutViewportOrigin(const LayoutRect& visualViewport, const LayoutPoint& stableLayoutViewportOriginMin, const LayoutPoint& stableLayoutViewportOriginMax, const LayoutRect& layoutViewport, ScrollBehaviorForFixedElements);
 
-    // These layers are positioned differently when there is a topContentInset, a header, or a footer. These value need to be computed
-    // on both the main thread and the scrolling thread.
-    static float yPositionForInsetClipLayer(const FloatPoint& scrollPosition, float topContentInset);
-    WEBCORE_EXPORT static FloatPoint positionForRootContentLayer(const FloatPoint& scrollPosition, const FloatPoint& scrollOrigin, float topContentInset, float headerHeight);
+    // These layers are positioned differently when there are obscured content insets, a header, or a footer.
+    // These value need to be computed on both the main thread and the scrolling thread.
+    static FloatPoint positionForInsetClipLayer(const FloatPoint& scrollPosition, const FloatBoxExtent& obscuredContentInsets);
+    WEBCORE_EXPORT static FloatPoint positionForRootContentLayer(const FloatPoint& scrollPosition, const FloatPoint& scrollOrigin, const FloatBoxExtent& obscuredContentInsets, float headerHeight);
     WEBCORE_EXPORT FloatPoint positionForRootContentLayer() const;
 
-    WEBCORE_EXPORT static float yPositionForHeaderLayer(const FloatPoint& scrollPosition, float topContentInset);
-    WEBCORE_EXPORT static float yPositionForFooterLayer(const FloatPoint& scrollPosition, float topContentInset, float totalContentsHeight, float footerHeight);
+    WEBCORE_EXPORT static float yPositionForHeaderLayer(const FloatPoint& scrollPosition, float topInset);
+    WEBCORE_EXPORT static float yPositionForFooterLayer(const FloatPoint& scrollPosition, float topInset, float totalContentsHeight, float footerHeight);
 
 #if PLATFORM(IOS_FAMILY)
     WEBCORE_EXPORT LayoutRect viewportConstrainedObjectsRect() const;
@@ -621,7 +621,7 @@ public:
 
     LayoutPoint scrollPositionRespectingCustomFixedPosition() const;
 
-    void topContentInsetDidChange(float newTopContentInset);
+    void obscuredContentInsetsDidChange(const FloatBoxExtent&);
 
     void topContentDirectionDidChange();
 
@@ -824,7 +824,7 @@ private:
     void performFixedWidthAutoSize();
     void performSizeToContentAutoSize();
 
-    void applyRecursivelyWithVisibleRect(const Function<void(LocalFrameView& frameView, const IntRect& visibleRect)>&);
+    void applyRecursivelyWithVisibleRect(NOESCAPE const Function<void(LocalFrameView& frameView, const IntRect& visibleRect)>&);
     void resumeVisibleImageAnimations(const IntRect& visibleRect);
 #if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
     void updatePlayStateForAllAnimations(const IntRect& visibleRect);

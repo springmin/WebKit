@@ -808,13 +808,13 @@ Status WebMParser::OnTrackEntry(const ElementMetadata&, const TrackEntry& trackE
 
     if (trackType == TrackType::kVideo) {
         auto track = VideoTrackPrivateWebM::create(TrackEntry(trackEntry));
-        if (m_logger)
-            track->setLogger(*m_logger, LoggerHelper::childLogIdentifier(m_logIdentifier, ++m_nextChildIdentifier));
+        if (RefPtr logger = m_logger)
+            track->setLogger(*logger, LoggerHelper::childLogIdentifier(m_logIdentifier, ++m_nextChildIdentifier));
         m_initializationSegment->videoTracks.append({ MediaDescriptionWebM::create(TrackEntry(trackEntry)), WTFMove(track) });
     } else if (trackType == TrackType::kAudio) {
         auto track = AudioTrackPrivateWebM::create(TrackEntry(trackEntry));
-        if (m_logger)
-            track->setLogger(*m_logger, LoggerHelper::childLogIdentifier(m_logIdentifier, ++m_nextChildIdentifier));
+        if (RefPtr logger = m_logger)
+            track->setLogger(*logger, LoggerHelper::childLogIdentifier(m_logIdentifier, ++m_nextChildIdentifier));
         m_initializationSegment->audioTracks.append({ MediaDescriptionWebM::create(TrackEntry(trackEntry)), WTFMove(track) });
     }
 
@@ -924,23 +924,42 @@ webm::Status WebMParser::OnBlockGroupBegin(const webm::ElementMetadata&, webm::A
     if (!action)
         return Status(Status::kNotEnoughMemory);
 
+    // Flush any pending samples, so that the only pending samples after BlockGroup ends
+    // are those from this block group.
+    flushPendingVideoSamples();
+
     *action = Action::kRead;
     return Status(Status::kOkCompleted);
 }
 
 webm::Status WebMParser::OnBlockGroupEnd(const webm::ElementMetadata&, const webm::BlockGroup& blockGroup)
 {
-    INFO_LOG_IF_POSSIBLE(LOGIDENTIFIER);
-    if (blockGroup.block.is_present() && blockGroup.discard_padding.is_present()) {
-        auto trackNumber = blockGroup.block.value().track_number;
-        auto* trackData = trackDataForTrackNumber(trackNumber);
-        if (!trackData) {
-            ERROR_LOG_IF_POSSIBLE(LOGIDENTIFIER, "Ignoring unknown track number ", trackNumber);
-            return Status(Status::kOkCompleted);
-        }
-        if (trackData->track().track_uid.is_present() && blockGroup.discard_padding.value() > 0)
-            m_callback.parsedTrimmingData(trackData->track().track_uid.value(), MediaTime(blockGroup.discard_padding.value(), k_us_in_seconds));
+    // All BlockGroups must contain a single block. As a sanity check, ensure
+    // the BlockGroup is well formed, and bail if not.
+    if (!blockGroup.block.is_present())
+        return Status(Status::kOkCompleted);
+
+    if (!blockGroup.discard_padding.is_present()
+        && !blockGroup.additions.is_present())
+        return Status(Status::kOkCompleted);
+
+    auto trackNumber = blockGroup.block.value().track_number;
+    auto* trackData = trackDataForTrackNumber(trackNumber);
+    if (!trackData) {
+        ERROR_LOG_IF_POSSIBLE(LOGIDENTIFIER, "Ignoring unknown track number ", trackNumber);
+        return Status(Status::kOkCompleted);
     }
+
+    INFO_LOG_IF_POSSIBLE(LOGIDENTIFIER);
+
+    if (blockGroup.discard_padding.is_present()
+        && trackData->track().track_uid.is_present()
+        && blockGroup.discard_padding.value() > 0)
+            m_callback.parsedTrimmingData(trackData->track().track_uid.value(), MediaTime(blockGroup.discard_padding.value(), k_us_in_seconds));
+
+    if (blockGroup.additions.is_present())
+        trackData->consumeAdditionalBlockData(blockGroup.additions.value());
+
     return Status(Status::kOkCompleted);
 }
 
@@ -993,13 +1012,14 @@ webm::Status WebMParser::OnFrame(const FrameMetadata& metadata, Reader* reader, 
 }
 
 
-#define PARSER_LOG_ERROR_IF_POSSIBLE(...) if (parser().loggerPtr()) parser().loggerPtr()->error(logChannel(), Logger::LogSiteIdentifier(logClassName(), __func__, parser().logIdentifier()), __VA_ARGS__)
+#define PARSER_LOG_ERROR_IF_POSSIBLE(...) if (RefPtr logger = parser().loggerPtr()) logger->error(logChannel(), Logger::LogSiteIdentifier(logClassName(), __func__, parser().logIdentifier()), __VA_ARGS__)
 
 RefPtr<SharedBuffer> WebMParser::TrackData::contiguousCompleteBlockBuffer(size_t offset, size_t length) const
 {
-    if (offset + length > m_completeBlockBuffer->size())
+    RefPtr completeBlockBuffer = m_completeBlockBuffer;
+    if (offset + length > completeBlockBuffer->size())
         return nullptr;
-    return m_completeBlockBuffer->getContiguousData(offset, length);
+    return completeBlockBuffer->getContiguousData(offset, length);
 }
 
 webm::Status WebMParser::TrackData::readFrameData(webm::Reader& reader, const webm::FrameMetadata& metadata, uint64_t* bytesRemaining)
@@ -1015,7 +1035,8 @@ webm::Status WebMParser::TrackData::readFrameData(webm::Reader& reader, const we
 
     while (*bytesRemaining) {
         uint64_t bytesRead;
-        auto status = static_cast<WebMParser::SegmentReader&>(reader).ReadInto(*bytesRemaining, m_currentBlockBuffer, &bytesRead);
+        // webm::Reader is from a library so we cannot easily adopt downcast here.
+        SUPPRESS_MEMORY_UNSAFE_CAST auto status = static_cast<WebMParser::SegmentReader&>(reader).ReadInto(*bytesRemaining, m_currentBlockBuffer, &bytesRead);
         *bytesRemaining -= bytesRead;
         m_partialBytesRead += bytesRead;
 
@@ -1112,6 +1133,37 @@ WebMParser::ConsumeFrameDataResult WebMParser::VideoTrackData::consumeFrameData(
 
     ASSERT(!*bytesRemaining);
     return webm::Status(webm::Status::kOkCompleted);
+}
+
+void WebMParser::VideoTrackData::consumeAdditionalBlockData(const webm::BlockAdditions& additions)
+{
+    for (auto& blockMore : additions.block_mores) {
+        if (!blockMore.is_present())
+            continue;
+
+        // https://www.webmproject.org/docs/container/#BlockAddID
+        // 0x04 indicates ITU T.35 metadata as defined by ITU-T T.35 terminal codes.
+        if (!blockMore.value().data.is_present() || !blockMore.value().id.is_present() || blockMore.value().id.value() != 0x4)
+            continue;
+
+        // ANSI/CTA-861-H:
+        // S.3 User_data_registered_itu_t_t35 SEI message semantics for ST 2094-40 [55]
+        static constexpr std::array<uint8_t, 5> s_ST2094_40_Message = { 0xB5, 0x00, 0x3C, 0x00, 0x01 };
+
+        auto& blockMoreData = blockMore.value().data.value();
+        if (blockMoreData.size() < s_ST2094_40_Message.size())
+            continue;
+
+        auto blockMoreDataStart = std::span { blockMoreData }.subspan(0, s_ST2094_40_Message.size());
+        if (!std::ranges::equal(s_ST2094_40_Message, blockMoreDataStart))
+            continue;
+
+        RefPtr hdrMetadata = SharedBuffer::create(std::span { blockMoreData });
+        for (auto& sample : m_pendingMediaSamples) {
+            sample.hdrMetadata = hdrMetadata;
+            sample.hdrMetadataType = HdrMetadataType::SmpteSt209440;
+        }
+    }
 }
 
 void WebMParser::VideoTrackData::processPendingMediaSamples(const MediaTime& presentationTime)
@@ -1487,24 +1539,25 @@ void SourceBufferParserWebM::parsedInitializationData(InitializationSegment&& in
 
 void SourceBufferParserWebM::parsedMediaData(MediaSamplesBlock&& samplesBlock)
 {
-    if (!samplesBlock.info()) {
+    RefPtr samplesBlockInfo = samplesBlock.info();
+    if (!samplesBlockInfo) {
         ERROR_LOG_IF_POSSIBLE(LOGIDENTIFIER, "No TrackInfo set");
         return;
     }
 
     RetainPtr<CMFormatDescriptionRef> formatDescription;
     if (samplesBlock.isVideo()) {
-        if (m_videoInfo != samplesBlock.info()) {
-            m_videoInfo = samplesBlock.info();
-            m_videoFormatDescription = createFormatDescriptionFromTrackInfo(*samplesBlock.info());
+        if (m_videoInfo != samplesBlockInfo) {
+            m_videoInfo = samplesBlockInfo;
+            m_videoFormatDescription = createFormatDescriptionFromTrackInfo(*samplesBlockInfo);
         }
         formatDescription = m_videoFormatDescription;
     } else {
-        if (m_audioInfo != samplesBlock.info()) {
+        if (m_audioInfo != samplesBlockInfo) {
             flushPendingAudioSamples();
             m_audioDiscontinuity = true;
-            m_audioFormatDescription = createFormatDescriptionFromTrackInfo(*samplesBlock.info());
-            m_audioInfo = samplesBlock.info();
+            m_audioFormatDescription = createFormatDescriptionFromTrackInfo(*samplesBlockInfo);
+            m_audioInfo = samplesBlockInfo;
         }
         formatDescription = m_audioFormatDescription;
     }

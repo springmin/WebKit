@@ -152,6 +152,10 @@ namespace Calculation {
 class RandomKeyMap;
 }
 
+namespace CSS {
+struct SerializationContext;
+}
+
 namespace Style {
 class Resolver;
 enum class Change : uint8_t;
@@ -348,8 +352,8 @@ public:
 
     String nodeName() const override;
 
-    Ref<Element> cloneElementWithChildren(TreeScope&);
-    Ref<Element> cloneElementWithoutChildren(TreeScope&);
+    Ref<Element> cloneElementWithChildren(Document&, CustomElementRegistry*);
+    Ref<Element> cloneElementWithoutChildren(Document&, CustomElementRegistry*);
 
     void normalizeAttributes();
 
@@ -404,8 +408,9 @@ public:
     inline ShadowRoot* shadowRoot() const; // Defined in ElementRareData.h
     RefPtr<ShadowRoot> shadowRootForBindings(JSC::JSGlobalObject&) const;
 
-    WEBCORE_EXPORT ExceptionOr<ShadowRoot&> attachShadow(const ShadowRootInit&);
-    ExceptionOr<ShadowRoot&> attachDeclarativeShadow(ShadowRootMode, ShadowRootDelegatesFocus, ShadowRootClonable, ShadowRootSerializable);
+    enum class CustomElementRegistryKind : bool { Window, Null };
+    WEBCORE_EXPORT ExceptionOr<ShadowRoot&> attachShadow(const ShadowRootInit&, CustomElementRegistryKind = CustomElementRegistryKind::Window);
+    ExceptionOr<ShadowRoot&> attachDeclarativeShadow(ShadowRootMode, ShadowRootDelegatesFocus, ShadowRootClonable, ShadowRootSerializable, CustomElementRegistryKind);
 
     WEBCORE_EXPORT ShadowRoot* userAgentShadowRoot() const;
     RefPtr<ShadowRoot> protectedUserAgentShadowRoot() const;
@@ -419,6 +424,7 @@ public:
     void setIsCustomElementUpgradeCandidate();
     void enqueueToUpgrade(JSCustomElementInterface&);
     CustomElementReactionQueue* reactionQueue() const;
+    CustomElementRegistry* customElementRegistry() const;
 
     CustomElementDefaultARIA& customElementDefaultARIA();
     CheckedRef<CustomElementDefaultARIA> checkedCustomElementDefaultARIA();
@@ -511,7 +517,7 @@ public:
     virtual bool attributeContainsURL(const Attribute& attribute) const { return isURLAttribute(attribute); }
     String resolveURLStringIfNeeded(const String& urlString, ResolveURLs = ResolveURLs::Yes, const URL& base = URL()) const;
     virtual String completeURLsInAttributeValue(const URL& base, const Attribute&, ResolveURLs = ResolveURLs::Yes) const;
-    virtual Attribute replaceURLsInAttributeValue(const Attribute&, const UncheckedKeyHashMap<String, String>&) const;
+    virtual Attribute replaceURLsInAttributeValue(const Attribute&, const CSS::SerializationContext&) const;
     virtual bool isHTMLContentAttribute(const Attribute&) const { return false; }
 
     WEBCORE_EXPORT URL getURLAttribute(const QualifiedName&) const;
@@ -769,6 +775,7 @@ public:
     void invalidateStyleForAnimation();
     void invalidateStyleForSubtreeInternal();
     void invalidateForQueryContainerSizeChange();
+    void invalidateForAnchorRectChange();
     void invalidateForResumingQueryContainerResolution();
     void invalidateForResumingAnchorPositionedElementResolution();
 
@@ -930,9 +937,9 @@ private:
     void disconnectFromResizeObserversSlow(ResizeObserverData&);
 
     // The cloneNode function is private so that non-virtual cloneElementWith/WithoutChildren are used instead.
-    Ref<Node> cloneNodeInternal(TreeScope&, CloningOperation) override;
-    void cloneShadowTreeIfPossible(Element& newHost);
-    virtual Ref<Element> cloneElementWithoutAttributesAndChildren(TreeScope&);
+    Ref<Node> cloneNodeInternal(Document&, CloningOperation, CustomElementRegistry*) override;
+    void cloneShadowTreeIfPossible(Element& newHost, CustomElementRegistry*);
+    virtual Ref<Element> cloneElementWithoutAttributesAndChildren(Document&, CustomElementRegistry*);
 
     inline void removeShadowRoot(); // Defined in ElementRareData.h.
     void removeShadowRootSlow(ShadowRoot&);

@@ -146,7 +146,7 @@ void attributedStringSetNeedsSpellCheck(NSMutableAttributedString *string, const
         return;
 
     // Inform the AT that we want it to spell-check for us by setting AXDidSpellCheck to @NO.
-    attributedStringSetNumber(string, AXDidSpellCheckAttribute, @NO, NSMakeRange(0, string.length));
+    attributedStringSetNumber(string, NSAccessibilityDidSpellCheckAttribute, @NO, NSMakeRange(0, string.length));
 }
 
 void attributedStringSetElement(NSMutableAttributedString *string, NSString *attribute, const AXCoreObject& object, const NSRange& range)
@@ -157,7 +157,7 @@ void attributedStringSetElement(NSMutableAttributedString *string, NSString *att
     id wrapper = object.wrapper();
     if ([attribute isEqualToString:NSAccessibilityAttachmentTextAttribute] && object.isAttachment()) {
         if (id attachmentView = [wrapper attachmentView])
-            wrapper = [wrapper attachmentView];
+            wrapper = attachmentView;
     }
 
     if (RetainPtr axElement = adoptCF(NSAccessibilityCreateAXUIElementRef(wrapper)))

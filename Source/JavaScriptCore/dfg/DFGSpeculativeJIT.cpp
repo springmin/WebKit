@@ -125,12 +125,14 @@ SpeculativeJIT::~SpeculativeJIT() = default;
 static void emitStackOverflowCheck(JITCompiler& jit, MacroAssembler::JumpList& stackOverflow)
 {
     int frameTopOffset = virtualRegisterForLocal(jit.graph().requiredRegisterCountForExecutionAndExit() - 1).offset() * sizeof(Register);
-    unsigned maxFrameSize = -frameTopOffset;
 
     jit.addPtr(MacroAssembler::TrustedImm32(frameTopOffset), GPRInfo::callFrameRegister, GPRInfo::regT1);
+#if !CPU(ADDRESS64)
+    unsigned maxFrameSize = -frameTopOffset;
     if (UNLIKELY(maxFrameSize > Options::reservedZoneSize()))
         stackOverflow.append(jit.branchPtr(MacroAssembler::Above, GPRInfo::regT1, GPRInfo::callFrameRegister));
-    stackOverflow.append(jit.branchPtr(MacroAssembler::Above, MacroAssembler::AbsoluteAddress(jit.vm().addressOfSoftStackLimit()), GPRInfo::regT1));
+#endif
+    stackOverflow.append(jit.branchPtr(MacroAssembler::GreaterThan, MacroAssembler::AbsoluteAddress(jit.vm().addressOfSoftStackLimit()), GPRInfo::regT1));
 }
 
 void SpeculativeJIT::compile()
@@ -6335,7 +6337,7 @@ void SpeculativeJIT::compileArithRounding(Node* node)
             case ArithTrunc: {
                 FPRTemporary rounded(this);
                 FPRReg resultFPR = rounded.fpr();
-                roundTowardZeroDouble(valueFPR, resultFPR);
+                truncDouble(valueFPR, resultFPR);
                 setResult(resultFPR);
                 return;
             }
@@ -9577,7 +9579,21 @@ void SpeculativeJIT::compileArrayIndexOf(Node* node)
 
     case StringUse: {
         ASSERT(node->arrayMode().type() == Array::Contiguous);
+#if USE(JSVALUE32_64)
+        SpeculateCellOperand searchElement(this, searchElementEdge);
 
+        GPRReg searchElementGPR = searchElement.gpr();
+
+        speculateString(searchElementEdge, searchElementGPR);
+
+        flushRegisters();
+
+        callOperation(operationArrayIndexOfString, lengthGPR, LinkableConstant::globalObject(*this, node), storageGPR, searchElementGPR, indexGPR);
+
+        strictInt32Result(lengthGPR, node);
+
+        return;
+#else
         SpeculateCellOperand searchElement(this, searchElementEdge);
         GPRReg searchElementGPR = searchElement.gpr();
         speculateString(searchElementEdge, searchElementGPR);
@@ -9630,6 +9646,7 @@ void SpeculativeJIT::compileArrayIndexOf(Node* node)
             JumpList falseCase;
 
             loadPtr(BaseIndex(storageGPR, indexGPR, TimesEight), leftStringGPR);
+            falseCase.append(branchIfNotCell(leftStringGPR));
             falseCase.append(branchIfNotString(leftStringGPR));
 
             loadPtr(BaseIndex(storageGPR, indexGPR, TimesEight, PayloadOffset), leftStringGPR);
@@ -9685,6 +9702,7 @@ void SpeculativeJIT::compileArrayIndexOf(Node* node)
         strictInt32Result(indexGPR, node);
 
         return;
+#endif
     }
 
     case ObjectUse:

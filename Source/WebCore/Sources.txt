@@ -155,7 +155,7 @@ Modules/highlight/HighlightRegistry.cpp
 Modules/highlight/Highlight.cpp
 Modules/identity/CredentialRequestCoordinator.cpp
 Modules/identity/DigitalCredential.cpp
-Modules/identity/IdentityCredentialsContainer.cpp
+Modules/identity/dummy/DummyCredentialRequestCoordinatorClient.cpp
 Modules/indexeddb/IDBCursor.cpp
 Modules/indexeddb/IDBCursorWithValue.cpp
 Modules/indexeddb/IDBDatabase.cpp
@@ -880,6 +880,7 @@ css/CSSCounterValue.cpp
 css/CSSCrossfadeValue.cpp
 css/CSSCursorImageValue.cpp
 css/CSSCustomPropertyValue.cpp
+css/CSSDynamicRangeLimitValue.cpp
 css/CSSEasingFunctionValue.cpp
 css/CSSFilterImageValue.cpp
 css/CSSFilterPropertyValue.cpp
@@ -1026,9 +1027,11 @@ css/parser/CSSParserToken.cpp
 css/parser/CSSParserTokenRange.cpp
 css/parser/CSSPropertyParser.cpp
 css/parser/CSSPropertyParserConsumer+Align.cpp
+css/parser/CSSPropertyParserConsumer+Anchor.cpp
 css/parser/CSSPropertyParserConsumer+Angle.cpp
 css/parser/CSSPropertyParserConsumer+AnglePercentage.cpp
 css/parser/CSSPropertyParserConsumer+Animations.cpp
+css/parser/CSSPropertyParserConsumer+AppleVisualEffect.cpp
 css/parser/CSSPropertyParserConsumer+Attr.cpp
 css/parser/CSSPropertyParserConsumer+Background.cpp
 css/parser/CSSPropertyParserConsumer+Box.cpp
@@ -1147,6 +1150,7 @@ css/typedom/transform/CSSSkewY.cpp
 css/typedom/transform/CSSTransformComponent.cpp
 css/typedom/transform/CSSTransformValue.cpp
 css/typedom/transform/CSSTranslate.cpp
+css/values/CSSSerializationContext.cpp
 css/values/CSSValueAggregates.cpp
 css/values/CSSValueTypes.cpp
 css/values/backgrounds/CSSBorderRadius.cpp
@@ -1159,6 +1163,7 @@ css/values/color/CSSColorMixResolver.cpp
 css/values/color/CSSColorMixSerialization.cpp
 css/values/color/CSSContrastColor.cpp
 css/values/color/CSSContrastColorResolver.cpp
+css/values/color/CSSDynamicRangeLimit.cpp
 css/values/color/CSSHexColor.cpp
 css/values/color/CSSKeywordColor.cpp
 css/values/color/CSSLightDarkColor.cpp
@@ -2506,6 +2511,7 @@ platform/graphics/ImageBuffer.cpp
 platform/graphics/ImageBufferAllocator.cpp
 platform/graphics/ImageBufferBackend.cpp
 platform/graphics/ImageBufferContextSwitcher.cpp
+platform/graphics/ImageBufferDisplayListBackend.cpp
 platform/graphics/ImageDecoder.cpp
 platform/graphics/ImageFrame.cpp
 platform/graphics/ImageFrameAnimator.cpp
@@ -2947,6 +2953,7 @@ rendering/style/ListStyleType.cpp
 rendering/style/NinePieceImage.cpp
 rendering/style/OffsetRotation.cpp
 rendering/style/QuotesData.cpp
+rendering/style/PositionArea.cpp
 rendering/style/RenderStyle.cpp
 rendering/style/RenderStyleConstants.cpp
 rendering/style/SVGRenderStyle.cpp
@@ -3142,6 +3149,8 @@ style/values/color/StyleColorMix.cpp
 style/values/color/StyleColorOptions.cpp
 style/values/color/StyleContrastColor.cpp
 style/values/color/StyleCurrentColor.cpp
+style/values/color/StyleDynamicRangeLimit.cpp
+style/values/color/StyleDynamicRangeLimitMix.cpp
 style/values/color/StyleHexColor.cpp
 style/values/color/StyleKeywordColor.cpp
 style/values/color/StyleLightDarkColor.cpp
@@ -3346,6 +3355,7 @@ workers/WorkerThread.cpp
 workers/service/ExtendableEvent.cpp
 workers/service/ExtendableMessageEvent.cpp
 workers/service/FetchEvent.cpp
+workers/service/InstallEvent.cpp
 workers/service/NavigationPreloadManager.cpp
 workers/service/SWClientConnection.cpp
 workers/service/ServiceWorker.cpp
@@ -3790,6 +3800,7 @@ JSEcdsaParams.cpp
 JSEffectTiming.cpp
 JSElement.cpp
 JSElementCSSInlineStyle.cpp
+JSElementCreationOptions.cpp
 JSElementInternals.cpp
 JSEndingType.cpp
 JSErrorCallback.cpp
@@ -4120,12 +4131,14 @@ JSImageData.cpp
 JSImageDataSettings.cpp
 JSImageDataStorageFormat.cpp
 JSImageSmoothingQuality.cpp
+JSImportNodeOptions.cpp
 JSInputDeviceInfo.cpp
 JSInputEvent.cpp
 JSInspectorAuditAccessibilityObject.cpp
 JSInspectorAuditDOMObject.cpp
 JSInspectorAuditResourcesObject.cpp
 JSInspectorFrontendHost.cpp
+JSInstallEvent.cpp
 JSIntersectionObserver.cpp
 JSIntersectionObserverCallback.cpp
 JSIntersectionObserverEntry.cpp
@@ -4468,12 +4481,17 @@ JSResizeObserverCallback.cpp
 JSResizeObserverEntry.cpp
 JSResizeObserverOptions.cpp
 JSResizeObserverSize.cpp
+JSRouterCondition.cpp
+JSRouterRule.cpp
+JSRouterSourceDict.cpp
+JSRouterSourceEnum.cpp
 JSRsaHashedImportParams.cpp
 JSRsaHashedKeyGenParams.cpp
 JSRsaKeyGenParams.cpp
 JSRsaOaepParams.cpp
 JSRsaOtherPrimesInfo.cpp
 JSRsaPssParams.cpp
+JSRunningStatus.cpp
 JSSQLError.cpp
 JSSQLResultSet.cpp
 JSSQLResultSetRowList.cpp

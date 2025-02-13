@@ -70,7 +70,6 @@
 #import "WKQuickLookPreviewController.h"
 #import "WKRevealItemPresenter.h"
 #import "WKTextAnimationManager.h"
-#import "WKTextInputWindowController.h"
 #import "WKTextPlaceholder.h"
 #import "WKViewLayoutStrategy.h"
 #import "WKWebViewInternal.h"
@@ -100,6 +99,7 @@
 #import <WebCore/DataDetectorElementInfo.h>
 #import <WebCore/DestinationColorSpace.h>
 #import <WebCore/DictionaryLookup.h>
+#import <WebCore/DigitalCredentialsRequestData.h>
 #import <WebCore/DragData.h>
 #import <WebCore/DragItem.h>
 #import <WebCore/Editor.h>
@@ -162,6 +162,10 @@
 #import <wtf/cocoa/VectorCocoa.h>
 #import <wtf/spi/darwin/OSVariantSPI.h>
 #import <wtf/text/MakeString.h>
+
+#if HAVE(DIGITAL_CREDENTIALS_UI)
+#import <WebKit/WKDigitalCredentialsPicker.h>
+#endif
 
 #if ENABLE(MEDIA_SESSION_COORDINATOR)
 #include "MediaSessionCoordinatorProxyPrivate.h"
@@ -672,7 +676,7 @@ static void* keyValueObservingContext = &keyValueObservingContext;
 
 - (void)menuDidClose:(NSMenu *)menu
 {
-    RunLoop::main().dispatch([impl = _impl] {
+    RunLoop::protectedMain()->dispatch([impl = _impl] {
         if (impl)
             impl->hideDOMPasteMenuWithResult(WebCore::DOMPasteAccessResponse::DeniedForGesture);
     });
@@ -1731,7 +1735,7 @@ void WebViewImpl::updateWindowAndViewFrames()
 
     m_didScheduleWindowAndViewFrameUpdate = true;
 
-    RunLoop::main().dispatch([weakThis = WeakPtr { *this }] {
+    RunLoop::protectedMain()->dispatch([weakThis = WeakPtr { *this }] {
         if (!weakThis)
             return;
 
@@ -1839,19 +1843,19 @@ void WebViewImpl::updateContentInsetsIfAutomatic()
     m_page->updateContentInsetsIfAutomatic();
 }
 
-CGFloat WebViewImpl::topContentInset() const
+FloatBoxExtent WebViewImpl::obscuredContentInsets() const
 {
-    return m_page->pendingOrActualTopContentInset();
+    return m_page->obscuredContentInsets();
 }
 
-void WebViewImpl::setTopContentInset(CGFloat contentInset)
+void WebViewImpl::setObscuredContentInsets(const FloatBoxExtent& insets)
 {
-    m_page->setTopContentInsetAsync(contentInset);
+    m_page->setObscuredContentInsetsAsync(insets);
 }
 
-void WebViewImpl::flushPendingTopContentInset()
+void WebViewImpl::flushPendingObscuredContentInsetChanges()
 {
-    m_page->dispatchSetTopContentInset();
+    m_page->dispatchSetObscuredContentInsets();
 }
 
 void WebViewImpl::prepareContentInRect(CGRect rect)
@@ -2441,7 +2445,7 @@ void WebViewImpl::endDeferringViewInWindowChanges()
     m_shouldDeferViewInWindowChanges = false;
 
     if (m_viewInWindowChangeWasDeferred) {
-        flushPendingTopContentInset();
+        flushPendingObscuredContentInsetChanges();
         m_page->activityStateDidChange(WebCore::ActivityState::IsInWindow);
         m_viewInWindowChangeWasDeferred = false;
     }
@@ -2457,7 +2461,7 @@ void WebViewImpl::endDeferringViewInWindowChangesSync()
     m_shouldDeferViewInWindowChanges = false;
 
     if (m_viewInWindowChangeWasDeferred) {
-        flushPendingTopContentInset();
+        flushPendingObscuredContentInsetChanges();
         m_page->activityStateDidChange(WebCore::ActivityState::IsInWindow);
         m_viewInWindowChangeWasDeferred = false;
     }
@@ -2476,7 +2480,7 @@ void WebViewImpl::prepareForMoveToWindow(NSWindow *targetWindow, WTF::Function<v
     WeakPtr weakThis { *this };
     m_page->installActivityStateChangeCompletionHandler(WTFMove(completionHandler));
 
-    flushPendingTopContentInset();
+    flushPendingObscuredContentInsetChanges();
     m_page->activityStateDidChange(WebCore::ActivityState::IsInWindow, WebPageProxy::ActivityStateChangeDispatchMode::Immediate);
     m_viewInWindowChangeWasDeferred = false;
 }
@@ -2809,11 +2813,32 @@ void WebViewImpl::shareSheetDidDismiss(WKShareSheet *shareSheet)
     _shareSheet = nil;
 }
 
+#if HAVE(DIGITAL_CREDENTIALS_UI)
+void WebViewImpl::showDigitalCredentialsPicker(const WebCore::DigitalCredentialsRequestData& requestData, WTF::CompletionHandler<void(Expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData>&&)>&& completionHandler, WKWebView* webView)
+{
+    if (!_digitalCredentialsPicker)
+        _digitalCredentialsPicker = adoptNS([[WKDigitalCredentialsPicker alloc] initWithView:webView]);
+
+    [_digitalCredentialsPicker presentWithRequestData:requestData completionHandler:WTFMove(completionHandler)];
+}
+
+void WebViewImpl::dismissDigitalCredentialsPicker(WTF::CompletionHandler<void(bool)>&& completionHandler, WKWebView* webView)
+{
+    if (!_digitalCredentialsPicker) {
+        LOG(DigitalCredentials, "Digital credentials picker is not being presented.");
+        completionHandler(false);
+        return;
+    }
+
+    [_digitalCredentialsPicker dismissWithCompletionHandler:WTFMove(completionHandler)];
+}
+#endif
+
 void WebViewImpl::didBecomeEditable()
 {
     [m_windowVisibilityObserver enableObservingFontPanel];
 
-    RunLoop::main().dispatch([] {
+    RunLoop::protectedMain()->dispatch([] {
         [[NSSpellChecker sharedSpellChecker] _preflightChosenSpellServer];
     });
 }
@@ -3258,7 +3283,7 @@ void WebViewImpl::requestCandidatesForSelectionIfNeeded()
 
     WeakPtr weakThis { *this };
     m_lastCandidateRequestSequenceNumber = [[NSSpellChecker sharedSpellChecker] requestCandidatesForSelectedRange:selectedRange inString:postLayoutData->paragraphContextForCandidateRequest types:checkingTypes options:nil inSpellDocumentWithTag:spellCheckerDocumentTag() completionHandler:[weakThis](NSInteger sequenceNumber, NSArray<NSTextCheckingResult *> *candidates) {
-        RunLoop::main().dispatch([weakThis, sequenceNumber, candidates = retainPtr(candidates)] {
+        RunLoop::protectedMain()->dispatch([weakThis, sequenceNumber, candidates = retainPtr(candidates)] {
             if (!weakThis)
                 return;
             weakThis->handleRequestedCandidates(sequenceNumber, candidates.get());
@@ -3659,8 +3684,12 @@ id WebViewImpl::accessibilityAttributeValue(NSString *attribute, id parameter)
         id child = nil;
         if (m_warningView)
             child = m_warningView.get();
-        else if (m_remoteAccessibilityChild)
+        else if (m_remoteAccessibilityChild) {
+#if ENABLE(WEB_PROCESS_SUSPENSION_DELAY)
+            m_page->takeAccessibilityActivityWhenInWindow();
+#endif
             child = m_remoteAccessibilityChild.get();
+        }
 
         if (!child)
             return nil;
@@ -4106,7 +4135,7 @@ static bool handleLegacyFilesPasteboard(id<NSDraggingInfo> draggingInfo, Box<Web
             if (errorOrNil)
                 return;
 
-            RunLoop::main().dispatch([page = WTFMove(page), path = RetainPtr { fileURL.path }, fileNames, fileCount, dragData, pasteboardName] () mutable {
+            RunLoop::protectedMain()->dispatch([page = WTFMove(page), path = RetainPtr { fileURL.path }, fileNames, fileCount, dragData, pasteboardName] () mutable {
                 fileNames->append(path.get());
                 if (fileNames->size() != fileCount)
                     return;
@@ -4566,10 +4595,8 @@ RefPtr<ViewSnapshot> WebViewImpl::takeViewSnapshot(ForceSoftwareCapturingViewpor
     if (!boundsForCustomSwipeViews.isEmpty())
         windowCaptureRect = boundsForCustomSwipeViews;
     else {
-        NSRect unobscuredBounds = [m_view bounds];
-        float topContentInset = m_page->topContentInset();
-        unobscuredBounds.origin.y += topContentInset;
-        unobscuredBounds.size.height -= topContentInset;
+        FloatRect unobscuredBounds = [m_view bounds];
+        unobscuredBounds.contract(m_page->obscuredContentInsets());
         windowCaptureRect = [m_view convertRect:unobscuredBounds toView:nil];
     }
 

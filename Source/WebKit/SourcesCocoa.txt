@@ -453,6 +453,7 @@ UIProcess/Cocoa/WKTextPlaceholder.mm
 UIProcess/Cocoa/WKTextSelectionRect.mm
 UIProcess/Cocoa/WKWebViewContentProviderRegistry.mm
 
+UIProcess/DigitalCredentials/WKDigitalCredentialsPicker.mm
 
 UIProcess/Gamepad/cocoa/UIGamepadProviderCocoa.mm
 UIProcess/Gamepad/ios/UIGamepadProviderIOS.mm
@@ -577,7 +578,6 @@ UIProcess/mac/WKRevealItemPresenter.mm
 UIProcess/mac/WKSharingServicePickerDelegate.mm
 UIProcess/mac/WKTextFinderClient.mm
 UIProcess/mac/WKTextAnimationManager.mm
-UIProcess/mac/WKTextInputWindowController.mm
 UIProcess/mac/WKViewLayoutStrategy.mm
 UIProcess/mac/WebViewImpl.mm
 

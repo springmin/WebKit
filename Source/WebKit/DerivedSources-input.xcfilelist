@@ -2,6 +2,7 @@
 $(BUILT_PRODUCTS_DIR)/usr/local/include/WebKitAdditions/AdditionalFeatureDefines.h
 $(BUILT_PRODUCTS_DIR)/usr/local/include/WebKitAdditions/AdditionalPlatform.h
 $(BUILT_PRODUCTS_DIR)/usr/local/include/WebKitAdditions/AdditionalPlatformHave.h
+$(BUILT_PRODUCTS_DIR)/usr/local/include/WebKitAdditions/MaterialAdditions.swift.in
 $(BUILT_PRODUCTS_DIR)/usr/local/include/WebKitAdditions/WKSeparatedImageView.swift.in
 $(BUILT_PRODUCTS_DIR)/usr/local/include/wtf/Compiler.h
 $(BUILT_PRODUCTS_DIR)/usr/local/include/wtf/Platform.h
@@ -488,6 +489,7 @@ $(PROJECT_DIR)/Shared/cf/CoreIPCSecAccessControl.serialization.in
 $(PROJECT_DIR)/Shared/cf/CoreIPCSecCertificate.serialization.in
 $(PROJECT_DIR)/Shared/cf/CoreIPCSecKeychainItem.serialization.in
 $(PROJECT_DIR)/Shared/cf/CoreIPCSecTrust.serialization.in
+$(PROJECT_DIR)/Shared/graphics/RemoteImageBufferSetConfiguration.serialization.in
 $(PROJECT_DIR)/Shared/ios/CursorContext.serialization.in
 $(PROJECT_DIR)/Shared/ios/DynamicViewportSizeUpdate.serialization.in
 $(PROJECT_DIR)/Shared/ios/GestureTypes.serialization.in
@@ -505,7 +507,6 @@ $(PROJECT_DIR)/UIProcess/Automation/WebAutomationSession.messages.in
 $(PROJECT_DIR)/UIProcess/Cocoa/PlaybackSessionManagerProxy.messages.in
 $(PROJECT_DIR)/UIProcess/Cocoa/UserMediaCaptureManagerProxy.messages.in
 $(PROJECT_DIR)/UIProcess/Cocoa/VideoPresentationManagerProxy.messages.in
-$(PROJECT_DIR)/UIProcess/DigitalCredentials/DigitalCredentialsCoordinatorProxy.messages.in
 $(PROJECT_DIR)/UIProcess/Downloads/DownloadProxy.messages.in
 $(PROJECT_DIR)/UIProcess/DrawingAreaProxy.messages.in
 $(PROJECT_DIR)/UIProcess/Extensions/WebExtension.serialization.in

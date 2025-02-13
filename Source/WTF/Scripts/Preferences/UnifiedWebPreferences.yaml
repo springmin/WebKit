@@ -445,18 +445,6 @@ AllowsPictureInPictureMediaPlayback:
       default: true
   disableInLockdownMode: true
 
-AlternateFormControlDesignEnabled:
-  type: bool
-  status: embedder
-  condition: PLATFORM(IOS_FAMILY)
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-    WebCore:
-      default: false
-
 AlternateFullScreenControlDesignEnabled:
   type: bool
   status: embedder
@@ -1188,16 +1176,16 @@ CSSContentVisibilityEnabled:
 CSSContrastColorEnabled:
   type: bool
   category: css
-  status: preview
+  status: stable
   humanReadableName: "CSS contrast-color()"
   humanReadableDescription: "Enable support for CSS Color Module Level 5 contrast-color()"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSCounterStyleAtRuleImageSymbolsEnabled:
   type: bool
@@ -1233,6 +1221,20 @@ CSSDPropertyEnabled:
   category: css
   humanReadableName: "CSS d property"
   humanReadableDescription: "Enable support for the CSS d property and SVG d presentation attribute"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+CSSDynamicRangeLimitPropertyEnabled:
+  type: bool
+  status: testable
+  category: css
+  humanReadableName: "CSS dynamic-range-limit"
+  humanReadableDescription: "Enable support for the CSS Color HDR Module Level 1 dynamic-range-limit CSS property"
   defaultValue:
     WebKitLegacy:
       default: false
@@ -2761,21 +2763,6 @@ DisabledAdaptationsMetaTagEnabled:
     WebCore:
       default: false
 
-DisallowSyncXHRDuringPageDismissalEnabled:
-  type: bool
-  status: stable
-  category: security
-  humanReadableName: "Disallow sync XHR during page dismissal"
-  humanReadableDescription: "Disallow synchronous XMLHttpRequest during page dismissal"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      "PLATFORM(MAC) || PLATFORM(IOS_FAMILY)": WebKit::defaultDisallowSyncXHRDuringPageDismissalEnabled()
-      default: true
-    WebCore:
-      default: true
-
 # FIXME: This is on by default in WebKit2. Perhaps we should consider turning it on for WebKitLegacy as well.
 DownloadAttributeEnabled:
   type: bool
@@ -3531,8 +3518,10 @@ IFrameResourceMonitoringEnabled:
     WebKitLegacy:
       default: false
     WebKit:
+      "PLATFORM(COCOA)": true
       default: false
     WebCore:
+      "PLATFORM(COCOA)": true
       default: false
 
 IPAddressAndLocalhostMixedContentUpgradeTestingEnabled:
@@ -4248,6 +4237,20 @@ LayoutViewportHeightExpansionFactor:
     WebCore:
       default: 0
 
+LazyIframeLoadingEnabled:
+  type: bool
+  status: mature
+  category: html
+  humanReadableName: "Lazy iframe loading"
+  humanReadableDescription: "Enable lazy iframe loading support"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: true
+    WebCore:
+      default: false
+
 LazyImageLoadingEnabled:
   type: bool
   status: stable
@@ -4596,6 +4599,20 @@ LowPowerVideoAudioBufferSizeEnabled:
       default: false
     WebKit:
       default: true
+      
+MacStyleControlsOnCatalyst:
+  type: bool
+  status: internal
+  humanReadableName: "Mac style controls on Catalyst"
+  humanReadableDescription: "Use Mac style controls on Catalyst"
+  condition: ENABLE(MAC_STYLE_CONTROLS_ON_CATALYST)
+  defaultValue:
+    WebKit:
+      default: false
+    WebKitLegacy:
+      default: false
+    WebCore:
+      default: false
 
 MainContentUserGestureOverrideEnabled:
   type: bool
@@ -5035,7 +5052,7 @@ MediaSessionPlaylistEnabled:
 
 MediaSourceCanFallbackToDecompressionSession:
   type: bool
-  status: testable
+  status: stable
   category: media
   humanReadableName: "MediaSource automatically falls back to DecompressionSession"
   humanReadableDescription: "MediaSource automatically falls back to DecompressionSession"
@@ -5044,9 +5061,9 @@ MediaSourceCanFallbackToDecompressionSession:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
   sharedPreferenceForWebProcess: true
 
 MediaSourceEnabled:
@@ -5089,7 +5106,7 @@ MediaSourceInWorkerEnabled:
 
 MediaSourcePrefersDecompressionSession:
   type: bool
-  status: testable
+  status: stable
   category: media
   humanReadableName: "MediaSource prefers DecompressionSession"
   humanReadableDescription: "MediaSource prefers DecompressionSession"
@@ -5098,9 +5115,9 @@ MediaSourcePrefersDecompressionSession:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
   sharedPreferenceForWebProcess: true
 
 MediaStreamTrackProcessingEnabled:
@@ -6471,7 +6488,7 @@ ScriptTelemetryEnabled:
   webcoreBinding: none
   defaultValue:
     WebKit:
-      default: false
+      default: true
 
 ScriptTelemetryLoggingEnabled:
   type: bool
@@ -6715,6 +6732,20 @@ ServiceWorkerEntitlementDisabledForTesting:
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
+      default: false
+
+ServiceWorkerInstallEventEnabled:
+  type: bool
+  status: testable
+  category: networking
+  humanReadableName: "Service Worker Install Event"
+  humanReadableDescription: "Enable Service Worker Install Event API"
+  defaultValue:
+    WebKit:
+      default: false
+    WebKitLegacy:
+      default: false
+    WebCore:
       default: false
 
 ServiceWorkerNavigationPreloadEnabled:
@@ -7675,16 +7706,16 @@ UAVisualTransitionDetectionEnabled:
 URLPatternAPIEnabled:
   type: bool
   category: dom
-  status: preview
+  status: stable
   humanReadableName: "URL Pattern API"
   humanReadableDescription: "Enable URL Pattern API"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 UndoManagerAPIEnabled:
@@ -7930,14 +7961,13 @@ UseImageDocumentForSubframePDF:
 
 UseMicrophoneMuteStatusAPI:
   type: bool
-  status: stable
+  status: testable
   category: media
   humanReadableName: "Use Microphone Mute Status API"
   humanReadableDescription: "Use Microphone Mute Status API"
   condition: ENABLE(MEDIA_STREAM)
   defaultValue:
     WebKit:
-      "PLATFORM(COCOA)": true
       default: false
     WebCore:
       default: false

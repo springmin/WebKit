@@ -332,19 +332,19 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject& object, AXNoti
         macNotification = (id)kAXMenuOpenedNotification;
         break;
     case AXNotification::DraggingStarted:
-        macNotification = (id)kAXDraggingSourceDragBeganNotification;
+        macNotification = (id)NSAccessibilityDraggingSourceDragBeganNotification;
         break;
     case AXNotification::DraggingEnded:
-        macNotification = (id)kAXDraggingSourceDragEndedNotification;
+        macNotification = (id)NSAccessibilityDraggingSourceDragEndedNotification;
         break;
     case AXNotification::DraggingEnteredDropZone:
-        macNotification = (id)kAXDraggingDestinationDropAllowedNotification;
+        macNotification = (id)NSAccessibilityDraggingDestinationDropAllowedNotification;
         break;
     case AXNotification::DraggingDropped:
-        macNotification = (id)kAXDraggingDestinationDragAcceptedNotification;
+        macNotification = (id)NSAccessibilityDraggingDestinationDragAcceptedNotification;
         break;
     case AXNotification::DraggingExitedDropZone:
-        macNotification = (id)kAXDraggingDestinationDragNotAcceptedNotification;
+        macNotification = (id)NSAccessibilityDraggingDestinationDragNotAcceptedNotification;
         break;
     case AXNotification::TextCompositionBegan:
         macNotification = NSAccessibilityTextInputMarkingSessionBeganNotification;
@@ -492,7 +492,7 @@ void AXObjectCache::postTextStateChangePlatformNotification(AccessibilityObject*
     }
     if (!selection.isNone()) {
         if (auto textMarkerRange = textMarkerRangeFromVisiblePositions(this, selection.visibleStart(), selection.visibleEnd()))
-            [userInfo setObject:(id)textMarkerRange forKey:AXSelectedTextMarkerRangeAttribute];
+            [userInfo setObject:(id)textMarkerRange forKey:NSAccessibilitySelectedTextMarkerRangeAttribute];
     }
 
     if (id wrapper = object->wrapper()) {
@@ -840,14 +840,14 @@ VisiblePositionRange visiblePositionRangeForTextMarkerRange(AXObjectCache* cache
 
 // TextMarker <-> CharacterOffset conversion.
 
-AXTextMarkerRef textMarkerForCharacterOffset(AXObjectCache* cache, const CharacterOffset& characterOffset)
+AXTextMarkerRef textMarkerForCharacterOffset(AXObjectCache* cache, const CharacterOffset& characterOffset, TextMarkerOrigin origin)
 {
     ASSERT(isMainThread());
 
     if (!cache)
         return nil;
 
-    auto textMarkerData = cache->textMarkerDataForCharacterOffset(characterOffset);
+    auto textMarkerData = cache->textMarkerDataForCharacterOffset(characterOffset, origin);
     if (!textMarkerData.objectID || textMarkerData.ignored)
         return nil;
     return adoptCF(AXTextMarkerCreate(kCFAllocatorDefault, (const UInt8*)&textMarkerData, sizeof(textMarkerData))).autorelease();

@@ -1642,6 +1642,10 @@ void HTMLMediaElement::selectMediaResource()
             m_networkState = NETWORK_EMPTY;
 
             ALWAYS_LOG(logSiteIdentifier, "nothing to load");
+
+            if (m_videoFullscreenMode == HTMLMediaElementEnums::VideoFullscreenModePictureInPicture)
+                exitFullscreen();
+
             return;
         }
 
@@ -3792,7 +3796,7 @@ void HTMLMediaElement::seekWithTolerance(const SeekTarget& target, bool fromDOM)
         if (m_lastSeekTime < now)
             addPlayedRange(m_lastSeekTime, now);
     }
-    m_lastSeekTime = target.time;
+    m_lastSeekTime = std::min(target.time, durationMediaTime());
     if (m_player)
         m_player->willSeekToTarget(target.time);
 
@@ -6855,7 +6859,7 @@ bool HTMLMediaElement::elementIsHidden() const
 {
 #if ENABLE(FULLSCREEN_API)
     auto* fullscreenManager = document().fullscreenManagerIfExists();
-    if (isVideo() && fullscreenManager && fullscreenManager->isFullscreen() && fullscreenManager->currentFullscreenElement())
+    if (isVideo() && fullscreenManager && fullscreenManager->isFullscreen() && fullscreenManager->fullscreenElement())
         return false;
 #endif
 
@@ -7244,7 +7248,7 @@ bool HTMLMediaElement::isFullscreen() const
 {
 #if ENABLE(FULLSCREEN_API)
     CheckedPtr fullscreenManager = document().fullscreenManagerIfExists();
-    if (fullscreenManager && fullscreenManager->isFullscreen() && fullscreenManager->currentFullscreenElement() == this)
+    if (fullscreenManager && fullscreenManager->isFullscreen() && fullscreenManager->fullscreenElement() == this)
         return true;
 #endif
 
@@ -7255,7 +7259,7 @@ bool HTMLMediaElement::isStandardFullscreen() const
 {
 #if ENABLE(FULLSCREEN_API)
     CheckedPtr fullscreenManager = document().fullscreenManagerIfExists();
-    if (fullscreenManager && fullscreenManager->isFullscreen() && fullscreenManager->currentFullscreenElement() == this)
+    if (fullscreenManager && fullscreenManager->isFullscreen() && fullscreenManager->fullscreenElement() == this)
         return true;
 #endif
 
@@ -7318,9 +7322,9 @@ void HTMLMediaElement::enterFullscreen(VideoFullscreenMode mode)
         m_waitingToEnterFullscreen = true;
         FullscreenManager::FullscreenCheckType fullscreenCheckType = m_ignoreFullscreenPermissionsPolicy ? FullscreenManager::ExemptIFrameAllowFullscreenRequirement : FullscreenManager::EnforceIFrameAllowFullscreenRequirement;
         m_ignoreFullscreenPermissionsPolicy = false;
-        protectedDocument()->checkedFullscreenManager()->requestFullscreenForElement(*this, nullptr, fullscreenCheckType, [weakThis = WeakPtr { *this }](bool success) {
+        protectedDocument()->checkedFullscreenManager()->requestFullscreenForElement(*this, fullscreenCheckType, [weakThis = WeakPtr { *this }](ExceptionOr<void> result) {
             RefPtr protectedThis = weakThis.get();
-            if (!protectedThis || success)
+            if (!protectedThis || !result.hasException())
                 return;
             protectedThis->m_changingVideoFullscreenMode = false;
             protectedThis->m_waitingToEnterFullscreen = false;
@@ -7387,7 +7391,7 @@ void HTMLMediaElement::exitFullscreen()
     m_waitingToEnterFullscreen = false;
 
 #if ENABLE(FULLSCREEN_API)
-    if (document().fullscreenManager().currentFullscreenElement() == this) {
+    if (document().fullscreenManager().fullscreenElement() == this) {
         if (document().fullscreenManager().isFullscreen()) {
             m_changingVideoFullscreenMode = true;
             protectedDocument()->checkedFullscreenManager()->cancelFullscreen();

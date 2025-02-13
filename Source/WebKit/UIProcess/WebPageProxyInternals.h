@@ -206,6 +206,7 @@ struct PrivateClickMeasurementAndMetadata {
     String purchaser;
 };
 
+#if ENABLE(SPEECH_SYNTHESIS)
 struct SpeechSynthesisData {
     Ref<WebCore::PlatformSpeechSynthesizer> synthesizer;
     RefPtr<WebCore::PlatformSpeechSynthesisUtterance> utterance;
@@ -213,7 +214,10 @@ struct SpeechSynthesisData {
     CompletionHandler<void()> speakingFinishedCompletionHandler;
     CompletionHandler<void()> speakingPausedCompletionHandler;
     CompletionHandler<void()> speakingResumedCompletionHandler;
+
+    Ref<WebCore::PlatformSpeechSynthesizer> protectedSynthesizer() { return synthesizer; }
 };
+#endif
 
 #if ENABLE(TOUCH_EVENTS)
 
@@ -354,7 +358,7 @@ public:
 
 #if PLATFORM(COCOA)
     WeakObjCPtr<WKWebView> cocoaView;
-    TransactionID firstLayerTreeTransactionIdAfterDidCommitLoad;
+    std::optional<TransactionID> firstLayerTreeTransactionIdAfterDidCommitLoad;
 #endif
 
 #if ENABLE(CONTEXT_MENUS)
@@ -419,7 +423,7 @@ public:
     MonotonicTime didCommitLoadForMainFrameTimestamp;
 
 #if ENABLE(UI_SIDE_COMPOSITING)
-    VisibleContentRectUpdateInfo lastVisibleContentRectUpdate;
+    std::optional<VisibleContentRectUpdateInfo> lastVisibleContentRectUpdate;
 #endif
 
 #if ENABLE(VIDEO_PRESENTATION_MODE)
@@ -459,7 +463,9 @@ public:
 
     Ref<WebPageProxy> protectedPage() const;
 
+#if ENABLE(SPEECH_SYNTHESIS)
     SpeechSynthesisData& speechSynthesisData();
+#endif
 
     // WebPopupMenuProxy::Client
     void valueChangedForPopupMenu(WebPopupMenuProxy*, int32_t newSelectedIndex) final;

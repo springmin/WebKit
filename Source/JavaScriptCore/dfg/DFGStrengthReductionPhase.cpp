@@ -118,8 +118,6 @@ private:
         case ParseInt:
         case ToIntegerOrInfinity:
         case ToLength:
-        case ArithAbs:
-        case ArithNegate:
         case ArithFRound:
         case ArithF16Round:
         case ArithRound:
@@ -127,6 +125,8 @@ private:
         case ArithCeil:
         case ArithTrunc:
         case ArithSqrt:
+        case ArithAbs:
+        case ArithNegate:
         case ArithUnary: {
             if (foldPurifyNaNOnUnary(m_node))
                 m_changed = true;
@@ -1273,11 +1273,30 @@ private:
         case PutByValMegamorphic: {
             Edge& baseEdge = m_graph.child(m_node, 0);
             Edge& keyEdge = m_graph.child(m_node, 1);
-            if ((baseEdge.useKind() == CellUse || baseEdge.useKind() == KnownCellUse) && m_node->arrayMode().type() == Array::Generic) {
-                if (keyEdge->op() == MakeRope) {
-                    keyEdge->setOp(MakeAtomString);
-                    m_changed = true;
+            switch (m_node->arrayMode().modeForPut().type()) {
+            case Array::Generic: {
+                if (baseEdge.useKind() == CellUse || baseEdge.useKind() == KnownCellUse) {
+                    if (keyEdge->op() == MakeRope) {
+                        keyEdge->setOp(MakeAtomString);
+                        m_changed = true;
+                    }
                 }
+                break;
+            }
+            case Array::Float16Array:
+            case Array::Float32Array:
+            case Array::Float64Array: {
+                if (m_node->op() == PutByVal || m_node->op() == PutByValDirect || m_node->op() == PutByValAlias) {
+                    Edge& valueEdge = m_graph.child(m_node, 2);
+                    if (valueEdge.useKind() == DoubleRepUse) {
+                        if (foldPurifyNaN(valueEdge))
+                            m_changed = true;
+                    }
+                }
+                break;
+            }
+            default:
+                break;
             }
             break;
         }

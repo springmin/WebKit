@@ -54,7 +54,7 @@ PageClientImplCocoa::PageClientImplCocoa(WKWebView *webView)
 
 PageClientImplCocoa::~PageClientImplCocoa() = default;
 
-void PageClientImplCocoa::topContentInsetDidChange()
+void PageClientImplCocoa::obscuredContentInsetsDidChange()
 {
     [m_webView _recalculateViewportSizesWithMinimumViewportInset:[m_webView minimumViewportInset] maximumViewportInset:[m_webView maximumViewportInset] throwOnInvalidInput:NO];
 }
@@ -341,7 +341,7 @@ void PageClientImplCocoa::updateScreenTimeWebpageControllerURL(WKWebView *webVie
     if (!screenTimeWebpageController)
         return;
 
-    NakedPtr<WebKit::WebPageProxy> pageProxy = [webView _page];
+    RefPtr pageProxy = [webView _page].get();
     if (pageProxy && !pageProxy->preferences().screenTimeEnabled()) {
         [webView _uninstallScreenTimeWebpageController];
         return;
@@ -349,6 +349,25 @@ void PageClientImplCocoa::updateScreenTimeWebpageControllerURL(WKWebView *webVie
 
     [screenTimeWebpageController setURL:[webView _mainFrameURL]];
 }
+
+void PageClientImplCocoa::setURLIsPictureInPictureForScreenTime(bool value)
+{
+    RetainPtr screenTimeWebpageController = [webView() _screenTimeWebpageController];
+    if (!screenTimeWebpageController)
+        return;
+
+    [screenTimeWebpageController setURLIsPictureInPicture:value];
+}
+
+void PageClientImplCocoa::setURLIsPlayingVideoForScreenTime(bool value)
+{
+    RetainPtr screenTimeWebpageController = [webView() _screenTimeWebpageController];
+    if (!screenTimeWebpageController)
+        return;
+
+    [screenTimeWebpageController setURLIsPlayingVideo:value];
+}
+
 #endif
 
 #if ENABLE(GAMEPAD)

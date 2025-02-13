@@ -363,6 +363,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/encryptedmedia/MediaKeySystemRequest.h
     Modules/encryptedmedia/MediaKeySystemRequestIdentifier.h
 
+    Modules/encryptedmedia/legacy/LegacyCDM.h
+    Modules/encryptedmedia/legacy/LegacyCDMPrivate.h
+
     Modules/fetch/FetchBodyConsumer.h
     Modules/fetch/FetchBodySource.h
     Modules/fetch/FetchHeaders.h
@@ -382,6 +385,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/filesystemaccess/FileSystemSyncAccessHandle.h
     Modules/filesystemaccess/FileSystemSyncAccessHandleIdentifier.h
     Modules/filesystemaccess/FileSystemWritableFileStream.h
+    Modules/filesystemaccess/FileSystemWritableFileStreamIdentifier.h
     Modules/filesystemaccess/FileSystemWritableFileStreamSink.h
     Modules/filesystemaccess/FileSystemWriteCloseReason.h
     Modules/filesystemaccess/FileSystemWriteCommandType.h
@@ -412,10 +416,15 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     Modules/identity/CredentialRequestCoordinator.h
     Modules/identity/CredentialRequestCoordinatorClient.h
+    Modules/identity/DigitalCredential.h
     Modules/identity/DigitalCredentialRequest.h
     Modules/identity/DigitalCredentialRequestOptions.h
-    Modules/identity/IdentityCredentialsContainer.h
+    Modules/identity/DigitalCredentialsRequestData.h
+    Modules/identity/DigitalCredentialsResponseData.h
+    Modules/identity/IdentityCredentialProtocol.h
     Modules/identity/OpenID4VPRequest.h
+
+    Modules/identity/dummy/DummyCredentialRequestCoordinatorClient.h
 
     Modules/indexeddb/IDBActiveDOMObject.h
     Modules/indexeddb/IDBDatabaseIdentifier.h
@@ -972,6 +981,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/typedom/numeric/CSSNumericType.h
 
     css/values/CSSNoConversionDataRequiredToken.h
+    css/values/CSSSerializationContext.h
     css/values/CSSValueAggregates.h
     css/values/CSSValueConcepts.h
     css/values/CSSValueTypes.h
@@ -1046,6 +1056,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/CrossOriginMode.h
     dom/CustomElementDefaultARIA.h
     dom/CustomElementReactionQueue.h
+    dom/CustomElementRegistry.h
     dom/DOMException.h
     dom/DOMHighResTimeStamp.h
     dom/DOMImplementation.h
@@ -1060,6 +1071,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/DeviceOrientationOrMotionPermissionState.h
     dom/Document.h
     dom/DocumentClasses.h
+    dom/DocumentEnums.h
     dom/DocumentEventTiming.h
     dom/DocumentFontLoader.h
     dom/DocumentFragment.h
@@ -1108,6 +1120,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/GCReachableRef.h
     dom/GetHTMLOptions.h
     dom/ImageOverlay.h
+    dom/ImportNodeOptions.h
     dom/InlineStyleSheetOwner.h
     dom/KeyboardEvent.h
     dom/LiveNodeList.h
@@ -1798,6 +1811,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     platform/AbortableTaskQueue.h
     platform/AudioSampleFormat.h
+    platform/BoxExtents.h
     platform/BoxSides.h
     platform/CaretAnimator.h
     platform/CPUMonitor.h
@@ -2123,6 +2137,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/ImageBufferAllocator.h
     platform/graphics/ImageBufferBackend.h
     platform/graphics/ImageBufferBackendParameters.h
+    platform/graphics/ImageBufferDisplayListBackend.h
     platform/graphics/ImageBufferPixelFormat.h
     platform/graphics/ImageBufferPlatformBackend.h
     platform/graphics/ImageBufferResourceLimits.h
@@ -2596,6 +2611,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/style/NinePieceImage.h
     rendering/style/OffsetRotation.h
     rendering/style/OutlineValue.h
+    rendering/style/PositionArea.h
     rendering/style/PositionTryFallback.h
     rendering/style/RenderStyle.h
     rendering/style/RenderStyleConstants.h
@@ -2671,6 +2687,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/color/StyleColor.h
     style/values/color/StyleColorOptions.h
     style/values/color/StyleCurrentColor.h
+    style/values/color/StyleDynamicRangeLimit.h
+    style/values/color/StyleDynamicRangeLimitMix.h
     style/values/color/StyleResolvedColor.h
 
     style/values/color-adjust/StyleColorScheme.h
@@ -2756,7 +2774,13 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     workers/service/ExtendableEvent.h
     workers/service/ExtendableEventInit.h
     workers/service/FetchEvent.h
+    workers/service/InstallEvent.h
     workers/service/NavigationPreloadState.h
+    workers/service/RouterCondition.h
+    workers/service/RouterRule.h
+    workers/service/RouterSourceDict.h
+    workers/service/RouterSourceEnum.h
+    workers/service/RunningStatus.h
     workers/service/SWClientConnection.h
     workers/service/ServiceWorkerClientData.h
     workers/service/ServiceWorkerClientPendingMessage.h

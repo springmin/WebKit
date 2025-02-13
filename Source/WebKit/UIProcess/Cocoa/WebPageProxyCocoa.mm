@@ -167,7 +167,7 @@ void WebPageProxy::didCommitLayerTree(const WebKit::RemoteLayerTreeTransaction& 
     }
 
     if (!m_hasUpdatedRenderingAfterDidCommitLoad
-        && (layerTreeTransaction.transactionID() >= internals().firstLayerTreeTransactionIdAfterDidCommitLoad)) {
+        && (internals().firstLayerTreeTransactionIdAfterDidCommitLoad && layerTreeTransaction.transactionID().greaterThanOrEqualSameProcess(*internals().firstLayerTreeTransactionIdAfterDidCommitLoad))) {
         m_hasUpdatedRenderingAfterDidCommitLoad = true;
 #if ENABLE(SCREEN_TIME)
         if (RefPtr pageClient = this->pageClient())
@@ -237,6 +237,8 @@ std::optional<IPC::AsyncReplyID> WebPageProxy::grantAccessToCurrentPasteboardDat
 void WebPageProxy::beginSafeBrowsingCheck(const URL& url, bool forMainFrameNavigation, WebFramePolicyListenerProxy& listener)
 {
 #if HAVE(SAFE_BROWSING)
+    if (!url.isValid())
+        return listener.didReceiveSafeBrowsingResults({ });
     SSBLookupContext *context = [SSBLookupContext sharedLookupContext];
     if (!context)
         return listener.didReceiveSafeBrowsingResults({ });

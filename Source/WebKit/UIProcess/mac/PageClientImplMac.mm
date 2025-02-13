@@ -92,6 +92,12 @@
 #import <WebCore/WebMediaSessionManager.h>
 #endif
 
+#if HAVE(DIGITAL_CREDENTIALS_UI)
+#import <WebCore/DigitalCredentialsRequestData.h>
+#import <WebCore/DigitalCredentialsResponseData.h>
+#import <WebCore/ExceptionData.h>
+#endif
+
 #import <pal/cocoa/WritingToolsUISoftLink.h>
 
 static NSString * const kAXLoadCompleteNotification = @"AXLoadComplete";
@@ -658,6 +664,18 @@ bool PageClientImpl::showShareSheet(const ShareDataWithParsedURL& shareData, WTF
     return true;
 }
 
+#if HAVE(DIGITAL_CREDENTIALS_UI)
+void PageClientImpl::showDigitalCredentialsPicker(const WebCore::DigitalCredentialsRequestData& requestData, WTF::CompletionHandler<void(Expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData>&&)>&& completionHandler)
+{
+    m_impl->showDigitalCredentialsPicker(requestData, WTFMove(completionHandler), webView().get());
+}
+
+void PageClientImpl::dismissDigitalCredentialsPicker(WTF::CompletionHandler<void(bool)>&& completionHandler)
+{
+    m_impl->dismissDigitalCredentialsPicker(WTFMove(completionHandler), webView().get());
+}
+#endif
+
 void PageClientImpl::wheelEventWasNotHandledByWebCore(const NativeWebWheelEvent& event)
 {
     if (RefPtr gestureController = m_impl->gestureController())
@@ -1017,7 +1035,7 @@ bool PageClientImpl::windowIsFrontWindowUnderMouse(const NativeWebMouseEvent& ev
     return m_impl->windowIsFrontWindowUnderMouse(event.nativeEvent());
 }
 
-std::optional<float> PageClientImpl::computeAutomaticTopContentInset()
+std::optional<float> PageClientImpl::computeAutomaticTopObscuredInset()
 {
     RetainPtr window = [m_view window];
     if (([window styleMask] & NSWindowStyleMaskFullSizeContentView) && ![window titlebarAppearsTransparent] && ![m_view enclosingScrollView]) {

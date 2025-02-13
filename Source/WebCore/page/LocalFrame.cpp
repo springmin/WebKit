@@ -349,8 +349,11 @@ void LocalFrame::setDocument(RefPtr<Document>&& newDocument)
     }
 #endif
 
-    if (page() && m_doc && isMainFrame() && !loader().stateMachine().isDisplayingInitialEmptyDocument())
-        protectedPage()->mainFrameDidChangeToNonInitialEmptyDocument();
+    if (RefPtr page = this->page(); page && isMainFrame()) {
+        if (m_doc && !loader().stateMachine().isDisplayingInitialEmptyDocument())
+            page->mainFrameDidChangeToNonInitialEmptyDocument();
+        page->clearAXObjectCache();
+    }
 
     InspectorInstrumentation::frameDocumentUpdated(*this);
 
@@ -1469,6 +1472,12 @@ void LocalFrame::showResourceMonitoringError()
     iframeElement->setSrcdoc(generateResourceMonitorErrorHTML(colorScheme));
 
     document->addConsoleMessage(MessageSource::ContentBlocker, MessageLevel::Error, "Frame was unloaded because its network usage exceeded the limit."_s);
+}
+
+void LocalFrame::reportResourceMonitoringWarning()
+{
+    if (RefPtr document = this->document())
+        document->addConsoleMessage(MessageSource::ContentBlocker, MessageLevel::Warning, "Frame's network usage exceeded the limit."_s);
 }
 
 #endif

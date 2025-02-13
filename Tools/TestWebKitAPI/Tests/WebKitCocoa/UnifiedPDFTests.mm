@@ -36,6 +36,7 @@
 #import "PlatformUtilities.h"
 #import "Test.h"
 #import "TestNavigationDelegate.h"
+#import "TestPDFDocument.h"
 #import "TestWKWebView.h"
 #import "UIKitSPIForTesting.h"
 #import "UISideCompositingScope.h"
@@ -51,6 +52,15 @@
 #import <WebKit/_WKFeature.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
+#import <wtf/text/MakeString.h>
+
+#if PLATFORM(IOS_FAMILY)
+@interface UIPrintInteractionController ()
+- (BOOL)_setupPrintPanel:(void (^)(UIPrintInteractionController *printInteractionController, BOOL completed, NSError *error))completion;
+- (void)_generatePrintPreview:(void (^)(NSURL *previewPDF, BOOL shouldRenderOnChosenPaper))completionHandler;
+- (void)_cleanPrintState;
+@end
+#endif
 
 @interface ObserveWebContentCrashNavigationDelegate : NSObject <WKNavigationDelegate>
 @end
@@ -389,6 +399,39 @@ UNIFIED_PDF_TEST(LookUpSelectedText)
     EXPECT_EQ(selectedRangeInLookupContext.length, 3U);
 }
 
+UNIFIED_PDF_TEST(PrintPDFUsingPrintInteractionController)
+{
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configurationForWebViewTestingUnifiedPDF().get()]);
+
+    RetainPtr request = [NSURLRequest requestWithURL:[NSBundle.test_resourcesBundle URLForResource:@"multiple-pages" withExtension:@"pdf"]];
+    [webView synchronouslyLoadRequest:request.get()];
+    [webView waitForNextPresentationUpdate];
+
+    RetainPtr printPageRenderer = adoptNS([[UIPrintPageRenderer alloc] init]);
+    [printPageRenderer addPrintFormatter:[webView viewPrintFormatter] startingAtPageAtIndex:0];
+
+    RetainPtr printInteractionController = adoptNS([[UIPrintInteractionController alloc] init]);
+    [printInteractionController setPrintPageRenderer:printPageRenderer.get()];
+
+    __block bool done = false;
+    __block RetainPtr<NSData> pdfData;
+
+    [printInteractionController _setupPrintPanel:nil];
+    [printInteractionController _generatePrintPreview:^(NSURL *pdfURL, BOOL shouldRenderOnChosenPaper) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            pdfData = adoptNS([[NSData alloc] initWithContentsOfURL:pdfURL]);
+            [printInteractionController _cleanPrintState];
+            done = true;
+        });
+    }];
+
+    TestWebKitAPI::Util::run(&done);
+    EXPECT_NE([pdfData length], 0UL);
+
+    Ref pdf = TestWebKitAPI::TestPDFDocument::createFromData(pdfData.get());
+    EXPECT_EQ(pdf->pageCount(), 16UL);
+}
+
 #endif // PLATFORM(IOS_FAMILY)
 
 #if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
@@ -416,6 +459,32 @@ UNIFIED_PDF_TEST(MouseDidMoveOverPDF)
 UNIFIED_PDF_TEST(LoadPDFWithSandboxCSPDirective)
 {
     runLoadPDFWithSandboxCSPDirectiveTest([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configurationForWebViewTestingUnifiedPDF().get()]);
+}
+
+// FIXME: <https://webkit.org/b/287473> This test should be correct on iOS family, too.
+#if PLATFORM(MAC)
+UNIFIED_PDF_TEST(RespectsPageFragment)
+#else
+UNIFIED_PDF_TEST(DISABLED_RespectsPageFragment)
+#endif
+{
+    static constexpr auto fileName = "multiple-pages-colored"_s;
+    auto path = makeString('/', fileName, ".pdf"_s);
+    auto pathWithFragment = makeString(path, "#page=2"_s);
+
+    RetainPtr pdfURL = [NSBundle.test_resourcesBundle URLForResource:String { fileName } withExtension:@"pdf"];
+    HTTPResponse response { [NSData dataWithContentsOfURL:pdfURL.get()] };
+    HTTPServer server { { { path, response }, { pathWithFragment, response } } };
+
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configurationForWebViewTestingUnifiedPDF().get()]);
+
+    [webView synchronouslyLoadRequest:[NSURLRequest requestWithURL:pdfURL.get()]];
+    auto colorsWithoutFragment = [webView sampleColors];
+
+    [webView synchronouslyLoadRequest:server.request(pathWithFragment)];
+    auto colorsWithFragment = [webView sampleColors];
+
+    EXPECT_NE(colorsWithoutFragment, colorsWithFragment);
 }
 
 } // namespace TestWebKitAPI

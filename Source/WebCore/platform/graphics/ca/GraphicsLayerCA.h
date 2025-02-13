@@ -112,7 +112,7 @@ public:
 #endif
 
 #if HAVE(CORE_MATERIAL)
-    WEBCORE_EXPORT void setAppleVisualEffect(AppleVisualEffect) override;
+    WEBCORE_EXPORT void setAppleVisualEffectData(AppleVisualEffectData) override;
 #endif
 
     WEBCORE_EXPORT void setBackgroundColor(const Color&) override;
@@ -264,8 +264,11 @@ private:
     WEBCORE_EXPORT bool platformCALayerCSSUnprefixedBackdropFilterEnabled() const override;
     WEBCORE_EXPORT void platformCALayerLogFilledVisibleFreshTile(unsigned) override;
     WEBCORE_EXPORT bool platformCALayerNeedsPlatformContext(const PlatformCALayer*) const override;
-    bool platformCALayerContainsBitmapOnly(const PlatformCALayer*) const override { return client().layerContainsBitmapOnly(this); }
     bool platformCALayerShouldPaintUsingCompositeCopy() const override { return shouldPaintUsingCompositeCopy(); }
+
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
+    bool platformCALayerAllowsDynamicContentScaling(const PlatformCALayer*) const override { return client().layerAllowsDynamicContentScaling(this); }
+#endif
 
     bool isCommittingChanges() const override { return m_isCommittingChanges; }
     bool isUsingDisplayListDrawing(PlatformCALayer*) const override { return m_usesDisplayListDrawing; }
@@ -530,14 +533,17 @@ private:
     void updateContentsScalingFilters();
 
 #if HAVE(CORE_MATERIAL)
-    void updateAppleVisualEffect();
+    void updateAppleVisualEffectData();
 #endif
 
     enum StructuralLayerPurpose {
         NoStructuralLayer = 0,
         StructuralLayerForPreserves3D,
         StructuralLayerForReplicaFlattening,
-        StructuralLayerForBackdrop
+        StructuralLayerForBackdrop,
+#if HAVE(MATERIAL_HOSTING)
+        StructuralLayerForMaterial,
+#endif
     };
     bool ensureStructuralLayer(StructuralLayerPurpose);
     StructuralLayerPurpose structuralLayerPurpose() const;

@@ -78,7 +78,6 @@ namespace WebKit {
 bool defaultPassiveTouchListenersAsDefaultOnDocument();
 bool defaultCSSOMViewScrollingAPIEnabled();
 bool defaultShouldPrintBackgrounds();
-bool defaultAlternateFormControlDesignEnabled();
 bool defaultUseAsyncUIKitInteractions();
 bool defaultWriteRichTextDataWhenCopyingOrDragging();
 #if ENABLE(TEXT_AUTOSIZING)
@@ -96,16 +95,8 @@ bool defaultPassiveWheelListenersAsDefaultOnDocument();
 bool defaultWheelEventGesturesBecomeNonBlocking();
 #endif
 
-#if PLATFORM(MAC) || PLATFORM(IOS_FAMILY)
-bool defaultDisallowSyncXHRDuringPageDismissalEnabled();
-#endif
-
 #if PLATFORM(MAC)
 bool defaultAppleMailPaginationQuirkEnabled();
-#endif
-
-#if !PLATFORM(MACCATALYST) && !PLATFORM(WATCHOS)
-bool allowsDeprecatedSynchronousXMLHttpRequestDuringUnload();
 #endif
 
 #if ENABLE(MEDIA_STREAM)

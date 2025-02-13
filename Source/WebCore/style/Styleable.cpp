@@ -239,8 +239,18 @@ bool Styleable::isRunningAcceleratedTransformAnimation() const
 
 bool Styleable::hasRunningAcceleratedAnimations() const
 {
-    if (auto* effectStack = keyframeEffectStack())
-        return effectStack->hasAcceleratedEffects(element.document().settings());
+    if (auto* effectStack = keyframeEffectStack()) {
+        if (effectStack->hasAcceleratedEffects(element.document().settings()))
+            return true;
+    }
+
+    for (RefPtr animation : WebAnimation::instances()) {
+        if (RefPtr keyframeEffect = dynamicDowncast<KeyframeEffect>(animation->effect())) {
+            if (keyframeEffect->isRunningAccelerated() && keyframeEffect->targetStyleable() == *this)
+                return true;
+        }
+    }
+
     return false;
 }
 
@@ -303,7 +313,7 @@ void Styleable::cancelStyleOriginatedAnimations() const
 {
     cancelStyleOriginatedAnimations({ });
     if (CheckedPtr timelinesController = element.protectedDocument()->timelinesController())
-        timelinesController->unregisterNamedTimelinesAssociatedWithElement(element);
+        timelinesController->unregisterNamedTimelinesAssociatedWithElement(*this);
 }
 
 void Styleable::cancelStyleOriginatedAnimations(const WeakStyleOriginatedAnimations& animationsToCancelSilently) const
@@ -880,7 +890,7 @@ void Styleable::updateCSSScrollTimelines(const RenderStyle* currentStyle, const 
         for (size_t i = 0; i < currentTimelineNames.size(); ++i) {
             auto& name = currentTimelineNames[i];
             auto axis = numberOfAxes ? currentTimelineAxes[i % numberOfAxes] : ScrollAxis::Block;
-            timelinesController->registerNamedScrollTimeline(name, element, axis);
+            timelinesController->registerNamedScrollTimeline(name, *this, axis);
         }
 
         if (!currentStyle)
@@ -888,7 +898,7 @@ void Styleable::updateCSSScrollTimelines(const RenderStyle* currentStyle, const 
 
         for (auto& previousTimelineName : currentStyle->scrollTimelineNames()) {
             if (!currentTimelineNames.contains(previousTimelineName))
-                timelinesController->unregisterNamedTimeline(previousTimelineName, element);
+                timelinesController->unregisterNamedTimeline(previousTimelineName, *this);
         }
     };
 
@@ -930,7 +940,7 @@ void Styleable::updateCSSViewTimelines(const RenderStyle* currentStyle, const Re
             auto& name = currentTimelineNames[i];
             auto axis = numberOfAxes ? currentTimelineAxes[i % numberOfAxes] : ScrollAxis::Block;
             auto insets = numberOfInsets ? ViewTimelineInsets(currentTimelineInsets[i % numberOfInsets]) : ViewTimelineInsets();
-            timelinesController->registerNamedViewTimeline(name, element, axis, WTFMove(insets));
+            timelinesController->registerNamedViewTimeline(name, *this, axis, WTFMove(insets));
         }
 
         if (!currentStyle)
@@ -938,7 +948,7 @@ void Styleable::updateCSSViewTimelines(const RenderStyle* currentStyle, const Re
 
         for (auto& previousTimelineName : currentStyle->viewTimelineNames()) {
             if (!currentTimelineNames.contains(previousTimelineName))
-                timelinesController->unregisterNamedTimeline(previousTimelineName, element);
+                timelinesController->unregisterNamedTimeline(previousTimelineName, *this);
         }
     };
 
@@ -974,6 +984,18 @@ void Styleable::setCapturedInViewTransition(AtomString captureName)
         if (changed)
             element.invalidateStyleAndLayerComposition();
     }
+}
+
+WTF::TextStream& operator<<(WTF::TextStream& ts, const Styleable& styleable)
+{
+    ts << styleable.element << ", " << styleable.pseudoElementIdentifier;
+    return ts;
+}
+
+WTF::TextStream& operator<<(WTF::TextStream& ts, const WeakStyleable& styleable)
+{
+    ts << styleable.element() << ", " << styleable.pseudoElementIdentifier();
+    return ts;
 }
 
 

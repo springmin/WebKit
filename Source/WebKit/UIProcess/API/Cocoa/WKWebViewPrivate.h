@@ -164,6 +164,8 @@ typedef NS_ENUM(NSInteger, _WKImmediateActionType) {
 
 @interface WKWebView (WKPrivate)
 
+@property (nonatomic, readonly) NSString *_proxyName WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
+@property (nonatomic, readonly) BOOL _isContentFromNetwork WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
 // FIXME: This should return a _WKRemoteObjectRegistry *.
 @property (nonatomic, readonly) id _remoteObjectRegistry;
 @property (nonatomic, readonly) WKBrowsingContextHandle *_handle;
@@ -174,7 +176,7 @@ typedef NS_ENUM(NSInteger, _WKImmediateActionType) {
 @property (nonatomic, weak, setter=_setIconLoadingDelegate:) id <_WKIconLoadingDelegate> _iconLoadingDelegate;
 @property (nonatomic, weak, setter=_setResourceLoadDelegate:) id <_WKResourceLoadDelegate> _resourceLoadDelegate WK_API_AVAILABLE(macos(11.0), ios(14.0));
 
-@property (nonatomic, readonly) BOOL _isBlockedByScreenTime WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA));
+@property (nonatomic, readonly) BOOL _isBlockedByScreenTime WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 @property (nonatomic, readonly) NSURL *_unreachableURL;
 @property (nonatomic, readonly) NSURL *_mainFrameURL WK_API_AVAILABLE(macos(10.15), ios(13.0));
@@ -662,10 +664,8 @@ typedef NS_OPTIONS(NSUInteger, _WKWebViewDataType) {
 
 @property (nonatomic, setter=_setAllowsViewportShrinkToFit:) BOOL _allowsViewportShrinkToFit;
 
-// FIXME: Remove these three properties once we expose WKWebViewContentProvider as API.
-@property (nonatomic, readonly) NSData *_dataForDisplayedPDF;
-// FIXME: This can be removed once WKNavigation's response property is implemented.
-@property (nonatomic, readonly) NSString *_suggestedFilenameForDisplayedPDF;
+@property (nonatomic, readonly) NSData *_dataForDisplayedPDF WK_API_DEPRECATED_WITH_REPLACEMENT("-_getMainResourceDataWithCompletionHandler:", ios(8.0, WK_IOS_TBA), visionos(1.0, WK_XROS_TBA));
+@property (nonatomic, readonly) NSString *_suggestedFilenameForDisplayedPDF WK_API_DEPRECATED("No longer supported.", ios(8.0, WK_IOS_TBA), visionos(1.0, WK_XROS_TBA));
 
 @property (nonatomic, readonly) _WKWebViewPrintFormatter *_webViewPrintFormatter;
 
@@ -864,6 +864,8 @@ typedef NS_OPTIONS(NSUInteger, _WKWebViewDataType) {
 - (void)_setFont:(NSFont *)font sender:(id)sender WK_API_AVAILABLE(macos(13.3));
 
 - (void)_setTopContentInset:(CGFloat)topContentInset immediate:(BOOL)immediate WK_API_AVAILABLE(macos(WK_MAC_TBA));
+- (void)_setObscuredContentInsets:(NSEdgeInsets)insets immediate:(BOOL)immediate WK_API_AVAILABLE(macos(WK_MAC_TBA));
+@property (nonatomic, readonly) NSEdgeInsets _obscuredContentInsets WK_API_AVAILABLE(macos(WK_MAC_TBA));
 
 - (void)_showWritingTools WK_API_AVAILABLE(macos(15.2));
 

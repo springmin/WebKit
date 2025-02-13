@@ -25,7 +25,6 @@ Modules/indexeddb/IDBObjectStore.cpp
 Modules/indexeddb/IDBTransaction.cpp
 Modules/indexeddb/WindowOrWorkerGlobalScopeIndexedDatabase.cpp
 Modules/indexeddb/client/IDBConnectionProxy.cpp
-Modules/indexeddb/server/IDBServer.cpp
 Modules/indexeddb/server/MemoryIDBBackingStore.cpp
 Modules/indexeddb/server/UniqueIDBDatabase.cpp
 Modules/mediacapabilities/MediaCapabilities.cpp
@@ -296,7 +295,6 @@ dom/ElementIteratorInlines.h
 dom/ElementTextDirection.cpp
 dom/ElementTraversal.h
 dom/Event.cpp
-dom/EventDispatcher.cpp
 dom/EventLoop.cpp
 dom/EventLoop.h
 dom/EventPath.cpp
@@ -504,13 +502,11 @@ inspector/agents/page/PageDOMDebuggerAgent.cpp
 inspector/agents/page/PageNetworkAgent.cpp
 layout/formattingContexts/inline/InlineItemsBuilder.cpp
 layout/formattingContexts/inline/InlineLineBoxBuilder.cpp
-layout/formattingContexts/inline/text/TextUtil.cpp
 layout/integration/inline/LayoutIntegrationLineLayout.cpp
 layout/layouttree/LayoutTreeBuilder.cpp
 loader/ApplicationManifestLoader.cpp
 loader/DocumentLoader.cpp
 loader/FrameLoader.cpp
-loader/HistoryController.cpp
 loader/NavigationAction.cpp
 loader/NavigationDisabler.h
 loader/NavigationScheduler.cpp
@@ -590,21 +586,16 @@ page/WindowOrWorkerGlobalScope.cpp
 page/WorkerNavigator.cpp
 page/cocoa/ResourceUsageThreadCocoa.mm
 page/cocoa/WebTextIndicatorLayer.mm
-page/csp/ContentSecurityPolicy.cpp
-page/csp/ContentSecurityPolicyDirectiveList.cpp
 page/mac/EventHandlerMac.mm
 page/mac/ImageOverlayControllerMac.mm
 page/mac/ServicesOverlayController.mm
 page/scrolling/AsyncScrollingCoordinator.cpp
 page/scrolling/ScrollAnchoringController.cpp
 page/scrolling/ScrollingCoordinator.cpp
-page/scrolling/ScrollingTree.cpp
 page/scrolling/ScrollingTreeFixedNode.cpp
 page/scrolling/ScrollingTreeOverflowScrollProxyNode.cpp
 page/scrolling/ScrollingTreePositionedNode.cpp
 page/scrolling/ScrollingTreeStickyNode.cpp
-page/scrolling/ThreadedScrollingTree.cpp
-page/scrolling/mac/ScrollingTreeMac.mm
 page/text-extraction/TextExtraction.cpp
 platform/CaretAnimator.cpp
 platform/DictationCaretAnimator.cpp
@@ -616,7 +607,6 @@ platform/ThreadGlobalData.h
 platform/animation/AcceleratedEffect.cpp
 platform/animation/AcceleratedEffectValues.cpp
 platform/audio/AudioBus.cpp
-platform/cocoa/PlatformSpeechSynthesizerCocoa.mm
 platform/cocoa/PlaybackSessionModelMediaElement.mm
 platform/cocoa/VideoPresentationModelVideoElement.mm
 platform/graphics/BitmapImageDescriptor.cpp
@@ -624,8 +614,6 @@ platform/graphics/Color.cpp
 platform/graphics/ComplexTextController.cpp
 platform/graphics/DisplayRefreshMonitorManager.cpp
 platform/graphics/FontCache.cpp
-platform/graphics/FontCascade.h
-platform/graphics/FontCascadeFonts.cpp
 platform/graphics/FontRanges.cpp
 platform/graphics/GlyphBuffer.h
 platform/graphics/GraphicsLayer.cpp
@@ -637,8 +625,6 @@ platform/graphics/TrackBuffer.cpp
 platform/graphics/WidthIterator.cpp
 platform/graphics/avfoundation/AudioSourceProviderAVFObjC.mm
 platform/graphics/avfoundation/objc/CDMInstanceFairPlayStreamingAVFObjC.mm
-platform/graphics/avfoundation/objc/ImageDecoderAVFObjC.mm
-platform/graphics/avfoundation/objc/MediaPlayerPrivateMediaStreamAVFObjC.mm
 platform/graphics/avfoundation/objc/MediaSourcePrivateAVFObjC.mm
 platform/graphics/avfoundation/objc/SourceBufferPrivateAVFObjC.mm
 platform/graphics/avfoundation/objc/WebCoreAVFResourceLoader.mm
@@ -646,13 +632,11 @@ platform/graphics/ca/GraphicsLayerCA.cpp
 platform/graphics/ca/TileGrid.cpp
 platform/graphics/ca/cocoa/PlatformCAFiltersCocoa.mm
 platform/graphics/ca/cocoa/PlatformCALayerCocoa.mm
-platform/graphics/cg/GraphicsContextCG.cpp
 platform/graphics/cocoa/controls/ApplePayButtonCocoa.mm
 platform/graphics/coreimage/FEColorMatrixCoreImageApplier.mm
 platform/graphics/coreimage/FEComponentTransferCoreImageApplier.mm
 platform/graphics/coreimage/SourceGraphicCoreImageApplier.mm
 platform/graphics/coretext/ComplexTextControllerCoreText.mm
-platform/graphics/coretext/FontCascadeCoreText.cpp
 platform/graphics/coretext/GlyphPageCoreText.cpp
 platform/graphics/cv/VideoFrameCV.mm
 platform/graphics/displaylists/DisplayListItem.cpp
@@ -660,8 +644,6 @@ platform/graphics/displaylists/DisplayListItems.cpp
 platform/graphics/displaylists/DisplayListRecorder.cpp
 platform/graphics/displaylists/DisplayListRecorderImpl.cpp
 platform/graphics/displaylists/DisplayListResourceHeap.h
-platform/graphics/filters/FilterEffect.cpp
-platform/graphics/filters/FilterImage.cpp
 platform/graphics/filters/FilterOperations.cpp
 platform/graphics/filters/software/FEBlendSoftwareApplier.cpp
 platform/graphics/filters/software/FEColorMatrixSoftwareApplier.cpp
@@ -735,7 +717,6 @@ rendering/RenderReplaced.cpp
 rendering/RenderSlider.cpp
 rendering/RenderTableCell.cpp
 rendering/RenderTableCol.cpp
-rendering/RenderText.cpp
 rendering/RenderTextControl.cpp
 rendering/RenderTextControlMultiLine.cpp
 rendering/RenderTextControlSingleLine.cpp
@@ -790,7 +771,6 @@ rendering/updating/RenderTreePosition.cpp
 rendering/updating/RenderTreeUpdater.cpp
 rendering/updating/RenderTreeUpdaterGeneratedContent.cpp
 storage/Storage.cpp
-storage/StorageEventDispatcher.cpp
 style/AttributeChangeInvalidation.cpp
 style/ChildChangeInvalidation.cpp
 style/ClassChangeInvalidation.cpp
@@ -846,8 +826,6 @@ svg/SVGToOTFFontConversion.cpp
 svg/SVGUseElement.cpp
 svg/graphics/SVGImage.cpp
 svg/graphics/SVGImageCache.cpp
-svg/graphics/filters/SVGFilter.cpp
-svg/graphics/filters/SVGFilterGraph.h
 svg/properties/SVGAnimatedString.cpp
 svg/properties/SVGPropertyOwnerRegistry.h
 testing/InternalSettings.cpp

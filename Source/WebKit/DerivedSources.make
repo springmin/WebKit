@@ -164,7 +164,6 @@ MESSAGE_RECEIVERS = \
 	UIProcess/RemoteLayerTree/RemoteLayerTreeDrawingAreaProxy \
 	UIProcess/GPU/GPUProcessProxy \
 	UIProcess/WebAuthentication/WebAuthenticatorCoordinatorProxy \
-	UIProcess/DigitalCredentials/DigitalCredentialsCoordinatorProxy \
 	UIProcess/WebPasteboardProxy \
 	UIProcess/UserContent/WebUserContentControllerProxy \
 	UIProcess/Inspector/WebInspectorUIProxy \
@@ -767,6 +766,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/cf/CoreIPCSecCertificate.serialization.in \
 	Shared/cf/CoreIPCSecKeychainItem.serialization.in \
 	Shared/cf/CoreIPCSecTrust.serialization.in \
+	Shared/graphics/RemoteImageBufferSetConfiguration.serialization.in \
 	Shared/mac/PDFContextMenuItem.serialization.in \
 	Shared/mac/SecItemRequestData.serialization.in \
 	Shared/mac/SecItemResponseData.serialization.in \
@@ -971,6 +971,7 @@ all : JSWebExtensionAPIUnified.mm $(EXTENSION_INTERFACES:%=JS%.h) $(EXTENSION_IN
 
 ifeq ($(USE_INTERNAL_SDK),YES)
 WEBKIT_ADDITIONS_SWIFT_FILES = \
+	MaterialAdditions.swift \
 	WKSeparatedImageView.swift \
 #
 

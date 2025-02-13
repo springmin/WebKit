@@ -78,6 +78,10 @@
 #import <wtf/cocoa/Entitlements.h>
 #import <wtf/cocoa/SpanCocoa.h>
 
+#if ENABLE(DIGITAL_CREDENTIALS_UI)
+#import <WebCore/DigitalCredentialsRequestData.h>
+#endif
+
 @interface UIWindow ()
 - (BOOL)_isHostedInAnotherProcess;
 @end
@@ -327,9 +331,9 @@ void PageClientImpl::disableDoubleTapGesturesDuringTapIfNecessary(WebKit::TapIde
     [contentView() _disableDoubleTapGesturesDuringTapIfNecessary:requestID];
 }
 
-void PageClientImpl::handleSmartMagnificationInformationForPotentialTap(WebKit::TapIdentifier requestID, const WebCore::FloatRect& renderRect, bool fitEntireRect, double viewportMinimumScale, double viewportMaximumScale, bool nodeIsRootLevel)
+void PageClientImpl::handleSmartMagnificationInformationForPotentialTap(WebKit::TapIdentifier requestID, const WebCore::FloatRect& renderRect, bool fitEntireRect, double viewportMinimumScale, double viewportMaximumScale, bool nodeIsRootLevel, bool nodeIsPluginElement)
 {
-    [contentView() _handleSmartMagnificationInformationForPotentialTap:requestID renderRect:renderRect fitEntireRect:fitEntireRect viewportMinimumScale:viewportMinimumScale viewportMaximumScale:viewportMaximumScale nodeIsRootLevel:nodeIsRootLevel];
+    [contentView() _handleSmartMagnificationInformationForPotentialTap:requestID renderRect:renderRect fitEntireRect:fitEntireRect viewportMinimumScale:viewportMinimumScale viewportMaximumScale:viewportMaximumScale nodeIsRootLevel:nodeIsRootLevel nodeIsPluginElement:nodeIsPluginElement];
 }
 
 double PageClientImpl::minimumZoomScale() const
@@ -736,6 +740,18 @@ void PageClientImpl::showContactPicker(const WebCore::ContactsRequestData& reque
 {
     [contentView() _showContactPicker:requestData completionHandler:WTFMove(completionHandler)];
 }
+
+#if HAVE(DIGITAL_CREDENTIALS_UI)
+void PageClientImpl::showDigitalCredentialsPicker(const WebCore::DigitalCredentialsRequestData& requestData, WTF::CompletionHandler<void(Expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData>&&)>&& completionHandler)
+{
+    [contentView() _showDigitalCredentialsPicker:requestData completionHandler:WTFMove(completionHandler)];
+}
+
+void PageClientImpl::dismissDigitalCredentialsPicker(CompletionHandler<void(bool)>&& completionHandler)
+{
+    [contentView() _dismissDigitalCredentialsPicker:WTFMove(completionHandler)];
+}
+#endif
 
 void PageClientImpl::showInspectorHighlight(const WebCore::InspectorOverlay::Highlight& highlight)
 {
@@ -1249,16 +1265,14 @@ void PageClientImpl::scheduleVisibleContentRectUpdate()
     [webView() _scheduleVisibleContentRectUpdate];
 }
 
-#if ENABLE(PDF_PLUGIN)
-void PageClientImpl::pluginDidInstallPDFDocument(double initialScale)
-{
-    [webView() _pluginDidInstallPDFDocument:initialScale];
-}
-#endif
-
 bool PageClientImpl::isPotentialTapInProgress() const
 {
     return [m_contentView isPotentialTapInProgress];
+}
+
+bool PageClientImpl::canStartNavigationSwipeAtLastInteractionLocation() const
+{
+    return [m_contentView _canStartNavigationSwipeAtLastInteractionLocation];
 }
 
 } // namespace WebKit

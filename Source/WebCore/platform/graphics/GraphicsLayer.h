@@ -450,8 +450,8 @@ public:
 #endif
 
 #if HAVE(CORE_MATERIAL)
-    AppleVisualEffect appleVisualEffect() const { return m_appleVisualEffect; }
-    virtual void setAppleVisualEffect(AppleVisualEffect effect) { m_appleVisualEffect = effect; }
+    AppleVisualEffectData appleVisualEffectData() const { return m_appleVisualEffectData; }
+    virtual void setAppleVisualEffectData(AppleVisualEffectData effectData) { m_appleVisualEffectData = effectData; }
 #endif
 
     bool needsBackdrop() const;
@@ -717,7 +717,7 @@ public:
     const std::optional<FloatRect>& animationExtent() const { return m_animationExtent; }
     void setAnimationExtent(std::optional<FloatRect> animationExtent) { m_animationExtent = animationExtent; }
 
-    static void traverse(GraphicsLayer&, const Function<void(GraphicsLayer&)>&);
+    static void traverse(GraphicsLayer&, NOESCAPE const Function<void(GraphicsLayer&)>&);
 
     virtual void markFrontBufferVolatileForTesting() { }
 
@@ -810,7 +810,7 @@ protected:
     CustomAppearance m_customAppearance { CustomAppearance::None };
 
 #if HAVE(CORE_MATERIAL)
-    AppleVisualEffect m_appleVisualEffect { AppleVisualEffect::None };
+    AppleVisualEffectData m_appleVisualEffectData;
 #endif
 
     OptionSet<GraphicsLayerPaintingPhase> m_paintingPhase { GraphicsLayerPaintingPhase::Foreground, GraphicsLayerPaintingPhase::Background };

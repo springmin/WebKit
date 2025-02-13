@@ -307,9 +307,7 @@ public:
 
                 jit.addPtr(MacroAssembler::TrustedImm32(-maxFrameSize), fp, scratch);
                 MacroAssembler::JumpList stackOverflow;
-                if (UNLIKELY(maxFrameSize > Options::reservedZoneSize()))
-                    stackOverflow.append(jit.branchPtr(MacroAssembler::Above, scratch, fp));
-                stackOverflow.append(jit.branchPtr(MacroAssembler::Above, CCallHelpers::Address(vmGPR, VM::offsetOfSoftStackLimit()), scratch));
+                stackOverflow.append(jit.branchPtr(MacroAssembler::GreaterThan, CCallHelpers::Address(vmGPR, VM::offsetOfSoftStackLimit()), scratch));
 
                 params.addLatePath([=] (CCallHelpers& jit) {
                     AllowMacroScratchRegisterUsage allowScratch(jit);
@@ -7676,6 +7674,7 @@ IGNORE_CLANG_WARNINGS_END
 
             LBasicBlock checkSearchElement8Bit = m_out.newBlock();
             LBasicBlock loopHeader = m_out.newBlock();
+            LBasicBlock fastCheckElementCell = m_out.newBlock();
             LBasicBlock fastCheckElementString = m_out.newBlock();
             LBasicBlock fastPath = m_out.newBlock();
             LBasicBlock slowCheckElementRope = m_out.newBlock();
@@ -7701,12 +7700,15 @@ IGNORE_CLANG_WARNINGS_END
             LValue searchElementImpl = m_out.loadPtr(searchElement, m_heaps.JSString_value);
             m_out.branch(m_out.testIsZero32(m_out.load32(searchElementImpl, m_heaps.StringImpl_hashAndFlags), m_out.constInt32(StringImpl::flagIs8Bit())), unsure(slowCase), unsure(loopHeader));
 
-            m_out.appendTo(loopHeader, fastCheckElementString);
+            m_out.appendTo(loopHeader, fastCheckElementCell);
             LValue index = m_out.phi(pointerType(), initialStartIndex);
-            m_out.branch(m_out.notEqual(index, length), unsure(fastCheckElementString), unsure(notFound));
+            m_out.branch(m_out.notEqual(index, length), unsure(fastCheckElementCell), unsure(notFound));
+
+            m_out.appendTo(fastCheckElementCell, fastCheckElementString);
+            LValue element = m_out.load64(m_out.baseIndex(m_heaps.indexedContiguousProperties, storage, index));
+            m_out.branch(isCell(element), unsure(fastCheckElementString), unsure(loopNext));
 
             m_out.appendTo(fastCheckElementString, fastPath);
-            LValue element = m_out.load64(m_out.baseIndex(m_heaps.indexedContiguousProperties, storage, index));
             m_out.branch(isString(element), unsure(fastPath), unsure(loopNext));
 
             m_out.appendTo(fastPath, slowCheckElementRope);
@@ -12319,8 +12321,9 @@ IGNORE_CLANG_WARNINGS_END
                     jit.negPtr(scratchGPR1);
                     jit.getEffectiveAddress(CCallHelpers::BaseIndex(GPRInfo::callFrameRegister, scratchGPR1, CCallHelpers::TimesEight), scratchGPR1);
 
+                    // We are leaving this underflow check just because we are not 100% confident that the difference can be within 32bit range.
                     slowCase.append(jit.branchPtr(CCallHelpers::Above, scratchGPR1, GPRInfo::callFrameRegister));
-                    slowCase.append(jit.branchPtr(CCallHelpers::Above, CCallHelpers::AbsoluteAddress(vm->addressOfSoftStackLimit()), scratchGPR1));
+                    slowCase.append(jit.branchPtr(CCallHelpers::GreaterThan, CCallHelpers::AbsoluteAddress(vm->addressOfSoftStackLimit()), scratchGPR1));
 
                     // Before touching stack values, we should update the stack pointer to protect them from signal stack.
                     jit.addPtr(CCallHelpers::TrustedImm32(sizeof(CallerFrameAndPC)), scratchGPR1, CCallHelpers::stackPointerRegister);

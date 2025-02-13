@@ -56,7 +56,7 @@ public:
 
     void pageClosed() override;
 
-    void topContentInsetDidChange() final;
+    void obscuredContentInsetsDidChange() final;
 
 #if ENABLE(GPU_PROCESS)
     void gpuProcessDidFinishLaunching() override;
@@ -133,6 +133,8 @@ public:
 #if ENABLE(SCREEN_TIME)
     void installScreenTimeWebpageController() final;
     void didChangeScreenTimeWebpageControllerURL() final;
+    void setURLIsPictureInPictureForScreenTime(bool) final;
+    void setURLIsPlayingVideoForScreenTime(bool) final;
     void updateScreenTimeWebpageControllerURL(WKWebView *);
 #endif
 

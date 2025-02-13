@@ -91,6 +91,7 @@
 #include <wtf/RAMSize.h>
 #include <wtf/Scope.h>
 #include <wtf/SimpleStats.h>
+#include <wtf/SystemTracing.h>
 #include <wtf/Threading.h>
 #include "InternalFieldTuple.h"
 
@@ -807,7 +808,7 @@ void Heap::completeAllJITPlans()
 }
 
 template<typename Visitor>
-void Heap::iterateExecutingAndCompilingCodeBlocks(Visitor& visitor, const Function<void(CodeBlock*)>& func)
+void Heap::iterateExecutingAndCompilingCodeBlocks(Visitor& visitor, NOESCAPE const Function<void(CodeBlock*)>& func)
 {
     m_codeBlocks->iterateCurrentlyExecuting(func);
 #if ENABLE(JIT)
@@ -1426,7 +1427,7 @@ NEVER_INLINE bool Heap::runBeginPhase(GCConductor conn)
         RELEASE_ASSERT(!m_requests.isEmpty());
         m_currentRequest = m_requests.first();
     }
-        
+
     dataLogIf(Options::logGC(), "[GC<", RawPointer(this), ">: START ", gcConductorShortName(conn), " ", capacity() / 1024, "kb ");
 
     m_beforeGC = MonotonicTime::now();
@@ -1449,10 +1450,19 @@ NEVER_INLINE bool Heap::runBeginPhase(GCConductor conn)
         m_verifier->startGC();
         m_verifier->gatherLiveCells(HeapVerifier::Phase::BeforeMarking);
     }
-        
+
+    ASSERT(m_collectionScope);
+    bool isFullGC = m_collectionScope.value() == CollectionScope::Full;
+    if (UNLIKELY(Options::useGCSignpost())) {
+        StringPrintStream stream;
+        stream.print("GC:(", RawPointer(this), "),mode:(", (isFullGC ? "Full" : "Eden"), "),version:(", m_gcVersion, "),conn:(", gcConductorShortName(conn), "),capacity(", capacity() / 1024, "kb)");
+        m_signpostMessage = stream.toCString();
+        WTFBeginSignpost(this, JSCGarbageCollector, "%" PUBLIC_LOG_STRING, m_signpostMessage.data() ? m_signpostMessage.data() : "(nullptr)");
+    }
+
     prepareForMarking();
         
-    if (m_collectionScope && m_collectionScope.value() == CollectionScope::Full) {
+    if (isFullGC) {
         m_opaqueRoots.clear();
         m_collectorSlotVisitor->clearMarkStacks();
         m_mutatorMarkStack->clear();
@@ -1747,6 +1757,10 @@ NEVER_INLINE bool Heap::runEndPhase(GCConductor conn)
     ParkingLot::unparkAll(&m_worldState);
 
     dataLogLnIf(Options::logGC(), "GC END!");
+    if (UNLIKELY(Options::useGCSignpost())) {
+        WTFEndSignpost(this, JSCGarbageCollector, "%" PUBLIC_LOG_STRING, m_signpostMessage.data() ? m_signpostMessage.data() : "(nullptr)");
+        m_signpostMessage = { };
+    }
 
     setNeedFinalize();
 
@@ -2333,6 +2347,7 @@ bool Heap::suspendCompilerThreads()
 
 void Heap::willStartCollection()
 {
+    ++m_gcVersion;
     if (UNLIKELY(Options::verifyGC())) {
         m_verifierSlotVisitor = makeUnique<VerifierSlotVisitor>(*this);
         ASSERT(!m_isMarkingForGCVerifier);
@@ -2348,7 +2363,7 @@ void Heap::willStartCollection()
         m_collectionScope = CollectionScope::Eden;
         dataLogIf(Options::logGC(), "EdenCollection, ");
     }
-    if (m_collectionScope && m_collectionScope.value() == CollectionScope::Full) {
+    if (m_collectionScope.value() == CollectionScope::Full) {
         m_sizeBeforeLastFullCollect = m_sizeAfterLastCollect + totalBytesAllocatedThisCycle();
         m_extraMemorySize = 0;
         m_deprecatedExtraMemorySize = 0;

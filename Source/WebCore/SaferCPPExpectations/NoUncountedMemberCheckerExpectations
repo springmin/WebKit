@@ -1,7 +1,6 @@
 Modules/WebGPU/GPUPresentationContextDescriptor.h
 Modules/encryptedmedia/MediaKeyStatusMap.h
 Modules/fetch/FetchBodyOwner.h
-Modules/mediasource/SourceBuffer.h
 Modules/mediastream/RTCPeerConnection.h
 Modules/mediastream/libwebrtc/LibWebRTCObservers.h
 Modules/notifications/NotificationResourcesLoader.h
@@ -53,7 +52,6 @@ inspector/InspectorStyleSheet.cpp
 inspector/InspectorStyleSheet.h
 inspector/InspectorWebAgentBase.h
 inspector/agents/worker/WorkerAuditAgent.h
-inspector/agents/worker/WorkerDebuggerAgent.h
 layout/formattingContexts/inline/InlineItemsBuilder.h
 loader/appcache/ApplicationCacheStorage.cpp
 page/FrameSnapshotting.cpp
@@ -73,7 +71,6 @@ platform/graphics/BitmapImageDescriptor.h
 platform/graphics/ComplexTextController.h
 platform/graphics/DrawGlyphsRecorder.h
 platform/graphics/GraphicsLayer.h
-platform/graphics/ImageBuffer.h
 platform/graphics/avfoundation/AudioSourceProviderAVFObjC.mm
 platform/graphics/avfoundation/MediaSelectionGroupAVFObjC.h
 platform/graphics/avfoundation/objc/MediaSourcePrivateAVFObjC.h
@@ -81,7 +78,6 @@ platform/graphics/avfoundation/objc/WebCoreAVFResourceLoader.mm
 platform/graphics/ca/TileController.h
 platform/graphics/controls/PlatformControl.h
 platform/graphics/cv/GraphicsContextGLCVCocoa.h
-platform/graphics/filters/FilterEffectApplier.h
 platform/graphics/filters/software/FEConvolveMatrixSoftwareApplier.h
 platform/graphics/filters/software/FELightingSoftwareApplier.h
 platform/graphics/filters/software/FEMorphologySoftwareApplier.h
@@ -103,7 +99,6 @@ style/AttributeChangeInvalidation.h
 style/ChildChangeInvalidation.h
 style/ClassChangeInvalidation.cpp
 style/ElementRuleCollector.cpp
-style/IdChangeInvalidation.h
 style/PseudoClassChangeInvalidation.h
 style/RuleSetBuilder.h
 style/StyleRelations.h

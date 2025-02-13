@@ -580,7 +580,7 @@ void Internals::resetToConsistentState(Page& page)
     if (mainFrameView) {
         page.setHeaderHeight(0);
         page.setFooterHeight(0);
-        page.setTopContentInset(0);
+        page.setObscuredContentInsets({ });
         mainFrameView->setUseFixedLayout(false);
         mainFrameView->setFixedLayoutSize(IntSize());
         mainFrameView->enableFixedWidthAutoSizeMode(false, { });
@@ -5499,8 +5499,7 @@ String Internals::createTemporaryFile(const String& name, const String& contents
     if (!FileSystem::isHandleValid(file))
         return nullString();
 
-    auto contentsUTF8 = contents.utf8();
-    FileSystem::writeToFile(file, contentsUTF8.span());
+    FileSystem::writeToFile(file, byteCast<uint8_t>(contents.utf8().span()));
 
     FileSystem::closeFile(file);
 

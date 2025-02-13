@@ -1040,14 +1040,14 @@ LayoutPoint LocalFrameView::scrollPositionRespectingCustomFixedPosition() const
     return scrollPositionForFixedPosition();
 }
 
-void LocalFrameView::topContentInsetDidChange(float newTopContentInset)
+void LocalFrameView::obscuredContentInsetsDidChange(const FloatBoxExtent& newObscuredContentInsets)
 {
     RenderView* renderView = this->renderView();
     if (!renderView)
         return;
 
     if (platformWidget())
-        platformSetTopContentInset(newTopContentInset);
+        platformSetContentInsets(newObscuredContentInsets);
     
     renderView->setNeedsLayout();
     layoutContext().layout();
@@ -1060,7 +1060,7 @@ void LocalFrameView::topContentInsetDidChange(float newTopContentInset)
         renderView->compositor().frameViewDidChangeSize();
 
     if (TiledBacking* tiledBacking = this->tiledBacking())
-        tiledBacking->setTopContentInset(newTopContentInset);
+        tiledBacking->setObscuredContentInsets(newObscuredContentInsets);
 
     setCurrentScrollType(oldScrollType);
 }
@@ -1868,46 +1868,51 @@ LayoutPoint LocalFrameView::scrollPositionForFixedPosition(const LayoutRect& vis
     return LayoutPoint(position.x() * dragFactorX / frameScaleFactor, position.y() * dragFactorY / frameScaleFactor);
 }
 
-float LocalFrameView::yPositionForInsetClipLayer(const FloatPoint& scrollPosition, float topContentInset)
+FloatPoint LocalFrameView::positionForInsetClipLayer(const FloatPoint& scrollPosition, const FloatBoxExtent& obscuredContentInset)
 {
-    if (!topContentInset)
-        return 0;
+    auto computeOffset = [](float scrollAmount, float insetAmount) {
+        if (!insetAmount)
+            return 0.f;
 
-    // The insetClipLayer should not move for negative scroll values.
-    float scrollY = std::max<float>(0, scrollPosition.y());
+        // The insetClipLayer should not move for negative scroll values.
+        auto clampedScrollPosition = std::max<float>(0, scrollAmount);
+        if (clampedScrollPosition >= insetAmount)
+            return 0.f;
 
-    if (scrollY >= topContentInset)
-        return 0;
-
-    return topContentInset - scrollY;
+        return insetAmount - clampedScrollPosition;
+    };
+    return { computeOffset(scrollPosition.x(), obscuredContentInset.left()), computeOffset(scrollPosition.y(), obscuredContentInset.top()) };
 }
 
-float LocalFrameView::yPositionForHeaderLayer(const FloatPoint& scrollPosition, float topContentInset)
+float LocalFrameView::yPositionForHeaderLayer(const FloatPoint& scrollPosition, float topInset)
 {
-    if (!topContentInset)
+    if (!topInset)
         return 0;
 
     float scrollY = std::max<float>(0, scrollPosition.y());
 
-    if (scrollY >= topContentInset)
-        return topContentInset;
+    if (scrollY >= topInset)
+        return topInset;
 
     return scrollY;
 }
 
-float LocalFrameView::yPositionForFooterLayer(const FloatPoint& scrollPosition, float topContentInset, float totalContentsHeight, float footerHeight)
+float LocalFrameView::yPositionForFooterLayer(const FloatPoint& scrollPosition, float topInset, float totalContentsHeight, float footerHeight)
 {
-    return yPositionForHeaderLayer(scrollPosition, topContentInset) + totalContentsHeight - footerHeight;
+    return yPositionForHeaderLayer(scrollPosition, topInset) + totalContentsHeight - footerHeight;
 }
 
-FloatPoint LocalFrameView::positionForRootContentLayer(const FloatPoint& scrollPosition, const FloatPoint& scrollOrigin, float topContentInset, float headerHeight)
+FloatPoint LocalFrameView::positionForRootContentLayer(const FloatPoint& scrollPosition, const FloatPoint& scrollOrigin, const FloatBoxExtent& obscuredContentInsets, float headerHeight)
 {
-    return FloatPoint(0, yPositionForHeaderLayer(scrollPosition, topContentInset) + headerHeight) - toFloatSize(scrollOrigin);
+    return {
+        (scrollPosition.x() >= obscuredContentInsets.left() ? obscuredContentInsets.left() : std::max<float>(0, scrollPosition.x())) - scrollOrigin.x(),
+        yPositionForHeaderLayer(scrollPosition, obscuredContentInsets.top()) + headerHeight - scrollOrigin.y()
+    };
 }
 
 FloatPoint LocalFrameView::positionForRootContentLayer() const
 {
-    return positionForRootContentLayer(scrollPosition(), scrollOrigin(), topContentInset(), headerHeight());
+    return positionForRootContentLayer(scrollPosition(), scrollOrigin(), obscuredContentInsets(), headerHeight());
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -2781,7 +2786,7 @@ void LocalFrameView::scrollPositionChanged(const ScrollPosition& oldPosition, co
     }
 }
 
-void LocalFrameView::applyRecursivelyWithVisibleRect(const Function<void(LocalFrameView& frameView, const IntRect& visibleRect)>& apply)
+void LocalFrameView::applyRecursivelyWithVisibleRect(NOESCAPE const Function<void(LocalFrameView& frameView, const IntRect& visibleRect)>& apply)
 {
     IntRect windowClipRect = this->windowClipRect();
     auto visibleRect = windowToContents(windowClipRect);
@@ -3838,7 +3843,7 @@ void LocalFrameView::scheduleResizeEventIfNeeded()
 #endif
 
     RefPtr document = m_frame->document();
-    if (document->quirks().shouldSilenceWindowResizeEvents()) {
+    if (document->quirks().shouldSilenceWindowResizeEventsDuringApplicationSnapshotting()) {
         document->addConsoleMessage(MessageSource::Other, MessageLevel::Info, "Window resize events silenced due to: http://webkit.org/b/258597"_s);
         FRAMEVIEW_RELEASE_LOG(Events, "scheduleResizeEventIfNeeded: Not firing resize events because they are temporarily disabled for this page");
         return;

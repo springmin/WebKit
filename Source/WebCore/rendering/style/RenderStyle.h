@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "BoxExtents.h"
 #include "PseudoElementIdentifier.h"
 #include "WritingMode.h"
 #include <unicode/utypes.h>
@@ -73,6 +74,7 @@ class LineClampValue;
 class NinePieceImage;
 class OffsetRotation;
 class PathOperation;
+class PositionArea;
 class PseudoIdSet;
 class QuotesData;
 class RenderObject;
@@ -282,16 +284,15 @@ struct TransformOperationData;
 template<typename> class FontTaggedSettings;
 template<typename> class RectEdges;
 
-using FloatBoxExtent = RectEdges<float>;
 using FontVariationSettings = FontTaggedSettings<float>;
 using IntOutsets = RectEdges<int>;
-using LayoutBoxExtent = RectEdges<LayoutUnit>;
 
 namespace Style {
 class CustomPropertyRegistry;
 class ViewTransitionName;
 struct Color;
 struct ColorScheme;
+struct DynamicRangeLimit;
 struct ScopedName;
 struct ScrollMargin;
 struct ScrollMarginEdge;
@@ -952,6 +953,8 @@ public:
     inline bool hasExplicitlySetColorScheme() const;
 #endif
 
+    inline const Style::DynamicRangeLimit& dynamicRangeLimit() const;
+
     inline TableLayoutType tableLayout() const;
 
     inline ObjectFit objectFit() const;
@@ -1164,6 +1167,8 @@ public:
     inline AppleVisualEffect appleVisualEffect() const;
     inline bool hasAppleVisualEffect() const;
     inline bool hasAppleVisualEffectRequiringBackdropFilter() const;
+
+    inline AppleVisualEffect usedAppleVisualEffectForSubtree() const;
 #endif
 
     inline MathStyle mathStyle() const;
@@ -1574,6 +1579,8 @@ public:
     inline void setColorScheme(Style::ColorScheme);
 #endif
 
+    inline void setDynamicRangeLimit(Style::DynamicRangeLimit&&);
+
     inline void setTableLayout(TableLayoutType);
 
     inline void setFilter(FilterOperations&&);
@@ -1679,6 +1686,7 @@ public:
 
 #if HAVE(CORE_MATERIAL)
     inline void setAppleVisualEffect(AppleVisualEffect);
+    inline void setUsedAppleVisualEffectForSubtree(AppleVisualEffect);
 #endif
 
     void addCustomPaintWatchProperty(const AtomString&);
@@ -2087,6 +2095,8 @@ public:
     static inline Style::ColorScheme initialColorScheme();
 #endif
 
+    static inline Style::DynamicRangeLimit initialDynamicRangeLimit();
+
     static constexpr TextIndentLine initialTextIndentLine();
     static constexpr TextIndentType initialTextIndentType();
     static constexpr TextJustify initialTextJustify();
@@ -2313,6 +2323,10 @@ public:
     static inline std::optional<Style::ScopedName> initialPositionAnchor();
     inline const std::optional<Style::ScopedName>& positionAnchor() const;
     inline void setPositionAnchor(const std::optional<Style::ScopedName>&);
+
+    static inline std::optional<PositionArea> initialPositionArea();
+    inline std::optional<PositionArea> positionArea() const;
+    inline void setPositionArea(std::optional<PositionArea>);
 
     static constexpr Style::PositionTryOrder initialPositionTryOrder();
     inline Style::PositionTryOrder positionTryOrder() const;

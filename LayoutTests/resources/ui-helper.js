@@ -1512,13 +1512,6 @@ window.UIHelper = class UIHelper {
         });
     }
 
-    static stylusTapOnElement(element, modifiers=[])
-    {
-        const x = element.offsetLeft + element.offsetWidth / 2;
-        const y = element.offsetTop + element.offsetHeight / 2;
-        return UIHelper.stylusTapAt(x, y, modifiers);
-    }
-
     static attachmentInfo(attachmentIdentifier)
     {
         if (!this.isWebKit2())
@@ -2303,6 +2296,16 @@ window.UIHelper = class UIHelper {
         return new Promise(resolve => {
             testRunner.runUIScript("uiController.keyboardUpdateForChangedSelectionCount", resolve);
         });
+    }
+
+    static async typeCharacters(stringToType, waitForEvent = "input", eventTarget = null) {
+        for (let character of [...stringToType]) {
+            await UIHelper.callFunctionAndWaitForEvent(async () => {
+                if (window.testRunner)
+                    await UIHelper.typeCharacter(character);
+                await UIHelper.ensurePresentationUpdate();
+            }, eventTarget || document.activeElement, waitForEvent);
+        }
     }
 }
 

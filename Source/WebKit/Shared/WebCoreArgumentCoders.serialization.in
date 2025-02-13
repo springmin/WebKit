@@ -1,4 +1,4 @@
-# Copyright (C) 2022-2024 Apple Inc. All rights reserved.
+# Copyright (C) 2022-2025 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -1813,7 +1813,6 @@ enum class WebCore::RenderingPurpose : uint8_t {
     Canvas,
     DOM,
     LayerBacking,
-    BitmapOnlyLayerBacking,
     Snapshot,
     ShareableSnapshot,
     ShareableLocalSnapshot,
@@ -3074,17 +3073,14 @@ header: <WebCore/StylePrimitiveNumericTypes.h>
     double value;
 };
 
-using WebCore::Style::PercentageNonnegativeFloat = WebCore::Style::Percentage<WebCore::CSS::Nonnegative, float>;
 [CustomHeader, Nested] struct WebCore::Style::PercentageNonnegativeFloat {
     float value;
 };
 
-using WebCore::Style::PercentageAllFloat = WebCore::Style::Percentage<WebCore::CSS::All, float>;
 [CustomHeader, Nested] struct WebCore::Style::PercentageAllFloat {
     float value;
 };
 
-using WebCore::Style::LengthNonnegative = WebCore::Style::Length<WebCore::CSS::Nonnegative>;
 [CustomHeader, Nested] struct WebCore::Style::LengthNonnegative {
     float value;
 };
@@ -3549,7 +3545,7 @@ enum class WebCore::ResourceLoadPriority : uint8_t {
     Opaqueredirect
 };
 
-[Nested] enum class WebCore::ResourceResponseBaseSource : uint8_t {
+[CustomHeader] enum class WebCore::ResourceResponseSource : uint8_t {
     Unknown,
     Network,
     DiskCache,
@@ -3564,7 +3560,7 @@ enum class WebCore::ResourceLoadPriority : uint8_t {
 
 using WebCore::ResourceResponseBase::Type = WebCore::ResourceResponseBaseType;
 using WebCore::ResourceResponseBase::Tainting = WebCore::ResourceResponseBaseTainting;
-using WebCore::ResourceResponseBase::Source = WebCore::ResourceResponseBaseSource;
+using WebCore::ResourceResponseBase::Source = WebCore::ResourceResponseSource;
 
 class WebCore::ResourceResponseBase {
     std::optional<WebCore::ResourceResponseData> getResponseData()
@@ -4405,7 +4401,7 @@ header: <WebCore/ScrollingStateNode.h>
     HeaderLayer
     FooterLayer
     BehaviorForFixedElements
-    TopContentInset
+    ObscuredContentInsets
     VisualViewportIsSmallerThanLayoutViewport
     AsyncFrameOrOverflowScrollingEnabled
     WheelEventGesturesBecomeNonBlocking
@@ -5865,6 +5861,7 @@ struct WebCore::PlatformVideoTrackConfiguration : WebCore::PlatformTrackConfigur
     double framerate;
     uint64_t bitrate;
     std::optional<WebCore::SpatialVideoMetadata> spatialVideoMetadata;
+    bool isImmersiveVideo;
 };
 
 #endif
@@ -6406,7 +6403,20 @@ struct WebCore::MockWebAuthenticationConfiguration {
     std::optional<WebCore::MockWebAuthenticationConfiguration::CcidConfiguration> ccid;
 };
 
-struct WebCore::OpenID4VPRequest {
+#if HAVE(DIGITAL_CREDENTIALS_UI)
+
+[Nested] struct WebCore::OpenID4VPRequest {
+};
+
+struct WebCore::DigitalCredentialsRequestData {
+    WebCore::DigitalCredentialRequestOptions options;
+    [Validator='!topOrigin->isNull()'] WebCore::SecurityOriginData topOrigin;
+    [Validator='!documentOrigin->isNull()'] WebCore::SecurityOriginData documentOrigin;
+};
+
+struct WebCore::DigitalCredentialsResponseData {
+    WebCore::IdentityCredentialProtocol protocol;
+    String responseData;
 };
 
 [Nested] struct WebCore::DigitalCredentialRequest {
@@ -6414,13 +6424,15 @@ struct WebCore::OpenID4VPRequest {
     WebCore::OpenID4VPRequest data;
 };
 
-struct WebCore::DigitalCredentialRequestOptions {
+[Nested] struct WebCore::DigitalCredentialRequestOptions {
     Vector<WebCore::DigitalCredentialRequest> requests;
 };
 
-enum class WebCore::IdentityCredentialProtocol : uint8_t {
+[Nested] enum class WebCore::IdentityCredentialProtocol : uint8_t {
     Openid4vp
 };
+
+#endif // HAVE(DIGITAL_CREDENTIALS_UI)
 
 #endif // ENABLE(WEB_AUTHN)
 
@@ -7053,9 +7065,14 @@ struct WebCore::CookieChangeSubscription {
 }
 
 #if ENABLE(MODEL_PROCESS)
+enum class WebCore::ModelContextDisablePortal : bool
+
 [RefCounted] class WebCore::ModelContext {
     WebCore::PlatformLayerIdentifier modelLayerIdentifier()
     WebCore::LayerHostingContextIdentifier modelContentsLayerHostingContextIdentifier()
+    WebCore::LayoutSize modelLayoutSize()
+    WebCore::ModelContextDisablePortal disablePortal()
+    std::optional<WebCore::Color> backgroundColor()
 };
 #endif
 
@@ -7973,6 +7990,9 @@ enum class WebCore::AppleVisualEffect : uint8_t {
     BlurMaterial,
     BlurThickMaterial,
     BlurChromeMaterial,
+#if HAVE(MATERIAL_HOSTING)
+    HostedBlurMaterial,
+#endif
     VibrancyLabel,
     VibrancySecondaryLabel,
     VibrancyTertiaryLabel,
@@ -7981,6 +8001,13 @@ enum class WebCore::AppleVisualEffect : uint8_t {
     VibrancySecondaryFill,
     VibrancyTertiaryFill,
     VibrancySeparator,
+};
+
+header: <WebCore/AppleVisualEffect.h>
+[CustomHeader] struct WebCore::AppleVisualEffectData {
+    WebCore::AppleVisualEffect effect;
+    WebCore::AppleVisualEffect contextEffect;
+    std::optional<WebCore::FloatRoundedRect> borderRect;
 };
 
 #endif
@@ -8164,6 +8191,8 @@ header: <WebCore/ShareableResource.h>
     Ref<WebCore::SharedBuffer> displayList();
     Vector<MachSendRight> takeSurfaces();
 }
+
+enum class WebCore::IncludeDynamicContentScalingDisplayList : bool;
 #endif
 
 enum class WebCore::PlatformCursorType : uint8_t {
@@ -8913,6 +8942,8 @@ header: <WebCore/MediaSample.h>
     MediaTime duration;
     std::pair<MediaTime, MediaTime> trimInterval;
     RefPtr<WebCore::FragmentedSharedBuffer> data;
+    RefPtr<WebCore::SharedBuffer> hdrMetadata;
+    std::optional<WebCore::HdrMetadataType> hdrMetadataType;
     uint32_t flags;
 };
 

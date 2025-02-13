@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 #include "MessageReceiver.h"
 #include "MessageSender.h"
 #include <JavaScriptCore/InspectorFrontendChannel.h>
+#include <WebCore/BoxExtents.h>
 #include <WebCore/DictionaryPopupInfo.h>
 #include <WebCore/DisabledAdaptations.h>
 #include <WebCore/DragActions.h>
@@ -48,7 +49,6 @@
 #include <WebCore/PlaybackTargetClientContextIdentifier.h>
 #include <WebCore/PluginData.h>
 #include <WebCore/PointerCharacteristics.h>
-#include <WebCore/PointerEventTypeNames.h>
 #include <WebCore/PointerID.h>
 #include <WebCore/RectEdges.h>
 #include <WebCore/RegistrableDomain.h>
@@ -274,10 +274,13 @@ struct CompositionHighlight;
 struct CompositionUnderline;
 struct ContactInfo;
 struct ContactsRequestData;
+struct DigitalCredentialsRequestData;
+struct DigitalCredentialsResponseData;
 struct DataDetectorElementInfo;
 struct DictationAlternative;
 struct DictationContextType;
 struct ElementContext;
+struct ExceptionData;
 struct ExceptionDetails;
 struct FontAttributes;
 struct GlobalFrameIdentifier;
@@ -502,7 +505,8 @@ using SnapshotOptions = OptionSet<SnapshotOption>;
 using StorageNamespaceIdentifier = ObjectIdentifier<StorageNamespaceIdentifierType>;
 using TapIdentifier = ObjectIdentifier<TapIdentifierType>;
 using TextCheckerRequestID = ObjectIdentifier<TextCheckerRequestType>;
-using TransactionID = MonotonicObjectIdentifier<TransactionIDType>;
+using TransactionIdentifier = MonotonicObjectIdentifier<TransactionIDType>;
+using TransactionID = WebCore::ProcessQualified<TransactionIdentifier>;
 using UserContentControllerIdentifier = ObjectIdentifier<UserContentControllerIdentifierType>;
 using VisitedLinkTableIdentifier = ObjectIdentifier<VisitedLinkTableIdentifierType>;
 using WKEventModifiers = uint32_t;
@@ -786,15 +790,6 @@ public:
     double totalScaleFactor() const;
     double viewScaleFactor() const;
 
-#if ENABLE(PDF_PLUGIN)
-    void setPluginScaleFactor(double scaleFactor, WebCore::IntPoint origin);
-
-#if PLATFORM(IOS_FAMILY)
-    void pluginDidInstallPDFDocument(double initialScale);
-#endif
-
-#endif
-
     void didScalePage(double scale, const WebCore::IntPoint& origin);
     void didScalePageInViewCoordinates(double scale, const WebCore::IntPoint& origin);
     void didScalePageRelativeToScrollPosition(double scale, const WebCore::IntPoint& origin);
@@ -995,7 +990,7 @@ public:
 
     void attemptSyntheticClick(const WebCore::IntPoint&, OptionSet<WebKit::WebEventModifier>, TransactionID lastLayerTreeTransactionId);
     void potentialTapAtPosition(WebKit::TapIdentifier, const WebCore::FloatPoint&, bool shouldRequestMagnificationInformation);
-    void commitPotentialTap(OptionSet<WebKit::WebEventModifier>, TransactionID lastLayerTreeTransactionId, WebCore::PointerID, const String& pointerType);
+    void commitPotentialTap(OptionSet<WebKit::WebEventModifier>, TransactionID lastLayerTreeTransactionId, WebCore::PointerID);
     void commitPotentialTapFailed();
     void didHandleTapAsHover();
     void cancelPotentialTap();
@@ -1354,7 +1349,7 @@ public:
     void recomputeShortCircuitHorizontalWheelEventsState();
 
 #if ENABLE(MAC_GESTURE_EVENTS)
-    void gestureEvent(WebCore::FrameIdentifier, const WebGestureEvent&);
+    void gestureEvent(WebCore::FrameIdentifier, const WebGestureEvent&, CompletionHandler<void(std::optional<WebEventType>, bool, std::optional<WebCore::RemoteUserInputEventData>)>&&);
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -1593,6 +1588,9 @@ public:
 
     void showShareSheet(WebCore::ShareDataWithParsedURL&, CompletionHandler<void(bool)>&& callback);
     void showContactPicker(const WebCore::ContactsRequestData&, CompletionHandler<void(std::optional<Vector<WebCore::ContactInfo>>&&)>&&);
+
+    void showDigitalCredentialsPicker(const WebCore::DigitalCredentialsRequestData&, CompletionHandler<void(Expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData>&&)>&&);
+    void dismissDigitalCredentialsPicker(CompletionHandler<void(bool)>&&);
 
 #if ENABLE(ATTACHMENT_ELEMENT)
     void insertAttachment(const String& identifier, std::optional<uint64_t>&& fileSize, const String& fileName, const String& contentType, CompletionHandler<void()>&&);
@@ -1923,7 +1921,7 @@ public:
 #endif
     void loadRequest(LoadParameters&&);
 
-    void setTopContentInset(float);
+    void setObscuredContentInsets(const WebCore::FloatBoxExtent&);
 
     void updateOpener(WebCore::FrameIdentifier, WebCore::FrameIdentifier);
 
@@ -1971,8 +1969,8 @@ private:
 #if PLATFORM(IOS_FAMILY)
     std::optional<FocusedElementInformation> focusedElementInformation();
     void generateSyntheticEditingCommand(SyntheticEditingCommandType);
-    void handleSyntheticClick(WebCore::Node& nodeRespondingToClick, const WebCore::FloatPoint& location, OptionSet<WebKit::WebEventModifier>, WebCore::PointerID = WebCore::mousePointerID, const String& pointerType = WebCore::mousePointerEventType());
-    void completeSyntheticClick(WebCore::Node& nodeRespondingToClick, const WebCore::FloatPoint& location, OptionSet<WebKit::WebEventModifier>, WebCore::SyntheticClickType, WebCore::PointerID = WebCore::mousePointerID, const String& pointerType = WebCore::mousePointerEventType());
+    void handleSyntheticClick(WebCore::Node& nodeRespondingToClick, const WebCore::FloatPoint& location, OptionSet<WebKit::WebEventModifier>, WebCore::PointerID = WebCore::mousePointerID);
+    void completeSyntheticClick(WebCore::Node& nodeRespondingToClick, const WebCore::FloatPoint& location, OptionSet<WebKit::WebEventModifier>, WebCore::SyntheticClickType, WebCore::PointerID = WebCore::mousePointerID);
     void sendTapHighlightForNodeIfNecessary(WebKit::TapIdentifier, WebCore::Node*, WebCore::FloatPoint);
     WebCore::VisiblePosition visiblePositionInFocusedNodeForPoint(const WebCore::LocalFrame&, const WebCore::IntPoint&, bool isInteractingWithFocusedElement);
     std::optional<WebCore::SimpleRange> rangeForGranularityAtPoint(WebCore::LocalFrame&, const WebCore::IntPoint&, WebCore::TextGranularity, bool isInteractingWithFocusedElement);
@@ -2137,7 +2135,7 @@ private:
     void setBackgroundColor(const std::optional<WebCore::Color>&);
 
 #if PLATFORM(COCOA)
-    void setTopContentInsetFenced(float, const WTF::MachSendRight&);
+    void setObscuredContentInsetsFenced(const WebCore::FloatBoxExtent&, const WTF::MachSendRight&);
 #endif
 
     void viewWillStartLiveResize();
@@ -2389,7 +2387,7 @@ private:
     RefPtr<WebCore::HTMLAttachmentElement> attachmentElementWithIdentifier(const String& identifier) const;
 #endif
 
-    bool canShowMIMEType(const String&, const Function<bool(const String&, WebCore::PluginData::AllowedPluginTypes)>& supportsPlugin) const;
+    bool canShowMIMEType(const String&, NOESCAPE const Function<bool(const String&, WebCore::PluginData::AllowedPluginTypes)>& supportsPlugin) const;
 
     void cancelCurrentInteractionInformationRequest();
 
@@ -2460,7 +2458,7 @@ private:
     void frameTextForTesting(WebCore::FrameIdentifier, CompletionHandler<void(String&&)>&&);
     void bindRemoteAccessibilityFrames(int processIdentifier, WebCore::FrameIdentifier, Vector<uint8_t>, CompletionHandler<void(Vector<uint8_t>, int)>&&);
     void updateRemotePageAccessibilityOffset(WebCore::FrameIdentifier, WebCore::IntPoint);
-    void resolveAccessibilityHitTestForTesting(const WebCore::IntPoint&, CompletionHandler<void(String)>&&);
+    void resolveAccessibilityHitTestForTesting(WebCore::FrameIdentifier, const WebCore::IntPoint&, CompletionHandler<void(String)>&&);
 
     void requestAllTextAndRects(CompletionHandler<void(Vector<std::pair<String, WebCore::FloatRect>>&&)>&&);
 
@@ -2831,7 +2829,6 @@ private:
     WebCore::FloatRect m_previousExposedContentRect;
     OptionSet<WebKit::WebEventModifier> m_pendingSyntheticClickModifiers;
     WebCore::PointerID m_pendingSyntheticClickPointerId { 0 };
-    String m_pendingSyntheticClickPointerType { WebCore::mousePointerEventType() };
     std::optional<DynamicViewportSizeUpdateID> m_pendingDynamicViewportSizeUpdateID;
     double m_lastTransactionPageScaleFactor { 0 };
 

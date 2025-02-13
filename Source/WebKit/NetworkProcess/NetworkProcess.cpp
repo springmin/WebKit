@@ -535,6 +535,10 @@ void NetworkProcess::addWebsiteDataStore(WebsiteDataStoreParameters&& parameters
 
     addStorageSession(sessionID, parameters);
 
+#if ENABLE(DECLARATIVE_WEB_PUSH)
+    parameters.networkSessionParameters.webPushDaemonConnectionConfiguration.declarativeWebPushEnabled = parameters.networkSessionParameters.isDeclarativeWebPushEnabled;
+#endif
+
     auto& session = m_networkSessions.ensure(sessionID, [&]() {
         return NetworkSession::create(*this, parameters.networkSessionParameters);
     }).iterator->value;
@@ -577,7 +581,7 @@ WebCore::NetworkStorageSession* NetworkProcess::storageSession(PAL::SessionID se
     return m_networkStorageSessions.get(sessionID);
 }
 
-void NetworkProcess::forEachNetworkStorageSession(const Function<void(WebCore::NetworkStorageSession&)>& functor)
+void NetworkProcess::forEachNetworkStorageSession(NOESCAPE const Function<void(WebCore::NetworkStorageSession&)>& functor)
 {
     for (auto& storageSession : m_networkStorageSessions.values())
         functor(*storageSession);

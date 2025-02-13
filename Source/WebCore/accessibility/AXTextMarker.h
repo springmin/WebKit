@@ -84,7 +84,10 @@ enum class TextMarkerOrigin : uint16_t {
     PreviousSentenceStart,
     NextSentenceEnd,
     PreviousParagraphStart,
-    NextParagraphEnd // 10
+    NextParagraphEnd,
+    Position,
+    StartTextMarkerForBounds,
+    EndTextMarkerForBounds
 };
 
 inline String originToString(TextMarkerOrigin origin)
@@ -120,6 +123,15 @@ inline String originToString(TextMarkerOrigin origin)
         break;
     case TextMarkerOrigin::NextParagraphEnd:
         result = "NextParagraphEnd"_s;
+        break;
+    case TextMarkerOrigin::Position:
+        result = "TextMarkerForPosition"_s;
+        break;
+    case TextMarkerOrigin::StartTextMarkerForBounds:
+        result = "StartTextMarkerForBounds"_s;
+        break;
+    case TextMarkerOrigin::EndTextMarkerForBounds:
+        result = "EndTextMarkerForBounds"_s;
         break;
     default:
         result = "Unknown"_s;
@@ -175,8 +187,8 @@ struct TextMarkerData {
         origin = originParam;
     }
 
-    TextMarkerData(AXObjectCache&, const VisiblePosition&, int charStart = 0, int charOffset = 0, bool ignoredParam = false);
-    TextMarkerData(AXObjectCache&, const CharacterOffset&, bool ignoredParam = false);
+    TextMarkerData(AXObjectCache&, const VisiblePosition&, int charStart = 0, int charOffset = 0, bool ignoredParam = false, TextMarkerOrigin originParam = TextMarkerOrigin::Unknown);
+    TextMarkerData(AXObjectCache&, const CharacterOffset&, bool ignoredParam = false, TextMarkerOrigin originParam = TextMarkerOrigin::Unknown);
 
     friend bool operator==(const TextMarkerData&, const TextMarkerData&) = default;
 
@@ -204,8 +216,8 @@ class AXTextMarker {
     friend std::partial_ordering partialOrder(const AXTextMarker&, const AXTextMarker&);
 public:
     // Constructors
-    AXTextMarker(const VisiblePosition&);
-    AXTextMarker(const CharacterOffset&);
+    AXTextMarker(const VisiblePosition&, TextMarkerOrigin = TextMarkerOrigin::Unknown);
+    AXTextMarker(const CharacterOffset&, TextMarkerOrigin = TextMarkerOrigin::Unknown);
     AXTextMarker(const TextMarkerData& data)
         : m_data(data)
     { }
@@ -305,7 +317,7 @@ public:
     AXTextMarkerRange paragraphRange() const;
     // Returns a range pointing to the start and end positions that have the same text styles as `this`.
     AXTextMarkerRange rangeWithSameStyle() const;
-    // Given a character offset relative to this marker, find the next marker the offset points to.
+    // Starting from this marker, return a text marker that is `offset` characters away.
     AXTextMarker nextMarkerFromOffset(unsigned) const;
     // Returns the number of intermediate text markers between this and the root.
     unsigned offsetFromRoot() const;
@@ -335,6 +347,8 @@ private:
     AXTextRunLineID lineID() const;
     // Are we at the start or end of a line?
     bool atLineBoundaryForDirection(AXDirection) const;
+    // Fast path to calcuate line boundary when a callsite already has the runs and runIndex available.
+    bool atLineBoundaryForDirection(AXDirection, const AXTextRuns*, size_t) const;
     bool atLineStart() const { return atLineBoundaryForDirection(AXDirection::Previous); }
     bool atLineEnd() const { return atLineBoundaryForDirection(AXDirection::Next); }
     // True when two nodes are visually the same (i.e. on the boundary of an object)
@@ -393,6 +407,9 @@ public:
 #if ENABLE(AX_THREAD_TEXT_APIS)
     // Traverses from m_start to m_end, collecting all text along the way.
     String toString() const;
+    // Returns the bounds (frame) of the text in this range relative to the viewport.
+    // Analagous to AXCoreObject::relativeFrame().
+    FloatRect viewportRelativeFrame() const;
 #if PLATFORM(COCOA)
     RetainPtr<NSAttributedString> toAttributedString(AXCoreObject::SpellCheck) const;
 #endif // PLATFORM(COCOA)

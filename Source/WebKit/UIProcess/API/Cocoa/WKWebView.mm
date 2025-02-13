@@ -176,6 +176,7 @@
 #import <wtf/NeverDestroyed.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/RuntimeApplicationChecks.h>
+#import <wtf/StdLibExtras.h>
 #import <wtf/SystemTracing.h>
 #import <wtf/TZoneMallocInlines.h>
 #import <wtf/UUID.h>
@@ -192,6 +193,13 @@
 
 #if ENABLE(WK_WEB_EXTENSIONS)
 #import "WKWebExtensionControllerInternal.h"
+#endif
+
+#if HAVE(DIGITAL_CREDENTIALS_UI)
+#import <WebCore/DigitalCredentialsRequestData.h>
+#import <WebCore/DigitalCredentialsResponseData.h>
+#import <WebCore/ExceptionData.h>
+#import <WebKit/WKDigitalCredentialsPicker.h>
 #endif
 
 #if ENABLE(SCREEN_TIME)
@@ -236,10 +244,38 @@ static const BOOL defaultFastClickingEnabled = NO;
 #endif
 
 #if ENABLE(SCREEN_TIME)
+static void *screenTimeWebpageControllerBlockedKVOContext = &screenTimeWebpageControllerBlockedKVOContext;
 @interface STWebpageController (Staging_138865295)
 @property (nonatomic, copy) NSString *profileIdentifier;
 @end
-static void *screenTimeWebpageControllerBlockedKVOContext = &screenTimeWebpageControllerBlockedKVOContext;
+#if PLATFORM(MAC)
+@interface WKSTVisualEffectView : NSVisualEffectView
+@end
+
+@implementation WKSTVisualEffectView
+
+- (void)mouseDown:(NSEvent *)event
+{
+}
+
+- (void)rightMouseDown:(NSEvent *)event
+{
+}
+
+- (void)mouseMoved:(NSEvent *)event
+{
+}
+
+- (void)mouseEntered:(NSEvent *)event
+{
+}
+
+- (void)mouseExited:(NSEvent *)event
+{
+}
+
+@end
+#endif
 #endif
 
 #if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
@@ -286,6 +322,20 @@ RetainPtr<NSError> nsErrorFromExceptionDetails(const WebCore::ExceptionDetails& 
 @implementation WKWebView
 
 WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
+
+#if HAVE(DIGITAL_CREDENTIALS_UI)
+- (void)_showDigitalCredentialsPicker:(const WebCore::DigitalCredentialsRequestData&)requestData completionHandler:(WTF::CompletionHandler<void(Expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData>&&)>&&)completionHandler
+{
+    LOG(DigitalCredentials, "Did not show digital credentials picker because it is not implemented.");
+    completionHandler(makeUnexpected(WebCore::ExceptionData { WebCore::ExceptionCode::NotSupportedError, "Digital credentials picker not implemented."_s }));
+}
+
+- (void)_dismissDigitalCredentialsPicker:(WTF::CompletionHandler<void(bool)>&&)completionHandler
+{
+    LOG(DigitalCredentials, "Did not dismiss digital credentials picker because it is not implemented.");
+    completionHandler(false);
+}
+#endif // HAVE(DIGITAL_CREDENTIALS_UI)
 
 - (instancetype)initWithFrame:(CGRect)frame
 {
@@ -373,15 +423,20 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
 
         [_screenTimeWebpageController setSuppressUsageRecording:![_configuration websiteDataStore].isPersistent];
 
+        // Observing changes to URLIsBlocked is set up in STWebpageController's loadView function.
+        // Thus, we have to instantiate its view for URLIsBlocked to update properly.
         RetainPtr screenTimeView = [_screenTimeWebpageController view];
-        [screenTimeView setTranslatesAutoresizingMaskIntoConstraints:NO];
-        [self addSubview:screenTimeView.get()];
-        [NSLayoutConstraint activateConstraints:@[
-            [[screenTimeView widthAnchor] constraintEqualToAnchor:self.widthAnchor],
-            [[screenTimeView heightAnchor] constraintEqualToAnchor:self.heightAnchor],
-            [[screenTimeView leadingAnchor] constraintEqualToAnchor:self.leadingAnchor],
-            [[screenTimeView topAnchor] constraintEqualToAnchor:self.topAnchor]
-        ]];
+
+        if ([_configuration _showsSystemScreenTimeBlockingView]) {
+            [screenTimeView setTranslatesAutoresizingMaskIntoConstraints:NO];
+            [self addSubview:screenTimeView.get()];
+            [NSLayoutConstraint activateConstraints:@[
+                [[screenTimeView widthAnchor] constraintEqualToAnchor:self.widthAnchor],
+                [[screenTimeView heightAnchor] constraintEqualToAnchor:self.heightAnchor],
+                [[screenTimeView leadingAnchor] constraintEqualToAnchor:self.leadingAnchor],
+                [[screenTimeView topAnchor] constraintEqualToAnchor:self.topAnchor]
+            ]];
+        }
     }
 }
 
@@ -405,6 +460,7 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
     if (context == &screenTimeWebpageControllerBlockedKVOContext) {
         BOOL urlWasBlocked = dynamic_objc_cast<NSNumber>(change[NSKeyValueChangeOldKey]).boolValue;
         BOOL urlIsBlocked = dynamic_objc_cast<NSNumber>(change[NSKeyValueChangeNewKey]).boolValue;
+        BOOL wasBlockedByScreenTime = _isBlockedByScreenTime;
 
         if (urlWasBlocked != urlIsBlocked) {
             [self setAllMediaPlaybackSuspended:urlIsBlocked completionHandler:nil];
@@ -412,7 +468,29 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
             _isBlockedByScreenTime = urlIsBlocked;
             [self didChangeValueForKey:@"_isBlockedByScreenTime"];
         }
-
+        if (wasBlockedByScreenTime != _isBlockedByScreenTime) {
+            if (!_screenTimeBlurredSnapshot && ![_configuration _showsSystemScreenTimeBlockingView]) {
+#if PLATFORM(MAC)
+                _screenTimeBlurredSnapshot = adoptNS([[WKSTVisualEffectView alloc] init]);
+                [_screenTimeBlurredSnapshot setMaterial:NSVisualEffectMaterialUnderWindowBackground];
+                [_screenTimeBlurredSnapshot setBlendingMode:NSVisualEffectBlendingModeWithinWindow];
+#else
+                RetainPtr blurEffect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterial];
+                _screenTimeBlurredSnapshot = adoptNS([[UIVisualEffectView alloc] initWithEffect:blurEffect.get()]);
+#endif
+                [_screenTimeBlurredSnapshot setTranslatesAutoresizingMaskIntoConstraints:NO];
+                [self addSubview:_screenTimeBlurredSnapshot.get()];
+                [NSLayoutConstraint activateConstraints:@[
+                    [[_screenTimeBlurredSnapshot widthAnchor] constraintEqualToAnchor:self.widthAnchor],
+                    [[_screenTimeBlurredSnapshot heightAnchor] constraintEqualToAnchor:self.heightAnchor],
+                    [[_screenTimeBlurredSnapshot leadingAnchor] constraintEqualToAnchor:self.leadingAnchor],
+                    [[_screenTimeBlurredSnapshot topAnchor] constraintEqualToAnchor:self.topAnchor]
+                ]];
+            } else if (_screenTimeBlurredSnapshot) {
+                [_screenTimeBlurredSnapshot removeFromSuperview];
+                _screenTimeBlurredSnapshot = nil;
+            }
+        }
         return;
     }
 #endif
@@ -464,7 +542,7 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
     _dragInteractionPolicy = _WKDragInteractionPolicyDefault;
 
     _contentView = adoptNS([[WKContentView alloc] initWithFrame:self.bounds processPool:processPool configuration:pageConfiguration.copyRef() webView:self]);
-    _page = [_contentView page];
+    lazyInitialize(_page, Ref { *[_contentView page] });
 
     [self _setupScrollAndContentViews];
     if (!self.opaque || !pageConfiguration->drawsBackground())
@@ -484,7 +562,7 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
 
 #if PLATFORM(MAC)
     _impl = makeUnique<WebKit::WebViewImpl>(self, self, processPool, pageConfiguration.copyRef());
-    _page = &_impl->page();
+    lazyInitialize(_page, Ref { _impl->page() });
 
     _impl->setAutomaticallyAdjustsContentInsets(true);
 
@@ -675,10 +753,6 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
 
     if (!linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::SiteSpecificQuirksAreEnabledByDefault))
         pageConfiguration->preferences().setNeedsSiteSpecificQuirks(false);
-
-#if PLATFORM(IOS_FAMILY)
-    pageConfiguration->preferences().setAlternateFormControlDesignEnabled(WebKit::defaultAlternateFormControlDesignEnabled());
-#endif
 
     // For SharedPreferencesForWebProcess
     pageConfiguration->preferences().setAllowTestOnlyIPC(!![_configuration _allowTestOnlyIPC]);
@@ -1292,7 +1366,7 @@ static WKMediaPlaybackState toWKMediaPlaybackState(WebKit::MediaPlaybackState me
         [userInfo setObject:errorMessage forKey:_WKJavaScriptExceptionMessageErrorKey];
 
         auto error = adoptNS([[NSError alloc] initWithDomain:WKErrorDomain code:WKErrorJavaScriptExceptionOccurred userInfo:userInfo.get()]);
-        RunLoop::main().dispatch([handler, error] {
+        RunLoop::protectedMain()->dispatch([handler, error] {
             auto rawHandler = (void (^)(id, NSError *))handler.get();
             rawHandler(nil, error.get());
         });
@@ -1341,7 +1415,7 @@ static WKMediaPlaybackState toWKMediaPlaybackState(WebKit::MediaPlaybackState me
     auto handler = makeBlockPtr(completionHandler);
 
     if (CGRectIsEmpty(rectInViewCoordinates) || !snapshotWidth) {
-        RunLoop::main().dispatch([handler = WTFMove(handler)] {
+        RunLoop::protectedMain()->dispatch([handler = WTFMove(handler)] {
 #if USE(APPKIT)
             auto image = adoptNS([[NSImage alloc] initWithSize:NSMakeSize(0, 0)]);
 #else
@@ -1770,7 +1844,7 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
 {
 #if PLATFORM(IOS_FAMILY)
     if (![self usesStandardContentView]) {
-        RunLoop::main().dispatch([updateBlock = makeBlockPtr(updateBlock)] {
+        RunLoop::protectedMain()->dispatch([updateBlock = makeBlockPtr(updateBlock)] {
             updateBlock();
         });
         return;
@@ -1815,12 +1889,12 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
     auto frame = WebCore::FloatSize(self.frame.size);
 
 #if PLATFORM(MAC)
-    CGFloat additionalTopInset = self._topContentInset;
+    auto additionalInsets = _impl->obscuredContentInsets();
 #else
-    CGFloat additionalTopInset = 0;
+    WebCore::FloatBoxExtent additionalInsets;
 #endif
 
-    auto maximumViewportInsetSize = WebCore::FloatSize(maximumViewportInset.left + maximumViewportInset.right, maximumViewportInset.top + additionalTopInset + maximumViewportInset.bottom);
+    auto maximumViewportInsetSize = WebCore::FloatSize(maximumViewportInset.left + additionalInsets.left() + maximumViewportInset.right, maximumViewportInset.top + additionalInsets.top() + maximumViewportInset.bottom);
     auto minimumUnobscuredSize = frame - maximumViewportInsetSize;
     if (minimumUnobscuredSize.isEmpty()) {
         if (!maximumViewportInsetSize.isEmpty()) {
@@ -1835,7 +1909,7 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
         minimumUnobscuredSize = frame;
     }
 
-    auto minimumViewportInsetSize = WebCore::FloatSize(minimumViewportInset.left + minimumViewportInset.right, minimumViewportInset.top + additionalTopInset + minimumViewportInset.bottom);
+    auto minimumViewportInsetSize = WebCore::FloatSize(minimumViewportInset.left + additionalInsets.left() + minimumViewportInset.right, minimumViewportInset.top + additionalInsets.top() + minimumViewportInset.bottom);
     auto maximumUnobscuredSize = frame - minimumViewportInsetSize;
     if (maximumUnobscuredSize.isEmpty()) {
         if (!minimumViewportInsetSize.isEmpty()) {
@@ -2932,6 +3006,16 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(FORWARD_ACTION_TO_WKCONTENTVIEW)
 - (BOOL)_wasPrivateRelayed
 {
     return _page->pageLoadState().wasPrivateRelayed();
+}
+
+- (NSString *)_proxyName
+{
+    return _page->pageLoadState().proxyName();
+}
+
+- (BOOL)_isContentFromNetwork
+{
+    return _page->pageLoadState().source() == WebCore::ResourceResponseBase::Source::Network;
 }
 
 - (void)_frames:(void (^)(_WKFrameTreeNode *))completionHandler
@@ -5117,7 +5201,7 @@ static inline OptionSet<WebKit::FindOptions> toFindOptions(_WKFindOptions wkFind
     _visibleContentRectUpdateCallbacks.append(makeBlockPtr(updateBlock));
     [self _scheduleVisibleContentRectUpdate];
 #else
-    RunLoop::main().dispatch([updateBlock = makeBlockPtr(updateBlock)] {
+    RunLoop::protectedMain()->dispatch([updateBlock = makeBlockPtr(updateBlock)] {
         updateBlock();
     });
 #endif

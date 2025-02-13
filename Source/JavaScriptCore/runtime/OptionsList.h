@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -317,6 +317,7 @@ bool hasCapacityToUseLargeGigacage();
     v(Unsigned, maximumWasmDepthForInlining, isIOS() ? 2 : 8, Normal, "Maximum inlining depth to consider inlining a wasm function."_s) \
     v(Unsigned, maximumWasmCalleeSizeForInlining, 200, Normal, "Maximum wasm size in bytes to consider inlining a wasm function."_s) \
     v(Unsigned, maximumWasmCallerSizeForInlining, 10000, Normal, "Maximum wasm size in bytes for the caller of an inlined function."_s) \
+    v(Unsigned, maximumWasmSelfRecursionDepthForInlining, 5, Normal, "Maximum self cursion inlining depth to consider inlining a wasm function."_s) \
     \
     v(Double, jitPolicyScale, 1.0, Normal, "scale JIT thresholds to this specified ratio between 0.0 (compile ASAP) and 1.0 (compile like normal)."_s) \
     v(Bool, forceEagerCompilation, false, Normal, nullptr) \
@@ -370,6 +371,7 @@ bool hasCapacityToUseLargeGigacage();
     v(Double, minHeapUtilization, 0.8, Normal, nullptr) \
     v(Double, minMarkedBlockUtilization, 0.9, Normal, nullptr) \
     v(Unsigned, slowPathAllocsBetweenGCs, 0, Normal, "force a GC on every Nth slow path alloc, where N is specified by this option"_s) \
+    v(Unsigned, maxRegExpStackSize, 4 * MB, Normal, nullptr) \
     \
     v(Double, percentCPUPerMBForFullTimer, 0.0003125, Normal, nullptr) \
     v(Double, percentCPUPerMBForEdenTimer, 0.0025, Normal, nullptr) \
@@ -392,7 +394,7 @@ bool hasCapacityToUseLargeGigacage();
     v(Bool, forceGCSlowPaths, false, Normal, "If true, we will force all JIT fast allocations down their slow paths."_s) \
     v(Bool, forceDidDeferGCWork, false, Normal, "If true, we will force all DeferGC destructions to perform a GC."_s) \
     v(Unsigned, gcMaxHeapSize, 0, Normal, nullptr) \
-    v(Unsigned, forceRAMSize, 0, Normal, nullptr) \
+    v(Size, forceRAMSize, 0, Normal, nullptr) \
     v(Bool, recordGCPauseTimes, false, Normal, nullptr) \
     v(Bool, dumpHeapStatisticsAtVMDestruction, false, Normal, nullptr) \
     v(Bool, enableStrongRefTracker, false, Normal, "Enable logging of live Strong<*> values. Use alongside $vm.triggerMemoryPressure() and dumpHeapOnLowMemory."_s) \
@@ -543,6 +545,7 @@ bool hasCapacityToUseLargeGigacage();
     v(Bool, forceMiniVMMode, false, Normal, "If true, it will force mini VM mode on."_s) \
     v(Bool, useTracePoints, false, Normal, nullptr) \
     v(Bool, useCompilerSignpost, false, Normal, nullptr) \
+    v(Bool, useGCSignpost, false, Normal, nullptr) \
     v(Bool, traceLLIntExecution, false, Configurable, nullptr) \
     v(Bool, traceWasmLLIntExecution, false, Configurable, nullptr) \
     v(Bool, traceLLIntSlowPath, false, Configurable, nullptr) \
