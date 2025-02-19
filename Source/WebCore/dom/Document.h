@@ -68,7 +68,6 @@
 #include <wtf/Observer.h>
 #include <wtf/RobinHoodHashMap.h>
 #include <wtf/TZoneMalloc.h>
-#include <wtf/TriState.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/WeakHashCountedSet.h>
 #include <wtf/WeakHashMap.h>
@@ -243,6 +242,7 @@ class SpaceSplitString;
 class SpeechRecognition;
 class StorageConnection;
 class StringCallback;
+class StyleOriginatedTimelinesController;
 class StyleSheet;
 class StyleSheetContents;
 class StyleSheetList;
@@ -842,6 +842,8 @@ public:
     void disableWebAssembly(const String& errorMessage) final;
     void setRequiresTrustedTypes(bool required) final;
 
+    bool requiresTrustedTypes() const { return m_requiresTrustedTypes; }
+
     IDBClient::IDBConnectionProxy* idbConnectionProxy() final;
     StorageConnection* storageConnection();
     SocketProvider* socketProvider() final;
@@ -1273,9 +1275,6 @@ public:
     HTMLCanvasElement* getCSSCanvasElement(const String& name);
     String nameForCSSCanvasElement(const HTMLCanvasElement&) const;
 
-    bool isDNSPrefetchEnabled() const;
-    void parseDNSPrefetchControlHeader(const String&);
-
     WEBCORE_EXPORT void postTask(Task&&) final; // Executes the task on context's thread asynchronously.
 
     WEBCORE_EXPORT EventLoopTaskGroup& eventLoop() final;
@@ -1454,8 +1453,6 @@ public:
 
     EventTarget* errorEventTarget() final;
     void logExceptionToConsole(const String& errorMessage, const String& sourceURL, int lineNumber, int columnNumber, RefPtr<Inspector::ScriptCallStack>&&) final;
-
-    void initDNSPrefetch();
 
     WEBCORE_EXPORT void didAddWheelEventHandler(Node&);
     WEBCORE_EXPORT void didRemoveWheelEventHandler(Node&, EventHandlerRemoval = EventHandlerRemoval::One);
@@ -1792,6 +1789,8 @@ public:
     Vector<RefPtr<WebAnimation>> matchingAnimations(NOESCAPE const Function<bool(Element&)>&);
     AnimationTimelinesController* timelinesController() const { return m_timelinesController.get(); }
     WEBCORE_EXPORT AnimationTimelinesController& ensureTimelinesController();
+    StyleOriginatedTimelinesController* styleOriginatedTimelinesController() { return m_styleOriginatedTimelinesController.get(); }
+    StyleOriginatedTimelinesController& ensureStyleOriginatedTimelinesController();
     void keyframesRuleDidChange(const String& name);
 
     void addTopLayerElement(Element&);
@@ -1883,6 +1882,7 @@ public:
 #if ENABLE(APP_HIGHLIGHTS)
     HighlightRegistry* appHighlightRegistryIfExists() { return m_appHighlightRegistry.get(); }
     WEBCORE_EXPORT HighlightRegistry& appHighlightRegistry();
+    WEBCORE_EXPORT Ref<HighlightRegistry> protectedAppHighlightRegistry();
 
     WEBCORE_EXPORT AppHighlightStorage& appHighlightStorage();
     AppHighlightStorage* appHighlightStorageIfExists() const { return m_appHighlightStorage.get(); };
@@ -1902,8 +1902,8 @@ public:
 
     WEBCORE_EXPORT Editor& editor();
     WEBCORE_EXPORT const Editor& editor() const;
-    Ref<Editor> protectedEditor();
-    Ref<const Editor> protectedEditor() const;
+    WEBCORE_EXPORT Ref<Editor> protectedEditor();
+    WEBCORE_EXPORT Ref<const Editor> protectedEditor() const;
     FrameSelection& selection() { return m_selection; }
     const FrameSelection& selection() const { return m_selection; }
     CheckedRef<FrameSelection> checkedSelection();
@@ -2438,6 +2438,7 @@ private:
 
     RefPtr<DocumentTimeline> m_timeline;
     const std::unique_ptr<AnimationTimelinesController> m_timelinesController;
+    const std::unique_ptr<StyleOriginatedTimelinesController> m_styleOriginatedTimelinesController;
 
     RefPtr<WindowEventLoop> m_eventLoop;
     std::unique_ptr<EventLoopTaskGroup> m_documentTaskGroup;
@@ -2603,8 +2604,6 @@ private:
     bool m_isResolvingAnchorPositionedElements { false };
 
     bool m_gotoAnchorNeededAfterStylesheetsLoad { false };
-    TriState m_isDNSPrefetchEnabled { TriState::Indeterminate };
-    bool m_haveExplicitlyDisabledDNSPrefetch { false };
 
     bool m_isSynthesized { false };
     bool m_isNonRenderedPlaceholder { false };
@@ -2680,6 +2679,8 @@ private:
     bool m_hasBeenRevealed { false };
     bool m_visualUpdatesAllowedChangeRequiresLayoutMilestones { false };
     bool m_visualUpdatesAllowedChangeCompletesPageTransition { false };
+
+    bool m_requiresTrustedTypes { false };
 
     static bool hasEverCreatedAnAXObjectCache;
 

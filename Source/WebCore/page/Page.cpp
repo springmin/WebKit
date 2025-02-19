@@ -576,7 +576,7 @@ void Page::clearPreviousItemFromAllPages(BackForwardItemIdentifier itemID)
         if (!localMainFrame)
             return;
 
-        CheckedRef controller = localMainFrame->loader().history();
+        Ref controller = localMainFrame->loader().history();
         if (controller->previousItem() && controller->previousItem()->itemID() == itemID) {
             controller->clearPreviousItem();
             return;
@@ -975,16 +975,16 @@ void Page::goToItem(LocalFrame& frame, HistoryItem& item, FrameLoadType type, Sh
     // being deref()-ed. Make sure we can still use it with HistoryController::goToItem later.
     Ref protectedItem { item };
 
-    if (frame.loader().checkedHistory()->shouldStopLoadingForHistoryItem(item))
+    if (frame.loader().protectedHistory()->shouldStopLoadingForHistoryItem(item))
         frame.protectedLoader()->stopAllLoadersAndCheckCompleteness();
-    frame.loader().checkedHistory()->goToItem(item, type, shouldTreatAsContinuingLoad);
+    frame.loader().protectedHistory()->goToItem(item, type, shouldTreatAsContinuingLoad);
 }
 
 void Page::goToItemForNavigationAPI(LocalFrame& frame, HistoryItem& item, FrameLoadType type, LocalFrame& triggeringFrame, NavigationAPIMethodTracker* tracker)
 {
-    if (frame.loader().checkedHistory()->shouldStopLoadingForHistoryItem(item))
+    if (frame.loader().protectedHistory()->shouldStopLoadingForHistoryItem(item))
         frame.protectedLoader()->stopAllLoadersAndCheckCompleteness();
-    frame.loader().checkedHistory()->goToItemForNavigationAPI(item, type, triggeringFrame, tracker);
+    frame.loader().protectedHistory()->goToItemForNavigationAPI(item, type, triggeringFrame, tracker);
 }
 
 void Page::setGroupName(const String& name)
@@ -2903,13 +2903,6 @@ void Page::domTimerAlignmentIntervalIncreaseTimerFired()
     updateDOMTimerAlignmentInterval();
 }
 
-void Page::dnsPrefetchingStateChanged()
-{
-    forEachDocument([] (Document& document) {
-        document.initDNSPrefetch();
-    });
-}
-
 void Page::storageBlockingStateChanged()
 {
     forEachDocument([] (Document& document) {
@@ -4237,6 +4230,16 @@ void Page::setFullscreenAutoHideDuration(Seconds duration)
     });
 }
 
+#if HAVE(HDR_SUPPORT)
+bool Page::canDrawHDRContents() const
+{
+    if (!(m_settings->hdrForImagesEnabled() || m_settings->canvasPixelFormatEnabled()))
+        return false;
+
+    return screenSupportsHighDynamicRange();
+}
+#endif
+
 Document* Page::outermostFullscreenDocument() const
 {
 #if ENABLE(FULLSCREEN_API)
@@ -4945,7 +4948,7 @@ JSC::JSGlobalObject* Page::serviceWorkerGlobalObject(DOMWrapperWorld& world)
         return nullptr;
 
     // FIXME: We currently do not support non-normal worlds in service workers.
-    RELEASE_ASSERT(&downcast<JSVMClientData>(serviceWorkerGlobalScope->vm().clientData)->normalWorld() == &world);
+    RELEASE_ASSERT(&downcast<JSVMClientData>(serviceWorkerGlobalScope->vm().clientData)->normalWorldSingleton() == &world);
     return scriptController->globalScopeWrapper();
 }
 

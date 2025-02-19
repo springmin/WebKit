@@ -103,6 +103,7 @@ public:
     RefPtr<WebCore::LocalFrame> protectedCoreLocalFrame() const;
     WebCore::RemoteFrame* coreRemoteFrame() const;
     WebCore::Frame* coreFrame() const;
+    RefPtr<WebCore::Frame> protectedCoreFrame() const;
 
     void createProvisionalFrame(ProvisionalFrameCreationParameters&&);
     void commitProvisionalFrame();
@@ -210,6 +211,8 @@ public:
 #endif
 
     WebLocalFrameLoaderClient* localFrameLoaderClient() const;
+    RefPtr<WebLocalFrameLoaderClient> protectedLocalFrameLoaderClient() const;
+
     WebRemoteFrameClient* remoteFrameClient() const;
     WebFrameLoaderClient* frameLoaderClient() const;
 

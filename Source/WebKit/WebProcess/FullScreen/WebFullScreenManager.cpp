@@ -328,7 +328,7 @@ void WebFullScreenManager::updateImageSource(WebCore::Element& element)
 }
 #endif // ENABLE(QUICKLOOK_FULLSCREEN)
 
-void WebFullScreenManager::exitFullScreenForElement(WebCore::Element* element)
+void WebFullScreenManager::exitFullScreenForElement(WebCore::Element* element, CompletionHandler<void()>&& completionHandler)
 {
     if (element)
         ALWAYS_LOG(LOGIDENTIFIER, "<", element->tagName(), " id=\"", element->getIdAttribute(), "\">");
@@ -336,12 +336,16 @@ void WebFullScreenManager::exitFullScreenForElement(WebCore::Element* element)
         ALWAYS_LOG(LOGIDENTIFIER, "null");
 
     m_page->prepareToExitElementFullScreen();
-    m_page->send(Messages::WebFullScreenManagerProxy::ExitFullScreen());
 
     if (m_inWindowFullScreenMode) {
-        willExitFullScreen();
-        didExitFullScreen();
-        m_inWindowFullScreenMode = false;
+        willExitFullScreen([this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)] mutable {
+            didExitFullScreen(WTFMove(completionHandler));
+            m_inWindowFullScreenMode = false;
+        });
+    } else {
+        m_page->sendWithAsyncReply(Messages::WebFullScreenManagerProxy::ExitFullScreen(), [this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)] mutable {
+            willExitFullScreen(WTFMove(completionHandler));
+        });
     }
 #if ENABLE(VIDEO)
     setMainVideoElement(nullptr);
@@ -442,10 +446,10 @@ void WebFullScreenManager::updateMainVideoElement()
 
 #endif // ENABLE(VIDEO)
 
-void WebFullScreenManager::willExitFullScreen()
+void WebFullScreenManager::willExitFullScreen(CompletionHandler<void()>&& completionHandler)
 {
     if (!m_element)
-        return;
+        return completionHandler();
     ALWAYS_LOG(LOGIDENTIFIER, "<", m_element->tagName(), " id=\"", m_element->getIdAttribute(), "\">");
 
 #if ENABLE(VIDEO)
@@ -455,14 +459,16 @@ void WebFullScreenManager::willExitFullScreen()
     m_finalFrame = screenRectOfContents(m_element.get());
     if (!m_element->document().fullscreenManager().willExitFullscreen()) {
         close();
-        return;
+        return completionHandler();
     }
 #if !PLATFORM(IOS_FAMILY)
     m_page->showPageBanners();
 #endif
     // FIXME: The order of these frames is switched, but that is kept for historical reasons.
     // It should probably be fixed to be consistent at some point.
-    m_page->send(Messages::WebFullScreenManagerProxy::BeganExitFullScreen(m_finalFrame, m_initialFrame));
+    m_page->sendWithAsyncReply(Messages::WebFullScreenManagerProxy::BeganExitFullScreen(m_finalFrame, m_initialFrame), [this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)] mutable {
+        didExitFullScreen(WTFMove(completionHandler));
+    });
 }
 
 static Vector<Ref<Element>> collectFullscreenElementsFromElement(Element* element)
@@ -478,7 +484,7 @@ static Vector<Ref<Element>> collectFullscreenElementsFromElement(Element* elemen
     return fullscreenElements;
 }
 
-void WebFullScreenManager::didExitFullScreen()
+void WebFullScreenManager::didExitFullScreen(CompletionHandler<void()>&& completionHandler)
 {
 #if PLATFORM(VISION) && ENABLE(QUICKLOOK_FULLSCREEN)
     if (std::exchange(m_willUseQuickLookForFullscreen, false)) {
@@ -490,7 +496,7 @@ void WebFullScreenManager::didExitFullScreen()
     m_page->isInFullscreenChanged(WebPage::IsInFullscreenMode::No);
 
     if (!m_element)
-        return;
+        return completionHandler();
 
     ALWAYS_LOG(LOGIDENTIFIER, "<", m_element->tagName(), " id=\"", m_element->getIdAttribute(), "\">");
 
@@ -499,7 +505,7 @@ void WebFullScreenManager::didExitFullScreen()
 
     auto fullscreenElements = collectFullscreenElementsFromElement(m_element.get());
 
-    m_element->document().fullscreenManager().didExitFullscreen();
+    completionHandler();
 
     // Ensure the element (and all its parent fullscreen elements) that just exited fullscreen are still in view:
     while (!fullscreenElements.isEmpty()) {

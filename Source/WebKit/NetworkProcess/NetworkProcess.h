@@ -190,6 +190,7 @@ public:
     AuthenticationManager& authenticationManager();
     Ref<AuthenticationManager> protectedAuthenticationManager();
     DownloadManager& downloadManager();
+    CheckedRef<DownloadManager> checkedDownloadManager();
 
     void setSession(PAL::SessionID, std::unique_ptr<NetworkSession>&&);
     NetworkSession* networkSession(PAL::SessionID) const final;
@@ -504,7 +505,7 @@ private:
     void sharedPreferencesForWebProcessDidChange(WebCore::ProcessIdentifier, SharedPreferencesForWebProcess&&, CompletionHandler<void()>&&);
 
     void fetchWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, OptionSet<WebsiteDataFetchOption>, CompletionHandler<void(WebsiteData&&)>&&);
-    void deleteWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, WallTime modifiedSince, CompletionHandler<void()>&&);
+    void deleteWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, WallTime modifiedSince, const HashSet<WebCore::ProcessIdentifier>& activeWebProcesses, CompletionHandler<void()>&&);
 
     // FIXME: This should take a session ID so we can identify which disk cache to delete.
     void clearDiskCache(WallTime modifiedSince, CompletionHandler<void()>&&);
@@ -573,8 +574,18 @@ private:
 
     void setShouldRelaxThirdPartyCookieBlockingForPage(WebPageProxyIdentifier);
 
+#if ENABLE(CONTENT_EXTENSIONS)
+    void resetResourceMonitorThrottlerForTesting(PAL::SessionID, CompletionHandler<void()>&&);
+#endif
+
+    struct TaskIdentifierType;
+    using TaskIdentifier = ObjectIdentifier<TaskIdentifierType>;
+    void performDeleteWebsiteDataTask(TaskIdentifier);
+    void deleteWebsiteDataImpl(PAL::SessionID, OptionSet<WebsiteDataType>, WallTime, CompletionHandler<void()>&&);
+
     // Connections to WebProcesses.
     HashMap<WebCore::ProcessIdentifier, Ref<NetworkConnectionToWebProcess>> m_webProcessConnections;
+    HashMap<WebCore::ProcessIdentifier, CompletionHandler<void()>> m_webProcessConnectionCloseHandlers;
 
     bool m_hasSetCacheModel { false };
     CacheModel m_cacheModel { CacheModel::DocumentViewer };
@@ -633,6 +644,14 @@ private:
     bool m_isParentProcessFullWebBrowserOrRunningTest { false };
 #endif
     bool m_enableModernDownloadProgress { false };
+
+    struct DeleteWebsiteDataTask {
+        std::optional<PAL::SessionID> sessionID;
+        OptionSet<WebsiteDataType> websiteDataTypes;
+        WallTime modifiedSince;
+        CompletionHandler<void()> completionHandler;
+    };
+    HashMap<TaskIdentifier, DeleteWebsiteDataTask> m_deleteWebsiteDataTasks;
 };
 
 #if !PLATFORM(COCOA)

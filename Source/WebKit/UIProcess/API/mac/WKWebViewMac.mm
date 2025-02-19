@@ -211,6 +211,10 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (void)renewGState
 ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
+#if ENABLE(SCREEN_TIME)
+    [self _updateScreenTimeViewGeometry];
+#endif
+
     if (_impl)
         _impl->renewGState();
     [super renewGState];
@@ -1429,6 +1433,26 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)_setRubberBandingEnabled:(_WKRectEdge)state
 {
     _impl->setRubberBandingEnabled(state);
+}
+
+- (BOOL)_alwaysBounceVertical
+{
+    return _impl->alwaysBounceVertical();
+}
+
+- (void)_setAlwaysBounceVertical:(BOOL)value
+{
+    _impl->setAlwaysBounceVertical(value);
+}
+
+- (BOOL)_alwaysBounceHorizontal
+{
+    return _impl->alwaysBounceHorizontal();
+}
+
+- (void)_setAlwaysBounceHorizontal:(BOOL)value
+{
+    _impl->setAlwaysBounceHorizontal(value);
 }
 
 - (NSColor *)_backgroundColor

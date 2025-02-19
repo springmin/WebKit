@@ -555,7 +555,9 @@ bool RenderPassEncoder::executePreDrawCommands(uint32_t firstInstance, uint32_t 
         UNUSED_PARAM(passWasSplit);
 #endif
 
-        group->rebindSamplersIfNeeded();
+        protectedParentEncoder()->addOnCommitHandler([group](CommandBuffer&) {
+            return group->rebindSamplersIfNeeded();
+        });
         const Vector<uint32_t>* dynamicOffsets = nullptr;
         if (auto it = m_bindGroupDynamicOffsets.find(groupIndex); it != m_bindGroupDynamicOffsets.end())
             dynamicOffsets = &it->value;
@@ -1121,6 +1123,9 @@ void RenderPassEncoder::executeBundles(Vector<Ref<RenderBundle>>&& bundles)
         }
 
         commandEncoder = renderCommandEncoder();
+        protectedParentEncoder()->addOnCommitHandler([bundle](CommandBuffer&) {
+            return bundle->rebindSamplersIfNeeded();
+        });
         if (!bundle->requiresCommandReplay()) {
             bool splitPass = false;
             for (RenderBundleICBWithResources* icb in bundle->renderBundlesResources()) {
@@ -1213,6 +1218,18 @@ void RenderPassEncoder::executeBundles(Vector<Ref<RenderBundle>>&& bundles)
 
         bundle->replayCommands(*this);
     }
+
+    m_vertexBuffers.clear();
+    m_bindGroups.clear();
+    m_bindGroupDynamicOffsets.clear();
+    m_pipeline = nullptr;
+    m_vertexDynamicOffsets.clear();
+    m_priorVertexDynamicOffsets.clear();
+    m_fragmentDynamicOffsets.clear();
+    m_priorFragmentDynamicOffsets.clear();
+    m_indexBuffer = nullptr;
+    m_maxVertexBufferSlot = 0;
+    m_maxBindGroupSlot = 0;
 }
 
 bool RenderPassEncoder::colorDepthStencilTargetsMatch(const RenderPipeline& pipeline) const

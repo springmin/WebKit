@@ -1173,6 +1173,27 @@ void WKPageSetPageInjectedBundleClient(WKPageRef pageRef, const WKPageInjectedBu
     toImpl(pageRef)->setInjectedBundleClient(wkClient);
 }
 
+class CompletionListener : public API::ObjectImpl<API::Object::Type::CompletionListener> {
+public:
+    static Ref<CompletionListener> create(CompletionHandler<void()>&& completionHandler) { return adoptRef(*new CompletionListener(WTFMove(completionHandler))); }
+    void complete() { m_completionHandler(); }
+
+private:
+    explicit CompletionListener(CompletionHandler<void()>&& completionHandler)
+        : m_completionHandler(WTFMove(completionHandler)) { }
+
+    CompletionHandler<void()> m_completionHandler;
+};
+
+namespace WebKit {
+WK_ADD_API_MAPPING(WKCompletionListenerRef, CompletionListener);
+}
+
+void WKCompletionListenerComplete(WKCompletionListenerRef listener)
+{
+    toImpl(listener)->complete();
+}
+
 void WKPageSetFullScreenClientForTesting(WKPageRef pageRef, const WKPageFullScreenClientBase* client)
 {
     CRASH_IF_SUSPENDED;
@@ -1209,18 +1230,19 @@ void WKPageSetFullScreenClientForTesting(WKPageRef pageRef, const WKPageFullScre
             m_client.beganEnterFullScreen(toAPI(m_page.get()), toAPI(initialFrame), toAPI(finalFrame), m_client.base.clientInfo);
         }
 
-        void exitFullScreen() override
+        void exitFullScreen(CompletionHandler<void()>&& completionHandler) override
         {
             if (!m_client.exitFullScreen)
-                return;
+                return completionHandler();
             m_client.exitFullScreen(toAPI(m_page.get()), m_client.base.clientInfo);
+            completionHandler();
         }
 
-        void beganExitFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame) override
+        void beganExitFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame, CompletionHandler<void()>&& completionHandler) override
         {
             if (!m_client.beganExitFullScreen)
-                return;
-            m_client.beganExitFullScreen(toAPI(m_page.get()), toAPI(initialFrame), toAPI(finalFrame), m_client.base.clientInfo);
+                return completionHandler();
+            m_client.beganExitFullScreen(toAPI(m_page.get()), toAPI(initialFrame), toAPI(finalFrame), toAPI(CompletionListener::create(WTFMove(completionHandler)).ptr()), m_client.base.clientInfo);
         }
 
 #if ENABLE(QUICKLOOK_FULLSCREEN)
@@ -1244,24 +1266,6 @@ void WKPageDidEnterFullScreen(WKPageRef pageRef)
 #if ENABLE(FULLSCREEN_API)
     if (RefPtr manager = toImpl(pageRef)->fullScreenManager())
         manager->didEnterFullScreen();
-#endif
-}
-
-void WKPageWillExitFullScreen(WKPageRef pageRef)
-{
-    CRASH_IF_SUSPENDED;
-#if ENABLE(FULLSCREEN_API)
-    if (RefPtr manager = toImpl(pageRef)->fullScreenManager())
-        manager->willExitFullScreen();
-#endif
-}
-
-void WKPageDidExitFullScreen(WKPageRef pageRef)
-{
-    CRASH_IF_SUSPENDED;
-#if ENABLE(FULLSCREEN_API)
-    if (RefPtr manager = toImpl(pageRef)->fullScreenManager())
-        manager->didExitFullScreen();
 #endif
 }
 

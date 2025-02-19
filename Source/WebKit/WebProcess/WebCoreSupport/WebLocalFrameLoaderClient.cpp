@@ -559,8 +559,13 @@ void WebLocalFrameLoaderClient::dispatchDidStartProvisionalLoad()
 
 #if ENABLE(FULLSCREEN_API)
     auto* document = m_localFrame->document();
-    if (document && document->fullscreenManager().fullscreenElement())
-        webPage->fullScreenManager().exitFullScreenForElement(webPage->fullScreenManager().element());
+    if (document && document->fullscreenManager().fullscreenElement()) {
+        RefPtr element = webPage->fullScreenManager().element();
+        webPage->fullScreenManager().exitFullScreenForElement(element.get(), [element] {
+            if (element)
+                element->document().fullscreenManager().didExitFullscreen([](auto) { });
+        });
+    }
 #endif
 
     webPage->findController().hideFindUI();
@@ -2035,7 +2040,7 @@ void WebLocalFrameLoaderClient::didExceedNetworkUsageThreshold()
     if (document->shouldSkipResourceMonitorThrottling())
         action(true);
     else
-        webPage->sendWithAsyncReply(Messages::WebPageProxy::ShouldOffloadIFrameForHost(url.host().toStringWithoutCopying()), WTFMove(action));
+        WebProcess::singleton().ensureNetworkProcessConnection().connection().sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::ShouldOffloadIFrameForHost(url.host().toStringWithoutCopying()), WTFMove(action), 0);
 }
 
 #endif

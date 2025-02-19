@@ -439,6 +439,8 @@ public:
     // regardless of the settings.
     virtual bool allowsAcceleratedCompositing() const { return true; }
 
+    virtual bool isWebChromeClient() const { return false; }
+
     enum CompositingTrigger {
         ThreeDTransformTrigger = 1 << 0,
         VideoTrigger = 1 << 1,
@@ -492,7 +494,7 @@ public:
 #if ENABLE(QUICKLOOK_FULLSCREEN)
     virtual void updateImageSource(Element&) { }
 #endif // ENABLE(QUICKLOOK_FULLSCREEN)
-    virtual void exitFullScreenForElement(Element*) { }
+    virtual void exitFullScreenForElement(Element*, CompletionHandler<void()>&& completionHandler) { completionHandler(); }
     virtual void setRootFullScreenLayer(GraphicsLayer*) { }
 #endif
 

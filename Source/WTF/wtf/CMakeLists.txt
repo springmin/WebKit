@@ -167,6 +167,7 @@ set(WTF_PUBLIC_HEADERS
     MainThread.h
     MainThreadData.h
     MainThreadDispatcher.h
+    MallocCommon.h
     MallocPtr.h
     MallocSpan.h
     Markable.h
@@ -553,6 +554,7 @@ set(WTF_SOURCES
     Logging.cpp
     MainThread.cpp
     MainThreadDispatcher.cpp
+    MallocCommon.cpp
     MediaTime.cpp
     MemoryPressureHandler.cpp
     MetaAllocator.cpp

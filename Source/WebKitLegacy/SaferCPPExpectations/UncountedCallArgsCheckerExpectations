@@ -94,7 +94,6 @@ mac/DOM/DOMHTMLTitleElement.mm
 mac/DOM/DOMHTMLUListElement.mm
 mac/DOM/DOMHTMLVideoElement.mm
 mac/DOM/DOMImplementation.mm
-mac/DOM/DOMInternal.mm
 mac/DOM/DOMKeyboardEvent.mm
 mac/DOM/DOMMediaList.mm
 mac/DOM/DOMMouseEvent.mm
@@ -124,7 +123,6 @@ mac/DOM/WebDOMOperations.mm
 mac/History/WebBackForwardList.mm
 mac/History/WebHistoryItem.mm
 mac/Misc/WebCoreStatistics.mm
-mac/Misc/WebDownload.mm
 mac/Misc/WebElementDictionary.mm
 mac/Misc/WebNSPasteboardExtras.mm
 mac/Misc/WebSharingServicePickerController.mm

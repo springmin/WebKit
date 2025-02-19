@@ -32,7 +32,6 @@
 #import "APILegacyContextHistoryClient.h"
 #import "APINavigation.h"
 #import "APIPageConfiguration.h"
-#import "AppKitSPI.h"
 #import "CoreTextHelpers.h"
 #import "FrameProcess.h"
 #import "FullscreenClient.h"
@@ -72,7 +71,7 @@
 #import "WKTextAnimationManager.h"
 #import "WKTextPlaceholder.h"
 #import "WKViewLayoutStrategy.h"
-#import "WKWebViewInternal.h"
+#import "WKWebViewMac.h"
 #import "WebBackForwardList.h"
 #import "WebEditCommandProxy.h"
 #import "WebEventFactory.h"
@@ -103,6 +102,7 @@
 #import <WebCore/DragData.h>
 #import <WebCore/DragItem.h>
 #import <WebCore/Editor.h>
+#import <WebCore/FixedContainerEdges.h>
 #import <WebCore/FontAttributeChanges.h>
 #import <WebCore/FontAttributes.h>
 #import <WebCore/KeypressCommand.h>
@@ -164,13 +164,18 @@
 #import <wtf/text/MakeString.h>
 
 #if HAVE(DIGITAL_CREDENTIALS_UI)
+#if USE(APPLE_INTERNAL_SDK)  && __has_include(<WebKitAdditions/WKDigitalCredentialsPickerAdditions.h>)
+#import <WebKitAdditions/WKDigitalCredentialsPickerAdditions.h>
+#else
 #import <WebKit/WKDigitalCredentialsPicker.h>
+#endif
 #endif
 
 #if ENABLE(MEDIA_SESSION_COORDINATOR)
 #include "MediaSessionCoordinatorProxyPrivate.h"
 #endif
 
+#import "AppKitSoftLink.h"
 #import <pal/cocoa/RevealSoftLink.h>
 #import <pal/cocoa/VisionKitCoreSoftLink.h>
 #import <pal/cocoa/TranslationUIServicesSoftLink.h>
@@ -352,6 +357,7 @@ static void* keyValueObservingContext = &keyValueObservingContext;
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidChangeScreen:) name:NSWindowDidChangeScreenNotification object:window];
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidChangeLayerHosting:) name:_NSWindowDidChangeContentsHostedInLayerSurfaceNotification object:window];
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidChangeOcclusionState:) name:NSWindowDidChangeOcclusionStateNotification object:window];
+    [defaultNotificationCenter addObserver:self selector:@selector(_windowWillClose:) name:NSWindowWillCloseNotification object:window];
 
     [defaultNotificationCenter addObserver:self selector:@selector(_screenDidChangeColorSpace:) name:NSScreenColorSpaceDidChangeNotification object:nil];
 
@@ -398,6 +404,7 @@ static void* keyValueObservingContext = &keyValueObservingContext;
     [defaultNotificationCenter removeObserver:self name:NSWindowDidChangeScreenNotification object:window];
     [defaultNotificationCenter removeObserver:self name:_NSWindowDidChangeContentsHostedInLayerSurfaceNotification object:window];
     [defaultNotificationCenter removeObserver:self name:NSWindowDidChangeOcclusionStateNotification object:window];
+    [defaultNotificationCenter removeObserver:self name:NSWindowWillCloseNotification object:window];
 
     [defaultNotificationCenter removeObserver:self name:NSScreenColorSpaceDidChangeNotification object:nil];
 
@@ -516,6 +523,12 @@ static void* keyValueObservingContext = &keyValueObservingContext;
 {
     if (_impl)
         _impl->windowDidChangeOcclusionState();
+}
+
+- (void)_windowWillClose:(NSNotification *)notification
+{
+    if (_impl)
+        _impl->windowWillClose();
 }
 
 - (void)_screenDidChangeColorSpace:(NSNotification *)notification
@@ -1228,9 +1241,9 @@ static bool isInRecoveryOS()
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(WebViewImpl);
 
-WebViewImpl::WebViewImpl(NSView <WebViewImplDelegate> *view, WKWebView *outerWebView, WebProcessPool& processPool, Ref<API::PageConfiguration>&& configuration)
+WebViewImpl::WebViewImpl(WKWebView *view, WebProcessPool& processPool, Ref<API::PageConfiguration>&& configuration)
     : m_view(view)
-    , m_pageClient(makeUniqueWithoutRefCountedCheck<PageClientImpl>(view, outerWebView))
+    , m_pageClient(makeUniqueWithoutRefCountedCheck<PageClientImpl>(view, view))
     , m_page(processPool.createWebPage(*m_pageClient, WTFMove(configuration)))
     , m_needsViewFrameInWindowCoordinates(false)
     , m_intrinsicContentSize(CGSizeMake(NSViewNoIntrinsicMetric, NSViewNoIntrinsicMetric))
@@ -1324,7 +1337,7 @@ WebViewImpl::WebViewImpl(NSView <WebViewImplDelegate> *view, WKWebView *outerWeb
     view.layerContentsPlacement = NSViewLayerContentsPlacementTopLeft;
 
 #if ENABLE(FULLSCREEN_API)
-    m_page->setFullscreenClient(makeUnique<WebKit::FullscreenClient>(outerWebView));
+    m_page->setFullscreenClient(makeUnique<WebKit::FullscreenClient>(view));
 #endif
 
 #if HAVE(NSSCROLLVIEW_SEPARATOR_TRACKING_ADAPTER)
@@ -1332,7 +1345,7 @@ WebViewImpl::WebViewImpl(NSView <WebViewImplDelegate> *view, WKWebView *outerWeb
 #endif
 
 #if HAVE(REDESIGNED_TEXT_CURSOR) && PLATFORM(MAC)
-    _textInputNotifications = subscribeToTextInputNotifications(this);
+    m_textInputNotifications = subscribeToTextInputNotifications(this);
 #endif
 
     WebProcessPool::statistics().wkViewCount++;
@@ -1385,6 +1398,8 @@ void WebViewImpl::handleProcessSwapOrExit()
     updateRemoteAccessibilityRegistration(false);
 
     hideDOMPasteMenuWithResult(WebCore::DOMPasteAccessResponse::DeniedForGesture);
+
+    [view() _updateFixedContainerEdges:FixedContainerEdges { }];
 }
 
 void WebViewImpl::processWillSwap()
@@ -1845,7 +1860,7 @@ void WebViewImpl::updateContentInsetsIfAutomatic()
 
 FloatBoxExtent WebViewImpl::obscuredContentInsets() const
 {
-    return m_page->obscuredContentInsets();
+    return m_page->pendingOrActualObscuredContentInsets();
 }
 
 void WebViewImpl::setObscuredContentInsets(const FloatBoxExtent& insets)
@@ -2113,6 +2128,11 @@ void WebViewImpl::windowDidChangeOcclusionState()
 {
     LOG(ActivityState, "WebViewImpl %p (page %llu) windowDidChangeOcclusionState", this, m_page->identifier().toUInt64());
     m_page->activityStateDidChange(WebCore::ActivityState::IsVisible);
+}
+
+void WebViewImpl::windowWillClose()
+{
+    resetSecureInputState();
 }
 
 void WebViewImpl::screenDidChangeColorSpace()
@@ -2391,7 +2411,7 @@ WebCore::DestinationColorSpace WebViewImpl::colorSpace()
 
         if (!m_colorSpace)
             m_colorSpace = [NSScreen mainScreen].colorSpace;
-    
+
         if (!m_colorSpace)
             m_colorSpace = [NSColorSpace sRGBColorSpace];
     }
@@ -3894,6 +3914,10 @@ void WebViewImpl::setAcceleratedCompositingRootLayer(CALayer *rootLayer)
     [m_layerHostingView layer].sublayers = rootLayer ? @[ rootLayer ] : nil;
 
     [CATransaction commit];
+
+#if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
+    updateContentInsetFillViews();
+#endif
 }
 
 void WebViewImpl::setHeaderBannerLayer(CALayer *headerBannerLayer)
@@ -5846,6 +5870,26 @@ void WebViewImpl::setRubberBandingEnabled(_WKRectEdge state)
     m_page->setRubberBandableEdges(toRectEdges(state));
 }
 
+bool WebViewImpl::alwaysBounceVertical()
+{
+    return m_page->alwaysBounceVertical();
+}
+
+void WebViewImpl::setAlwaysBounceVertical(bool value)
+{
+    m_page->setAlwaysBounceVertical(value);
+}
+
+bool WebViewImpl::alwaysBounceHorizontal()
+{
+    return m_page->alwaysBounceHorizontal();
+}
+
+void WebViewImpl::setAlwaysBounceHorizontal(bool value)
+{
+    m_page->setAlwaysBounceHorizontal(value);
+}
+
 void WebViewImpl::mouseDown(NSEvent *event)
 {
     if (m_ignoresNonWheelEvents)
@@ -6435,7 +6479,7 @@ void WebViewImpl::updateCursorAccessoryPlacement()
     if (!context)
         return;
 
-    if ([_textInputNotifications caretType] == WebCore::CaretAnimatorType::Dictation) {
+    if ([m_textInputNotifications caretType] == WebCore::CaretAnimatorType::Dictation) {
         // The dictation cursor accessory should always be visible no matter what, since it is
         // the only prominent way a user can tell if dictation is active.
         context.showsCursorAccessories = YES;
@@ -6772,5 +6816,9 @@ Ref<WebPageProxy> WebViewImpl::protectedPage() const
 }
 
 } // namespace WebKit
+
+#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WebViewImplAdditions.mm>)
+#import <WebKitAdditions/WebViewImplAdditions.mm>
+#endif
 
 #endif // PLATFORM(MAC)

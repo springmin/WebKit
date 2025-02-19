@@ -33,6 +33,7 @@
 #import "EditingRange.h"
 #import "EditorState.h"
 #import "InteractionInformationAtPosition.h"
+#import "KeyEventInterpretationContext.h"
 #import "Logging.h"
 #import "MessageSenderInlines.h"
 #import "NativeWebKeyboardEvent.h"
@@ -615,8 +616,23 @@ bool WebPage::handleEditingKeyboardEvent(KeyboardEvent& event)
 
     updateLastNodeBeforeWritingSuggestions(event);
 
+    auto scrollingNodeID = [&] -> std::optional<WebCore::ScrollingNodeID> {
+        RefPtr frame = m_page->checkedFocusController()->focusedOrMainFrame();
+        if (!frame)
+            return std::nullopt;
+
+        auto scrollableArea = frame->eventHandler().focusedScrollableArea();
+        if (!scrollableArea)
+            return std::nullopt;
+
+        return scrollableArea->scrollingNodeID();
+    }();
+
+    auto isCharEvent = platformEvent->type() == PlatformKeyboardEvent::Type::Char;
+    auto context = KeyEventInterpretationContext { isCharEvent, scrollingNodeID };
+
     // FIXME: Interpret the event immediately upon receiving it in UI process, without sending to WebProcess first.
-    auto sendResult = WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::InterpretKeyEvent(editorState(ShouldPerformLayout::Yes), platformEvent->type() == PlatformKeyboardEvent::Type::Char), m_identifier);
+    auto sendResult = WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::InterpretKeyEvent(editorState(ShouldPerformLayout::Yes), context), m_identifier);
     auto [eventWasHandled] = sendResult.takeReplyOr(false);
     return eventWasHandled;
 }
@@ -1213,7 +1229,10 @@ void WebPage::sendTapHighlightForNodeIfNecessary(WebKit::TapIdentifier requestID
 
     if (RefPtr element = dynamicDowncast<Element>(*node)) {
         ASSERT(m_page);
-        localMainFrame->loader().client().prefetchDNS(element->absoluteLinkURL().host().toString());
+        auto linkURL = element->absoluteLinkURL();
+        if (!linkURL.protocolIsInHTTPFamily())
+            return;
+        localMainFrame->loader().client().prefetchDNS(linkURL.host().toString());
     }
 
     if (RefPtr area = dynamicDowncast<HTMLAreaElement>(*node)) {
@@ -4944,6 +4963,18 @@ void WebPage::updateVisibleContentRects(const VisibleContentRectUpdateInfo& visi
     })();
 
     if (!pageHasBeenScaledSinceLastLayerTreeCommitThatChangedPageScale) {
+        bool shouldSetCorePageScale = [this, protectedThis = Ref { *this }] {
+#if ENABLE(PDF_PLUGIN)
+            RefPtr pluginView = mainFramePlugIn();
+            if (!pluginView)
+                return true;
+            return pluginView->pluginHandlesPageScaleFactor() ? false : m_isInStableState;
+#else
+            UNUSED_PARAM(this);
+            return true;
+#endif
+        }();
+
         bool hasSetPageScale = false;
         if (scaleFromUIProcess) {
             m_scaleWasSetByUIProcess = true;
@@ -4951,24 +4982,14 @@ void WebPage::updateVisibleContentRects(const VisibleContentRectUpdateInfo& visi
 
             m_dynamicSizeUpdateHistory.clear();
 
-            // FIXME: <webkit.org/b/287511> Also call Page::setPageScaleFactor() for main frame plugins that do not handle page scale factor.
-            bool pluginHandlesPageScaleFactor = [this] {
-#if ENABLE(PDF_PLUGIN)
-                return this->mainFramePlugIn();
-#else
-                UNUSED_PARAM(this);
-                return false;
-#endif
-            }();
-
-            if (!pluginHandlesPageScaleFactor)
+            if (shouldSetCorePageScale)
                 m_page->setPageScaleFactor(scaleFromUIProcess.value(), scrollPosition, m_isInStableState);
 
             hasSetPageScale = true;
             send(Messages::WebPageProxy::PageScaleFactorDidChange(scaleFromUIProcess.value()));
         }
 
-        if (!hasSetPageScale && m_isInStableState)
+        if (!hasSetPageScale && m_isInStableState && shouldSetCorePageScale)
             m_page->setPageScaleFactor(scaleToUse, scrollPosition, true);
     }
 

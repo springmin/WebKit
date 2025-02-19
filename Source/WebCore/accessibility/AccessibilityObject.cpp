@@ -3279,16 +3279,8 @@ String AccessibilityObject::popupValue() const
 
 bool AccessibilityObject::hasDatalist() const
 {
-    auto datalistId = getAttribute(listAttr);
-    if (datalistId.isEmpty())
-        return false;
-
-    auto element = this->element();
-    if (!element)
-        return false;
-
-    auto datalist = element->treeScope().getElementById(datalistId);
-    return is<HTMLDataListElement>(datalist);
+    RefPtr input = dynamicDowncast<HTMLInputElement>(element());
+    return input && input->hasDataList();
 }
 
 bool AccessibilityObject::supportsSetSize() const
@@ -3978,8 +3970,14 @@ AccessibilityObjectInclusion AccessibilityObject::defaultObjectInclusion() const
     bool ignoreARIAHidden = isFocused();
     if (Accessibility::findAncestor<AccessibilityObject>(*this, false, [&] (const auto& object) {
         const auto* style = object.style();
-        if (style && WebCore::isRenderHidden(*style))
+        if (style && style->display() == DisplayType::None) {
+            // We don't want to use AccessibilityObject::isRenderHidden(), as that also checks and returns true
+            // for visibility:hidden, which would be wrong if |this| has a visibility:visible ancestor before
+            // this visibility:hidden ancestor (visibility:visible cancels out visibility:hidden).
+            //
+            // We check the isVisibilityHidden at the top of this method, so that covers us as far as visibility goes.
             return true;
+        }
 
         return (!ignoreARIAHidden && object.isARIAHidden()) || object.ariaRoleHasPresentationalChildren() || !object.canHaveChildren();
     }))
@@ -4075,31 +4073,13 @@ Vector<Ref<Element>> AccessibilityObject::elementsFromAttribute(const QualifiedN
     if (!element)
         return { };
 
-    if (Element::isElementReflectionAttribute(document()->settings(), attribute)) {
-        if (RefPtr reflectedElement = element->getElementAttribute(attribute)) {
-            Vector<Ref<Element>> elements;
-            elements.append(reflectedElement.releaseNonNull());
-            return elements;
-        }
-    } else if (Element::isElementsArrayReflectionAttribute(attribute)) {
-        if (auto reflectedElements = element->getElementsArrayAttribute(attribute)) {
-            return reflectedElements.value();
-        }
-    }
+    if (auto elementsFromAttribute = element->elementsArrayForAttributeInternal(attribute))
+        return elementsFromAttribute.value();
 
-    auto& idsString = getAttribute(attribute);
-    if (idsString.isEmpty()) {
-        if (auto* defaultARIA = element->customElementDefaultARIAIfExists()) {
-            return defaultARIA->elementsForAttribute(*element, attribute);
-        }
-        return { };
-    }
+    if (auto* defaultARIA = element->customElementDefaultARIAIfExists())
+        return defaultARIA->elementsForAttribute(*element, attribute);
 
-    auto& treeScope = element->treeScope();
-    SpaceSplitString ids(idsString, SpaceSplitString::ShouldFoldCase::No);
-    return WTF::compactMap(ids, [&](auto& id) {
-        return treeScope.getElementById(id);
-    });
+    return { };
 }
 
 #if PLATFORM(COCOA)

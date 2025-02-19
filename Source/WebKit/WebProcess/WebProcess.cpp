@@ -536,8 +536,10 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters,
 
     SandboxExtension::consumePermanently(parameters.additionalSandboxExtensionHandles);
 
-    if (!parameters.injectedBundlePath.isEmpty())
-        m_injectedBundle = InjectedBundle::create(parameters, transformHandlesToObjects(parameters.initializationUserData.object()));
+    if (!parameters.injectedBundlePath.isEmpty()) {
+        if (RefPtr injectedBundle = InjectedBundle::create(parameters, transformHandlesToObjects(parameters.initializationUserData.object())))
+            lazyInitialize(m_injectedBundle, injectedBundle.releaseNonNull());
+    }
 
     for (auto& supplement : m_supplements.values())
         supplement->initialize(parameters);
@@ -735,6 +737,13 @@ void WebProcess::setHasSuspendedPageProxy(bool hasSuspendedPageProxy)
     ASSERT(m_hasSuspendedPageProxy != hasSuspendedPageProxy);
     m_hasSuspendedPageProxy = hasSuspendedPageProxy;
 }
+
+#if ENABLE(GPU_PROCESS) && HAVE(AVASSETREADER)
+Ref<RemoteImageDecoderAVFManager> WebProcess::protectedRemoteImageDecoderAVFManager()
+{
+    return m_remoteImageDecoderAVFManager;
+}
+#endif
 
 void WebProcess::setIsInProcessCache(bool isInProcessCache, CompletionHandler<void()>&& completionHandler)
 {
@@ -1547,6 +1556,10 @@ void WebProcess::deleteWebsiteData(OptionSet<WebsiteDataType> websiteDataTypes, 
 
         CrossOriginPreflightResultCache::singleton().clear();
     }
+
+    if (websiteDataTypes.contains(WebsiteDataType::ResourceLoadStatistics))
+        clearResourceLoadStatistics();
+
     completionHandler();
 }
 

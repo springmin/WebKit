@@ -88,6 +88,7 @@
 #include "WebsiteDataFetchOption.h"
 #include <WebCore/AudioSession.h>
 #include <WebCore/DiagnosticLoggingKeys.h>
+#include <WebCore/MediaProducer.h>
 #include <WebCore/PermissionName.h>
 #include <WebCore/PlatformMediaSessionManager.h>
 #include <WebCore/PrewarmInformation.h>
@@ -1946,9 +1947,13 @@ void WebProcessProxy::updateAudibleMediaAssertions()
         return;
 #endif
 
-    bool hasAudibleWebPage = WTF::anyOf(pages(), [] (auto& page) {
+    bool hasAudibleMainPage = WTF::anyOf(pages(), [] (auto& page) {
         return page->isPlayingAudio();
     });
+    bool hasAudibleRemotePage = WTF::anyOf(remotePages(), [](auto& remotePage) {
+        return remotePage ? remotePage->mediaState().contains(MediaProducerMediaState::IsPlayingAudio) : false;
+    });
+    bool hasAudibleWebPage = hasAudibleMainPage || hasAudibleRemotePage;
 
     if (!!m_audibleMediaActivity == hasAudibleWebPage)
         return;
@@ -1967,9 +1972,13 @@ void WebProcessProxy::updateAudibleMediaAssertions()
 
 void WebProcessProxy::updateMediaStreamingActivity()
 {
-    bool hasMediaStreamingWebPage = WTF::anyOf(pages(), [] (auto& page) {
+    bool hasMediaStreamingMainPage = WTF::anyOf(pages(), [] (auto& page) {
         return page->hasMediaStreaming();
     });
+    bool hasMediaStreamingRemotePage = WTF::anyOf(remotePages(), [] (auto& remotePage) {
+        return remotePage ? remotePage->mediaState().contains(MediaProducerMediaState::HasStreamingActivity) : false;
+    });
+    bool hasMediaStreamingWebPage = hasMediaStreamingMainPage || hasMediaStreamingRemotePage;
 
     if (!!m_mediaStreamingActivity == hasMediaStreamingWebPage)
         return;
@@ -2448,14 +2457,14 @@ void WebProcessProxy::createSpeechRecognitionServer(SpeechRecognitionServerIdent
     ASSERT(!m_speechRecognitionServerMap.contains(identifier));
     MESSAGE_CHECK(!m_speechRecognitionServerMap.contains(identifier));
 
-    auto permissionChecker = [weakPage = WeakPtr { targetPage }](auto& request, SpeechRecognitionPermissionRequestCallback&& completionHandler) mutable {
+    auto permissionChecker = [weakPage = WeakPtr { targetPage }](auto& request, FrameInfoData&& frameInfo, SpeechRecognitionPermissionRequestCallback&& completionHandler) mutable {
         RefPtr page = weakPage.get();
         if (!page) {
             completionHandler(WebCore::SpeechRecognitionError { SpeechRecognitionErrorType::NotAllowed, "Page no longer exists"_s });
             return;
         }
 
-        page->requestSpeechRecognitionPermission(request, WTFMove(completionHandler));
+        page->requestSpeechRecognitionPermission(request, WTFMove(frameInfo), WTFMove(completionHandler));
     };
     auto checkIfMockCaptureDevicesEnabled = [weakPage = WeakPtr { targetPage }]() {
         return weakPage && weakPage->protectedPreferences()->mockCaptureDevicesEnabled();

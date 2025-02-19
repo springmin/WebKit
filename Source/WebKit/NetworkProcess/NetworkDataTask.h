@@ -111,6 +111,7 @@ public:
     virtual State state() const = 0;
 
     NetworkDataTaskClient* client() const { return m_client.get(); }
+    RefPtr<NetworkDataTaskClient> protectedClient() const { return client(); }
     void clearClient() { m_client = nullptr; }
 
     std::optional<DownloadID> pendingDownloadID() const { return m_pendingDownloadID.asOptional(); }
@@ -150,8 +151,7 @@ public:
 
     virtual void setTimingAllowFailedFlag() { }
 
-    size_t calculateBytesTransferredOverNetworkDelta();
-    size_t totalBytesTransferredOverNetwork() const { return m_totalBytesTransferredOverNetwork; }
+    size_t bytesTransferredOverNetwork() const { return m_bytesTransferredOverNetwork; }
 
 protected:
     NetworkDataTask(NetworkSession&, NetworkDataTaskClient&, const WebCore::ResourceRequest&, WebCore::StoredCredentialsPolicy, bool shouldClearReferrerOnHTTPSToHTTPRedirect, bool dataTaskIsForMainFrameNavigation);
@@ -165,7 +165,7 @@ protected:
     void scheduleFailure(FailureType);
 
     void restrictRequestReferrerToOriginIfNeeded(WebCore::ResourceRequest&);
-    void setTotalBytesTransferredOverNetwork(size_t bytes) { m_totalBytesTransferredOverNetwork = bytes; }
+    void setBytesTransferredOverNetwork(size_t bytes) { m_bytesTransferredOverNetwork = bytes; }
 
     WeakPtr<NetworkSession> m_session;
     WeakPtr<NetworkDataTaskClient> m_client;
@@ -181,8 +181,7 @@ protected:
     WebCore::ResourceRequest m_firstRequest;
     WebCore::ResourceRequest m_previousRequest;
     String m_suggestedFilename;
-    size_t m_totalBytesTransferredOverNetwork { 0 };
-    size_t m_bytesTransferredOverNetworkReported { 0 };
+    size_t m_bytesTransferredOverNetwork { 0 };
     bool m_shouldClearReferrerOnHTTPSToHTTPRedirect { true };
     bool m_dataTaskIsForMainFrameNavigation { false };
     bool m_failureScheduled { false };

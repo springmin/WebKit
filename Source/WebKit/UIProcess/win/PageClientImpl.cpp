@@ -324,9 +324,10 @@ void PageClientImpl::enterFullScreen(CompletionHandler<void(bool)>&& completionH
     completionHandler(false);
 }
 
-void PageClientImpl::exitFullScreen()
+void PageClientImpl::exitFullScreen(CompletionHandler<void()>&& completionHandler)
 {
     notImplemented();
+    completionHandler();
 }
 
 void PageClientImpl::beganEnterFullScreen(const IntRect& /* initialFrame */, const IntRect& /* finalFrame */)
@@ -334,9 +335,10 @@ void PageClientImpl::beganEnterFullScreen(const IntRect& /* initialFrame */, con
     notImplemented();
 }
 
-void PageClientImpl::beganExitFullScreen(const IntRect& /* initialFrame */, const IntRect& /* finalFrame */)
+void PageClientImpl::beganExitFullScreen(const IntRect& /* initialFrame */, const IntRect& /* finalFrame */, CompletionHandler<void()>&& completionHandler)
 {
     notImplemented();
+    completionHandler();
 }
 #endif // ENABLE(FULLSCREEN_API)
 

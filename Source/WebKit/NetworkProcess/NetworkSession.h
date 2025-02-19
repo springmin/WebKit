@@ -59,6 +59,7 @@
 namespace WebCore {
 class CertificateInfo;
 class NetworkStorageSession;
+class ResourceMonitorThrottlerHolder;
 class ResourceRequest;
 class ResourceError;
 class SWServer;
@@ -293,6 +294,14 @@ public:
     bool isDeclarativeWebPushEnabled() const { return m_isDeclarativeWebPushEnabled; }
 #endif
 
+#if ENABLE(CONTENT_EXTENSIONS)
+    WebCore::ResourceMonitorThrottlerHolder& resourceMonitorThrottler();
+    Ref<WebCore::ResourceMonitorThrottlerHolder> protectedResourceMonitorThrottler();
+
+    void clearResourceMonitorThrottlerData(CompletionHandler<void()>&&);
+    void resetResourceMonitorThrottlerForTesting();
+#endif
+
 protected:
     NetworkSession(NetworkProcess&, const NetworkSessionCreationParameters&);
 
@@ -402,6 +411,10 @@ protected:
 #endif
 #if ENABLE(DECLARATIVE_WEB_PUSH)
     bool m_isDeclarativeWebPushEnabled { false };
+#endif
+#if ENABLE(CONTENT_EXTENSIONS)
+    RefPtr<WebCore::ResourceMonitorThrottlerHolder> m_resourceMonitorThrottler;
+    String m_resourceMonitorThrottlerDirectory;
 #endif
 };
 

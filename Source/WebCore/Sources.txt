@@ -616,6 +616,7 @@ animation/ScrollAxis.cpp
 animation/ScrollTimeline.cpp
 animation/StyleOriginatedAnimation.cpp
 animation/StyleOriginatedAnimationEvent.cpp
+animation/StyleOriginatedTimelinesController.cpp
 animation/TimelineRange.cpp
 animation/ViewTimeline.cpp
 animation/WebAnimation.cpp
@@ -845,7 +846,6 @@ crypto/algorithms/CryptoAlgorithmRSASSA_PKCS1_v1_5.cpp
 crypto/algorithms/CryptoAlgorithmRSA_OAEP.cpp
 crypto/algorithms/CryptoAlgorithmRSA_PSS.cpp
 crypto/algorithms/CryptoAlgorithmSHA1.cpp
-crypto/algorithms/CryptoAlgorithmSHA224.cpp
 crypto/algorithms/CryptoAlgorithmSHA256.cpp
 crypto/algorithms/CryptoAlgorithmSHA384.cpp
 crypto/algorithms/CryptoAlgorithmSHA512.cpp
@@ -1889,6 +1889,7 @@ inspector/agents/page/PageDebuggerAgent.cpp
 inspector/agents/page/PageHeapAgent.cpp
 inspector/agents/page/PageNetworkAgent.cpp
 inspector/agents/page/PageRuntimeAgent.cpp
+inspector/agents/page/PageTimelineAgent.cpp
 inspector/agents/page/PageWorkerAgent.cpp
 inspector/agents/worker/ServiceWorkerAgent.cpp
 inspector/agents/worker/WorkerAuditAgent.cpp
@@ -1898,6 +1899,7 @@ inspector/agents/worker/WorkerDOMDebuggerAgent.cpp
 inspector/agents/worker/WorkerDebuggerAgent.cpp
 inspector/agents/worker/WorkerNetworkAgent.cpp
 inspector/agents/worker/WorkerRuntimeAgent.cpp
+inspector/agents/worker/WorkerTimelineAgent.cpp
 inspector/agents/worker/WorkerWorkerAgent.cpp
 layout/formattingContexts/FormattingContext.cpp
 layout/formattingContexts/FormattingGeometry.cpp
@@ -2030,7 +2032,9 @@ loader/ResourceLoadStatistics.cpp
 loader/ResourceLoader.cpp
 loader/ResourceMonitor.cpp
 loader/ResourceMonitorChecker.cpp
+loader/ResourceMonitorPersistence.cpp
 loader/ResourceMonitorThrottler.cpp
+loader/ResourceMonitorThrottlerHolder.cpp
 loader/ResourceTiming.cpp
 loader/ResourceTimingInformation.cpp
 loader/ServerTiming.cpp
@@ -4223,6 +4227,7 @@ JSMessageChannel.cpp
 JSMessageEvent.cpp
 JSMessagePort.cpp
 JSMeteringMode.cpp
+JSMobileDocumentRequest.cpp
 JSMouseEvent.cpp
 JSMouseEventInit.cpp
 JSMultiCacheQueryOptions.cpp

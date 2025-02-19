@@ -1437,6 +1437,22 @@ window.UIHelper = class UIHelper {
         return new Promise(resolve => testRunner.runUIScript(`uiController.setScrollViewKeyboardAvoidanceEnabled(${enabled})`, resolve));
     }
 
+    static async setAlwaysBounceVertical(enabled)
+    {
+        if (!this.isWebKit2())
+            return Promise.resolve();
+
+        return new Promise(resolve => testRunner.runUIScript(`uiController.setAlwaysBounceVertical(${enabled})`, resolve));
+    }
+
+    static async setAlwaysBounceHorizontal(enabled)
+    {
+        if (!this.isWebKit2())
+            return Promise.resolve();
+
+        return new Promise(resolve => testRunner.runUIScript(`uiController.setAlwaysBounceHorizontal(${enabled})`, resolve));
+    }
+
     static presentFindNavigator() {
         if (!this.isWebKit2() || !this.isIOSFamily())
             return Promise.resolve();
@@ -2193,6 +2209,46 @@ window.UIHelper = class UIHelper {
                 uiController.setAppAccentColor(${red}, ${green}, ${blue});
             })()`, resolve);
         });
+    }
+
+    static async cookiesForDomain(domain)
+    {
+        if (!this.isWebKit2())
+            return Promise.resolve([ ]);
+
+        const script = `uiController.cookiesForDomain("${domain}", cookieData => {
+            uiController.uiScriptComplete(JSON.stringify(cookieData));
+        });`;
+
+        return new Promise(resolve => {
+            testRunner.runUIScript(script, cookieData => {
+                resolve(JSON.parse(cookieData));
+            });
+        });
+    }
+
+    static fixedContainerEdgeColors()
+    {
+        if (!this.isWebKit2())
+            return { };
+
+        const script = "JSON.stringify(uiController.fixedContainerEdgeColors)";
+        return new Promise(resolve => testRunner.runUIScript(script, colors => {
+            resolve(JSON.parse(colors));
+        }));
+    }
+
+    static async waitForFixedContainerEdgeColors(expectedColors)
+    {
+        while (true) {
+            await this.renderingUpdate();
+            const colors = await this.fixedContainerEdgeColors();
+            for (const edge of ["top", "left", "right", "bottom"]) {
+                if (colors[edge] !== expectedColors[edge])
+                    continue;
+            }
+            break;
+        }
     }
 
     static addChromeInputField()

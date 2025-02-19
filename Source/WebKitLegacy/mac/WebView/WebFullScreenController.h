@@ -26,6 +26,7 @@
 #if ENABLE(FULLSCREEN_API) && !PLATFORM(IOS_FAMILY)
 
 #import <WebCore/IntPoint.h>
+#import <wtf/CompletionHandler.h>
 #import <wtf/RefPtr.h>
 #import <wtf/RetainPtr.h>
 
@@ -36,6 +37,7 @@ namespace WebCore {
 class Element;
 class RenderBox;
 class EventListener;
+template<typename> class ExceptionOr;
 }
 
 @interface WebFullScreenController : NSWindowController {
@@ -52,7 +54,7 @@ class EventListener;
     float _savedScale;
 
     BOOL _isEnteringFullScreen;
-    BOOL _isExitingFullScreen;
+    CompletionHandler<void()> _exitCompletionHandler;
     BOOL _isFullScreen;
 }
 
@@ -69,8 +71,8 @@ class EventListener;
 - (void)setElement:(RefPtr<WebCore::Element>&&)element;
 - (WebCore::Element*)element;
 
-- (void)enterFullScreen:(NSScreen *)screen;
-- (void)exitFullScreen;
+- (void)enterFullScreen:(NSScreen *)screen completionHandler:(CompletionHandler<void(WebCore::ExceptionOr<void>)>&&)completionHandler;
+- (void)exitFullScreen:(CompletionHandler<void()>&&)completionHandler;
 - (void)close;
 @end
 

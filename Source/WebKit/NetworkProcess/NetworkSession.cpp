@@ -71,6 +71,9 @@
 #if USE(CURL)
 #include "NetworkSessionCurl.h"
 #endif
+#if ENABLE(CONTENT_EXTENSIONS)
+#include <WebCore/ResourceMonitorThrottlerHolder.h>
+#endif
 
 namespace WebKit {
 using namespace WebCore;
@@ -172,6 +175,9 @@ NetworkSession::NetworkSession(NetworkProcess& networkProcess, const NetworkSess
 #if ENABLE(DECLARATIVE_WEB_PUSH)
     , m_isDeclarativeWebPushEnabled(parameters.isDeclarativeWebPushEnabled)
 #endif
+#if ENABLE(CONTENT_EXTENSIONS)
+    , m_resourceMonitorThrottlerDirectory(parameters.resourceMonitorThrottlerDirectory)
+#endif
 {
     if (!m_sessionID.isEphemeral()) {
         String networkCacheDirectory = parameters.networkCacheDirectory;
@@ -215,6 +221,10 @@ NetworkSession::NetworkSession(NetworkProcess& networkProcess, const NetworkSess
         parameters.serviceWorkerRegistrationDirectory,
         parameters.serviceWorkerProcessTerminationDelayEnabled
     };
+
+#if ENABLE(CONTENT_EXTENSIONS)
+    SandboxExtension::consumePermanently(parameters.resourceMonitorThrottlerDirectoryExtensionHandle);
+#endif
 }
 
 NetworkSession::~NetworkSession()
@@ -926,5 +936,33 @@ Ref<NetworkBroadcastChannelRegistry> NetworkSession::protectedBroadcastChannelRe
 {
     return m_broadcastChannelRegistry;
 }
+
+#if ENABLE(CONTENT_EXTENSIONS)
+WebCore::ResourceMonitorThrottlerHolder& NetworkSession::resourceMonitorThrottler()
+{
+    if (!m_resourceMonitorThrottler)
+        m_resourceMonitorThrottler = WebCore::ResourceMonitorThrottlerHolder::create(m_resourceMonitorThrottlerDirectory);
+
+    return *m_resourceMonitorThrottler;
+}
+
+Ref<WebCore::ResourceMonitorThrottlerHolder> NetworkSession::protectedResourceMonitorThrottler()
+{
+    return resourceMonitorThrottler();
+}
+
+void NetworkSession::clearResourceMonitorThrottlerData(CompletionHandler<void()>&& completionHandler)
+{
+    if (RefPtr throttler = m_resourceMonitorThrottler)
+        throttler->clearAllData(WTFMove(completionHandler));
+    else
+        completionHandler();
+}
+
+void NetworkSession::resetResourceMonitorThrottlerForTesting()
+{
+    m_resourceMonitorThrottler = nullptr;
+}
+#endif
 
 } // namespace WebKit

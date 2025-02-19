@@ -443,7 +443,8 @@ void MediaPlayerPrivateGStreamer::play()
 
     if (!m_playbackRate) {
         if (m_playbackRatePausedState == PlaybackRatePausedState::InitiallyPaused
-            || m_playbackRatePausedState == PlaybackRatePausedState::ManuallyPaused)
+            || m_playbackRatePausedState == PlaybackRatePausedState::ManuallyPaused
+            || m_playbackRatePausedState == PlaybackRatePausedState::BufferingPaused)
             m_playbackRatePausedState = PlaybackRatePausedState::RatePaused;
         return;
     }
@@ -574,7 +575,7 @@ bool MediaPlayerPrivateGStreamer::doSeek(const SeekTarget& target, float rate)
             quirksManager.resetBufferingPercentage(this, 0);
 
         // Make sure that m_isBuffering is set to true, so that when buffering completes it's set to false again and playback resumes.
-        updateBufferingStatus(GST_BUFFERING_STREAM, 0.0, true);
+        updateBufferingStatus(GST_BUFFERING_STREAM, 0.0, true, false);
         changePipelineState(GST_STATE_PAUSED);
     }
 
@@ -2322,7 +2323,7 @@ void MediaPlayerPrivateGStreamer::updateMaxTimeLoaded(double percentage)
     GST_DEBUG_OBJECT(pipeline(), "[Buffering] Updated maxTimeLoaded: %s", toString(m_maxTimeLoaded).utf8().data());
 }
 
-void MediaPlayerPrivateGStreamer::updateBufferingStatus(GstBufferingMode mode, double percentage, bool resetHistory)
+void MediaPlayerPrivateGStreamer::updateBufferingStatus(GstBufferingMode mode, double percentage, bool resetHistory, bool shouldUpdateStates)
 {
     m_wasBuffering = m_isBuffering;
     m_previousBufferingPercentage = m_bufferingPercentage;
@@ -2388,7 +2389,8 @@ void MediaPlayerPrivateGStreamer::updateBufferingStatus(GstBufferingMode mode, d
         m_previousBufferingPercentage = m_bufferingPercentage;
     }
     updateMaxTimeLoaded(percentage);
-    updateStates();
+    if (shouldUpdateStates)
+        updateStates();
     GST_TRACE("[Buffering] Settled results: m_wasBuffering: %s, m_isBuffering: %s, m_previousBufferingPercentage: %d, m_bufferingPercentage: %d",
         boolForPrinting(m_wasBuffering), boolForPrinting(m_isBuffering), m_previousBufferingPercentage, m_bufferingPercentage);
 }
@@ -2750,8 +2752,13 @@ void MediaPlayerPrivateGStreamer::updateStates()
             m_isPaused = false;
 
             shouldPauseForBuffering = (!m_wasBuffering && m_isBuffering && !m_isLiveStream.value_or(false));
-            if (shouldPauseForBuffering || !m_playbackRate) {
-                GST_INFO_OBJECT(pipeline(), "[Buffering] Pausing stream for buffering or because of zero playback rate.");
+            if (!m_playbackRate) {
+                GST_INFO_OBJECT(pipeline(), "[Buffering] Pausing stream because of zero playback rate.");
+                m_playbackRatePausedState = PlaybackRatePausedState::RatePaused;
+                changePipelineState(GST_STATE_PAUSED);
+            } else if (shouldPauseForBuffering) {
+                GST_INFO_OBJECT(pipeline(), "[Buffering] Pausing stream for buffering.");
+                m_playbackRatePausedState = PlaybackRatePausedState::BufferingPaused;
                 changePipelineState(GST_STATE_PAUSED);
             }
         } else

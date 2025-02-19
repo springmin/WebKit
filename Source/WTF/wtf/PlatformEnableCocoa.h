@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2007-2009 Torch Mobile, Inc.
  * Copyright (C) 2010, 2011 Research In Motion Limited. All rights reserved.
  * Copyright (C) 2013 Samsung Electronics. All rights reserved.
@@ -372,7 +372,7 @@
 #define ENABLE_WEBASSEMBLY_OMGJIT 0
 #endif
 
-#if !defined(ENABLE_FTL_JIT) && CPU(ADDRESS64)
+#if !defined(ENABLE_FTL_JIT) && CPU(ADDRESS64) && !PLATFORM(WATCHOS)
 #define ENABLE_FTL_JIT 1
 #endif
 
@@ -983,6 +983,10 @@
 
 #if !defined(ENABLE_WEBDRIVER_WHEEL_INTERACTIONS) && PLATFORM(MAC)
 #define ENABLE_WEBDRIVER_WHEEL_INTERACTIONS 1
+#endif
+
+#if !defined(ENABLE_WEBDRIVER_BIDI) && (PLATFORM(MAC) || PLATFORM(IOS) || PLATFORM(VISION))
+#define ENABLE_WEBDRIVER_BIDI 1
 #endif
 
 #if !defined(ENABLE_WEBGL)

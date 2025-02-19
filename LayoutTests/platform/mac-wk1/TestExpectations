@@ -920,6 +920,8 @@ accessibility/dynamic-rowspan.html [ Skip ]
 accessibility/dynamic-colspan.html [ Skip ]
 accessibility/dynamic-table-descendants.html [ Skip ]
 
+accessibility/select-whitespace-collapsed-text.html [ Skip ]
+
 # Missing AccessibilityUIElement::isIndeterminate() implementation.
 accessibility/indeterminate-progressbar-custom-element.html [ Skip ]
 accessibility/progress-indeterminate-value.html [ Skip ]
@@ -1980,7 +1982,6 @@ webkit.org/b/179853 imported/blink/fast/text/international-iteration-simple-text
 webkit.org/b/230062 fast/text/FontFaceSet-check-after-style-update.html [ Pass Failure ]
 
 # Skip anything related to WebAuthN
-http/wpt/credential-management/ [ Skip ]
 http/wpt/webauthn/ [ Skip ]
 imported/w3c/web-platform-tests/credential-management/ [ Skip ]
 imported/w3c/web-platform-tests/webauthn [ Skip ]
@@ -3036,3 +3037,21 @@ webkit.org/b/286392 imported/w3c/web-platform-tests/css/css-grid/subgrid/subgrid
 webkit.org/b/286602 media/media-source/media-detachablemse-append.html [ Pass Failure ]
 
 webkit.org/b/255555 [ Ventura+ ] imported/w3c/web-platform-tests/xhr/request-content-length.any.worker.html [ Pass Failure ]
+
+webkit.org/b/287713 printing/background-clip-text.html [ Failure ]
+
+webkit.org/b/287810 http/tests/webarchive/cross-origin-stylesheet-crash.html [ Failure ]
+
+webkit.org/b/287833 [ Release arm64 ] imported/w3c/web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-font-size-mixed-change.html [ Pass ImageOnlyFailure ]
+
+webkit.org/b/287902 imported/w3c/web-platform-tests/css/css-grid/alignment/self-baseline/grid-self-baseline-changes-grid-area-size-012.html [ Pass ImageOnlyFailure ]
+
+webkit.org/b/287904 imported/w3c/web-platform-tests/video-rvfc/request-video-frame-callback-dom.html [ Pass Failure ]
+
+webkit.org/b/287914 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/moving-between-documents/after-prepare-createHTMLDocument-parse-error-external-classic.html [ Pass Failure ]
+
+webkit.org/b/287919 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/moving-between-documents/after-prepare-createHTMLDocument-success-external-module.html [ Pass Failure ]
+
+webkit.org/b/287973 imported/w3c/web-platform-tests/css/css-grid/grid-definition/grid-auto-repeat-max-size-001.tentative.html [ Pass Failure ]
+
+webkit.org/b/287976 imported/w3c/web-platform-tests/css/css-box/margin-trim/computed-margin-values/block-container-block-start-self-collapsing-nested.html [ Pass Failure ]

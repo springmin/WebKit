@@ -75,7 +75,6 @@ class Heap;
 class HeapProfiler;
 class HeapVerifier;
 class IncrementalSweeper;
-class IsoSubspacePerVM;
 class JITStubRoutine;
 class JITStubRoutineSet;
 class JSCell;
@@ -338,7 +337,9 @@ public:
     SlotVisitor& collectorSlotVisitor() { return *m_collectorSlotVisitor; }
 
     JS_EXPORT_PRIVATE GCActivityCallback* fullActivityCallback();
+    JS_EXPORT_PRIVATE RefPtr<GCActivityCallback> protectedFullActivityCallback();
     JS_EXPORT_PRIVATE GCActivityCallback* edenActivityCallback();
+    JS_EXPORT_PRIVATE RefPtr<GCActivityCallback> protectedEdenActivityCallback();
 
     JS_EXPORT_PRIVATE void setFullActivityCallback(RefPtr<GCActivityCallback>&&);
     JS_EXPORT_PRIVATE void setEdenActivityCallback(RefPtr<GCActivityCallback>&&);
@@ -617,7 +618,6 @@ private:
     friend class HandleSet;
     friend class HeapUtil;
     friend class HeapVerifier;
-    friend class IsoSubspacePerVM;
     friend class JITStubRoutine;
     friend class LLIntOffsetsExtractor;
     friend class MarkStackMergingConstraint;
@@ -1187,7 +1187,6 @@ public:
     using UnlinkedFunctionExecutableSpaceAndSet = SpaceAndSet;
     UnlinkedFunctionExecutableSpaceAndSet unlinkedFunctionExecutableSpaceAndSet;
 
-    Vector<IsoSubspacePerVM*> perVMIsoSubspaces;
 #undef DYNAMIC_SPACE_AND_SET_DEFINE_MEMBER
     CString m_signpostMessage;
 };
@@ -1243,10 +1242,8 @@ private:
     IsoSubspace programExecutableSpace;
     IsoSubspace unlinkedFunctionExecutableSpace;
 
-    Vector<IsoSubspacePerVM*> perVMIsoSubspaces;
 
     friend class JSC::VM;
-    friend class JSC::IsoSubspacePerVM;
 };
 
 } // namespace GCClient

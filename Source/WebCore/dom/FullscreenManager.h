@@ -74,10 +74,10 @@ public:
         ExemptIFrameAllowFullscreenRequirement,
     };
     WEBCORE_EXPORT void requestFullscreenForElement(Ref<Element>&&, FullscreenCheckType, CompletionHandler<void(ExceptionOr<void>)>&&, HTMLMediaElementEnums::VideoFullscreenMode = HTMLMediaElementEnums::VideoFullscreenModeStandard);
-    WEBCORE_EXPORT void willEnterFullscreen(Element&, HTMLMediaElementEnums::VideoFullscreenMode = HTMLMediaElementEnums::VideoFullscreenModeStandard, CompletionHandler<void(ExceptionOr<void>)>&& = [] (auto) { });
+    WEBCORE_EXPORT void willEnterFullscreen(Element&, HTMLMediaElementEnums::VideoFullscreenMode, CompletionHandler<void(ExceptionOr<void>)>&&);
     WEBCORE_EXPORT bool didEnterFullscreen();
     WEBCORE_EXPORT bool willExitFullscreen();
-    WEBCORE_EXPORT bool didExitFullscreen();
+    WEBCORE_EXPORT void didExitFullscreen(CompletionHandler<void(ExceptionOr<void>)>&&);
 
     void dispatchPendingEvents();
 
@@ -117,21 +117,6 @@ private:
 
     WeakRef<Document, WeakPtrImplWithEventTargetData> m_document;
     WeakPtr<Document, WeakPtrImplWithEventTargetData> m_topDocument;
-
-    class FullscreenPromise {
-    public:
-        ~FullscreenPromise();
-        FullscreenPromise& operator=(CompletionHandler<void(ExceptionOr<void>)>&&);
-
-        void clear();
-        void resolve();
-        void rejectOrResolve(ExceptionOr<void>);
-        void reject(Exception);
-        operator bool() const;
-    private:
-        CompletionHandler<void(ExceptionOr<void>)> m_promise;
-    };
-    FullscreenPromise m_pendingPromise;
 
     RefPtr<Element> m_pendingFullscreenElement;
     RefPtr<Element> m_fullscreenElement;

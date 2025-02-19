@@ -38,6 +38,7 @@
 #import "EditingRange.h"
 #import "GlobalFindInPageState.h"
 #import "InteractionInformationAtPosition.h"
+#import "KeyEventInterpretationContext.h"
 #import "Logging.h"
 #import "MessageSenderInlines.h"
 #import "NativeWebKeyboardEvent.h"
@@ -719,11 +720,13 @@ void WebPageProxy::storeSelectionForAccessibility(bool shouldStore)
 
 void WebPageProxy::startAutoscrollAtPosition(const WebCore::FloatPoint& positionInWindow)
 {
+    m_isAutoscrolling = true;
     m_legacyMainFrameProcess->send(Messages::WebPage::StartAutoscrollAtPosition(positionInWindow), webPageIDInMainFrameProcess());
 }
 
 void WebPageProxy::cancelAutoscroll()
 {
+    m_isAutoscrolling = false;
     m_legacyMainFrameProcess->send(Messages::WebPage::CancelAutoscroll(), webPageIDInMainFrameProcess());
 }
 
@@ -739,13 +742,22 @@ void WebPageProxy::moveSelectionByOffset(int32_t offset, CompletionHandler<void(
     }, webPageIDInMainFrameProcess());
 }
 
-void WebPageProxy::interpretKeyEvent(EditorState&& state, bool isCharEvent, CompletionHandler<void(bool)>&& completionHandler)
+void WebPageProxy::interpretKeyEvent(EditorState&& state, KeyEventInterpretationContext&& context, CompletionHandler<void(bool)>&& completionHandler)
 {
     updateEditorState(WTFMove(state));
-    if (!hasQueuedKeyEvent())
-        return completionHandler(false);
+    if (!hasQueuedKeyEvent()) {
+        completionHandler(false);
+        return;
+    }
+
     RefPtr pageClient = this->pageClient();
-    completionHandler(pageClient && pageClient->interpretKeyEvent(firstQueuedKeyEvent(), isCharEvent));
+    if (!pageClient) {
+        completionHandler(false);
+        return;
+    }
+
+    auto didInterpret = pageClient->interpretKeyEvent(firstQueuedKeyEvent(), WTFMove(context));
+    completionHandler(didInterpret);
 }
 
 void WebPageProxy::setSmartInsertDeleteEnabled(bool)
@@ -1603,7 +1615,7 @@ void WebPageProxy::willOpenAppLink()
     // We chose 25 seconds because the system only gives us 30 seconds and we don't want to get too close to that limit
     // to avoid assertion invalidation (or even termination).
     takeOpeningAppLinkActivity();
-    WorkQueue::main().dispatchAfter(25_s, [weakThis = WeakPtr { *this }] {
+    WorkQueue::protectedMain()->dispatchAfter(25_s, [weakThis = WeakPtr { *this }] {
         if (RefPtr protectedThis = weakThis.get())
             protectedThis->dropOpeningAppLinkActivity();
     });

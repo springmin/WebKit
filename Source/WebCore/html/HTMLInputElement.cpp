@@ -1885,6 +1885,12 @@ Vector<Color> HTMLInputElement::suggestedColors() const
 
 RefPtr<HTMLElement> HTMLInputElement::list() const
 {
+    // FIXME: The downcast should be unnecessary, but the WPT was written before https://github.com/WICG/webcomponents/issues/1072 was resolved. Update once the WPT has been updated.
+    return dynamicDowncast<HTMLDataListElement>(retargetReferenceTargetForBindings(dataList()));
+}
+
+bool HTMLInputElement::hasDataList() const
+{
     return dataList();
 }
 
@@ -1893,7 +1899,7 @@ RefPtr<HTMLDataListElement> HTMLInputElement::dataList() const
     if (!m_hasNonEmptyList || !m_inputType->shouldRespectListAttribute())
         return nullptr;
 
-    return dynamicDowncast<HTMLDataListElement>(treeScope().getElementById(attributeWithoutSynchronization(listAttr)));
+    return dynamicDowncast<HTMLDataListElement>(elementForAttributeInternal(listAttr));
 }
 
 void HTMLInputElement::resetListAttributeTargetObserver()

@@ -3927,6 +3927,35 @@ ExceptionOr<void> Internals::setFullscreenAutoHideDuration(double duration)
     return { };
 }
 
+void Internals::setScreenContentsFormatsForTesting(const Vector<Internals::ContentsFormat>& formats)
+{
+    OptionSet<WebCore::ContentsFormat> contentsFormats;
+
+    for (auto format : formats) {
+        switch (format) {
+        case Internals::ContentsFormat::RGBA8:
+            contentsFormats.add(WebCore::ContentsFormat::RGBA8);
+            break;
+#if ENABLE(PIXEL_FORMAT_RGB10)
+        case Internals::ContentsFormat::RGBA10:
+            contentsFormats.add(WebCore::ContentsFormat::RGBA10);
+            break;
+#endif
+#if ENABLE(PIXEL_FORMAT_RGBA16F)
+        case Internals::ContentsFormat::RGBA16F:
+            contentsFormats.add(WebCore::ContentsFormat::RGBA16F);
+            break;
+#endif
+        }
+    }
+
+#if HAVE(HDR_SUPPORT)
+    WebCore::setScreenContentsFormatsForTesting(contentsFormats);
+#else
+    UNUSED_PARAM(contentsFormats);
+#endif
+}
+
 #if ENABLE(VIDEO)
 bool Internals::isChangingPresentationMode(HTMLVideoElement& element) const
 {
@@ -4724,14 +4753,14 @@ void Internals::initializeMockMediaSource()
 
 void Internals::setMaximumSourceBufferSize(SourceBuffer& buffer, uint64_t maximumSize, DOMPromiseDeferred<void>&& promise)
 {
-    buffer.setMaximumSourceBufferSize(maximumSize)->whenSettled(RunLoop::current(), [promise = WTFMove(promise)]() mutable {
+    buffer.setMaximumSourceBufferSize(maximumSize)->whenSettled(RunLoop::protectedCurrent(), [promise = WTFMove(promise)]() mutable {
         promise.resolve();
     });
 }
 
 void Internals::bufferedSamplesForTrackId(SourceBuffer& buffer, const AtomString& trackId, BufferedSamplesPromise&& promise)
 {
-    buffer.bufferedSamplesForTrackId(parseInteger<uint64_t>(trackId).value_or(0))->whenSettled(RunLoop::current(), [promise = WTFMove(promise)](auto&& samples) mutable {
+    buffer.bufferedSamplesForTrackId(parseInteger<uint64_t>(trackId).value_or(0))->whenSettled(RunLoop::protectedCurrent(), [promise = WTFMove(promise)](auto&& samples) mutable {
         if (!samples) {
             promise.reject(Exception { ExceptionCode::OperationError, makeString("Error "_s, samples.error()) });
             return;
@@ -4742,7 +4771,7 @@ void Internals::bufferedSamplesForTrackId(SourceBuffer& buffer, const AtomString
 
 void Internals::enqueuedSamplesForTrackID(SourceBuffer& buffer, const AtomString& trackID, BufferedSamplesPromise&& promise)
 {
-    buffer.enqueuedSamplesForTrackID(parseInteger<uint64_t>(trackID).value_or(0))->whenSettled(RunLoop::current(), [promise = WTFMove(promise)](auto&& samples) mutable {
+    buffer.enqueuedSamplesForTrackID(parseInteger<uint64_t>(trackID).value_or(0))->whenSettled(RunLoop::protectedCurrent(), [promise = WTFMove(promise)](auto&& samples) mutable {
         if (!samples) {
             promise.reject(Exception { ExceptionCode::OperationError, makeString("Error "_s, samples.error()) });
             return;

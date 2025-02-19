@@ -78,10 +78,6 @@ platform/graphics/avfoundation/objc/WebCoreAVFResourceLoader.mm
 platform/graphics/ca/TileController.h
 platform/graphics/controls/PlatformControl.h
 platform/graphics/cv/GraphicsContextGLCVCocoa.h
-platform/graphics/filters/software/FEConvolveMatrixSoftwareApplier.h
-platform/graphics/filters/software/FELightingSoftwareApplier.h
-platform/graphics/filters/software/FEMorphologySoftwareApplier.h
-platform/graphics/filters/software/FETurbulenceSoftwareApplier.h
 platform/graphics/mac/controls/ControlMac.h
 platform/mediarecorder/MediaRecorderPrivate.h
 platform/mediastream/AudioMediaStreamTrackRenderer.h
@@ -95,7 +91,6 @@ rendering/TextBoxPainter.h
 rendering/style/StyleGeneratedImage.cpp
 rendering/svg/SVGTextLayoutAttributesBuilder.h
 rendering/updating/RenderTreeUpdater.h
-style/AttributeChangeInvalidation.h
 style/ChildChangeInvalidation.h
 style/ClassChangeInvalidation.cpp
 style/ElementRuleCollector.cpp
@@ -114,7 +109,6 @@ workers/WorkerConsoleClient.h
 workers/WorkerMessagingProxy.h
 workers/WorkerNotificationClient.h
 workers/WorkerOrWorkletGlobalScope.h
-workers/WorkerOrWorkletScriptController.h
 workers/service/NavigationPreloadManager.h
 workers/service/background-fetch/ServiceWorkerRegistrationBackgroundFetchAPI.h
 workers/service/context/ServiceWorkerThreadProxy.h

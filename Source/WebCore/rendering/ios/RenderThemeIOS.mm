@@ -607,7 +607,7 @@ void RenderThemeIOS::adjustSliderTrackStyle(RenderStyle& style, const Element* e
         return;
 #endif
 
-    RenderTheme::adjustSliderTrackStyle(style, element);
+    RenderThemeCocoa::adjustSliderTrackStyle(style, element);
 
     // FIXME: We should not be relying on border radius for the appearance of our controls <rdar://problem/7675493>.
     int radius = static_cast<int>(kTrackRadius);
@@ -880,7 +880,7 @@ void RenderThemeIOS::adjustSearchFieldStyle(RenderStyle& style, const Element* e
         return;
 #endif
 
-    RenderTheme::adjustSearchFieldStyle(style, element);
+    RenderThemeCocoa::adjustSearchFieldStyle(style, element);
 
     if (!element)
         return;
@@ -893,6 +893,19 @@ void RenderThemeIOS::adjustSearchFieldStyle(RenderStyle& style, const Element* e
         return;
 
     adjustRoundBorderRadius(style, *box);
+}
+
+bool RenderThemeIOS::paintSearchField(const RenderObject& renderer, const PaintInfo& paintInfo, const FloatRect& rect)
+{
+#if ENABLE(MAC_STYLE_CONTROLS_ON_CATALYST)
+    if (paintSearchFieldForCatalyst(renderer, paintInfo, rect))
+        return false;
+#else
+    UNUSED_PARAM(renderer);
+    UNUSED_PARAM(paintInfo);
+    UNUSED_PARAM(rect);
+#endif
+    return true;
 }
 
 void RenderThemeIOS::paintSearchFieldDecorations(const RenderBox& box, const PaintInfo& paintInfo, const IntRect& rect)
@@ -1070,9 +1083,15 @@ bool RenderThemeIOS::shouldHaveSpinButton(const HTMLInputElement&) const
     return false;
 }
 
-bool RenderThemeIOS::supportsFocusRing(const RenderStyle&) const
+bool RenderThemeIOS::supportsFocusRing(const RenderObject& renderer, const RenderStyle& style) const
 {
+#if ENABLE(MAC_STYLE_CONTROLS_ON_CATALYST)
+    return supportsFocusRingForCatalyst(renderer, style);
+#else
+    UNUSED_PARAM(renderer);
+    UNUSED_PARAM(style);
     return false;
+#endif
 }
 
 bool RenderThemeIOS::supportsBoxShadow(const RenderStyle& style) const

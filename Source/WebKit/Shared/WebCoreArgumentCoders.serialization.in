@@ -672,6 +672,7 @@ struct WebCore::IDBDatabaseNameAndVersion {
 }
 
 class WebCore::IDBKeyData {
+    bool isPlaceholder()
     std::variant<std::nullptr_t, WebCore::IDBKeyData::Invalid, Vector<WebCore::IDBKeyData>, String, double, WebCore::IDBKeyData::Date, WebCore::ThreadSafeDataBuffer, WebCore::IDBKeyData::Min, WebCore::IDBKeyData::Max> value()
 }
 
@@ -687,6 +688,12 @@ class WebCore::IDBKeyData {
 [Nested] struct WebCore::IDBKeyData::Date {
     double value
 }
+
+class WebCore::IndexKey {
+    std::variant<std::nullptr_t, WebCore::IDBKeyData, Vector<WebCore::IDBKeyData>> data()
+}
+
+using WebCore::IndexIDToIndexKeyMap = HashMap<WebCore::IDBIndexIdentifier, WebCore::IndexKey>;
 
 enum class WebCore::IndexedDB::KeyType : int8_t {
     Max,
@@ -1558,7 +1565,7 @@ struct WebCore::SpeechRecognitionRequestInfo {
     bool interimResults;
     uint64_t maxAlternatives;
     WebCore::ClientOrigin clientOrigin;
-    WebCore::FrameIdentifier frameIdentifier;
+    WebCore::FrameIdentifier mainFrameIdentifier;
 };
 
 [CustomHeader] struct WebCore::SpeechRecognitionAlternativeData {
@@ -1984,6 +1991,20 @@ header: <WebCore/RectEdges.h>
     bool right();
     bool bottom();
     bool left();
+}
+
+[CustomHeader] class WebCore::RectEdges<WebCore::Color> {
+    WebCore::Color top();
+    WebCore::Color right();
+    WebCore::Color bottom();
+    WebCore::Color left();
+}
+
+[CustomHeader] class WebCore::RectEdges<WebCore::RubberBandingBehavior> {
+    WebCore::RubberBandingBehavior top();
+    WebCore::RubberBandingBehavior right();
+    WebCore::RubberBandingBehavior bottom();
+    WebCore::RubberBandingBehavior left();
 }
 
 [AdditionalEncoder=StreamConnectionEncoder] class WebCore::Path {
@@ -2467,10 +2488,25 @@ header: <WebCore/ScreenProperties.h>
 #endif
 };
 
+#if HAVE(HDR_SUPPORT)
+[OptionSet] enum class WebCore::ContentsFormat : uint8_t {
+    RGBA8,
+#if ENABLE(PIXEL_FORMAT_RGB10)
+    RGBA10,
+#endif
+#if ENABLE(PIXEL_FORMAT_RGBA16F)
+    RGBA16F,
+#endif
+};
+#endif
+
 using WebCore::PlatformDisplayID = uint32_t;
 struct WebCore::ScreenProperties {
     WebCore::PlatformDisplayID primaryDisplayID;
     HashMap<WebCore::PlatformDisplayID, WebCore::ScreenData> screenDataMap;
+#if HAVE(HDR_SUPPORT)
+    OptionSet<WebCore::ContentsFormat> screenContentsFormatsForTesting;
+#endif
 };
 
 class WebCore::PlatformTimeRanges {
@@ -6408,8 +6444,13 @@ struct WebCore::MockWebAuthenticationConfiguration {
 [Nested] struct WebCore::OpenID4VPRequest {
 };
 
+[Nested] struct WebCore::MobileDocumentRequest {
+    String deviceRequest;
+    String encryptionInfo;
+};
+
 struct WebCore::DigitalCredentialsRequestData {
-    WebCore::DigitalCredentialRequestOptions options;
+    Vector<std::variant<WebCore::MobileDocumentRequest, WebCore::OpenID4VPRequest>> requests;
     [Validator='!topOrigin->isNull()'] WebCore::SecurityOriginData topOrigin;
     [Validator='!documentOrigin->isNull()'] WebCore::SecurityOriginData documentOrigin;
 };
@@ -6417,15 +6458,6 @@ struct WebCore::DigitalCredentialsRequestData {
 struct WebCore::DigitalCredentialsResponseData {
     WebCore::IdentityCredentialProtocol protocol;
     String responseData;
-};
-
-[Nested] struct WebCore::DigitalCredentialRequest {
-    WebCore::IdentityCredentialProtocol protocol;
-    WebCore::OpenID4VPRequest data;
-};
-
-[Nested] struct WebCore::DigitalCredentialRequestOptions {
-    Vector<WebCore::DigitalCredentialRequest> requests;
 };
 
 [Nested] enum class WebCore::IdentityCredentialProtocol : uint8_t {
@@ -7569,6 +7601,9 @@ struct WebCore::DragItem {
     WebCore::IntRect dragPreviewFrameInRootViewCoordinates;
     bool containsSelection;
     WebCore::PromisedAttachmentInfo promisedAttachmentInfo;
+#if ENABLE(MODEL_PROCESS)
+    Markable<WebCore::PlatformLayerIdentifier> modelLayerID;
+#endif
     [NotSerialized] WebCore::PasteboardWriterData data;
 };
 
@@ -7992,6 +8027,7 @@ enum class WebCore::AppleVisualEffect : uint8_t {
     BlurChromeMaterial,
 #if HAVE(MATERIAL_HOSTING)
     HostedBlurMaterial,
+    HostedThinBlurMaterial,
 #endif
     VibrancyLabel,
     VibrancySecondaryLabel,
@@ -8744,6 +8780,7 @@ enum class WebCore::WillInternallyHandleFailure : bool
 enum class WebCore::ApplyTrackingPrevention : bool
 enum class WebCore::ShouldSample : bool
 enum class WebCore::FromDownloadAttribute : bool
+enum class WebCore::RequiresScriptTelemetry : bool
 
 [Nested] struct WebCore::Allowlist::AllowAllOrigins {
 };
@@ -8875,7 +8912,7 @@ enum class WebCore::CryptoAlgorithmIdentifier : uint8_t {
     AES_KW,
     HMAC,
     SHA_1,
-    SHA_224,
+    DEPRECATED_SHA_224,
     SHA_256,
     SHA_384,
     SHA_512,
@@ -8976,3 +9013,8 @@ header: <WebCore/DocumentClasses.h>
 header: <WebCore/StageModeOperations.h>
 enum class WebCore::StageModeOperation : bool;
 #endif
+
+struct WebCore::FixedContainerEdges {
+    WebCore::RectEdges<WebCore::Color> predominantColors;
+    WebCore::RectEdges<bool> fixedEdges;
+};

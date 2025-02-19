@@ -46,6 +46,7 @@
 #include <wtf/HashSet.h>
 #include <wtf/OptionSet.h>
 #include <wtf/RefCounted.h>
+#include <wtf/RefCounter.h>
 #include <wtf/RefPtr.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/WeakHashSet.h>
@@ -67,10 +68,6 @@
 #include "SoupCookiePersistentStorageType.h"
 #include <WebCore/HTTPCookieAcceptPolicy.h>
 #include <WebCore/SoupNetworkProxySettings.h>
-#endif
-
-#if ENABLE(CONTENT_EXTENSIONS)
-#include <WebCore/ResourceMonitorThrottler.h>
 #endif
 
 namespace API {
@@ -121,6 +118,9 @@ struct NetworkProcessConnectionInfo;
 struct WebPushMessage;
 struct WebsiteDataRecord;
 struct WebsiteDataStoreParameters;
+
+enum RemoveDataTaskCounterType { };
+using RemoveDataTaskCounter = RefCounter<RemoveDataTaskCounterType>;
 
 class WebsiteDataStore : public API::ObjectImpl<API::Object::Type::WebsiteDataStore>, public CanMakeWeakPtr<WebsiteDataStore> {
 public:
@@ -283,6 +283,10 @@ public:
     void resetCacheMaxAgeCapForPrevalentResources(CompletionHandler<void()>&&);
     const WebsiteDataStoreConfiguration::Directories& resolvedDirectories() const;
     FileSystem::Salt mediaKeysStorageSalt() const;
+#if ENABLE(SCREEN_TIME)
+    void removeScreenTimeData(const HashSet<URL>& websitesToRemove);
+    void removeScreenTimeDataWithInterval(WallTime);
+#endif
 
     static void setCachedProcessSuspensionDelayForTesting(Seconds);
 
@@ -384,6 +388,10 @@ public:
     static String defaultMediaKeysStorageDirectory(const String& baseDataDirectory = nullString());
     static String defaultDeviceIdHashSaltsStorageDirectory(const String& baseDataDirectory = nullString());
     static String defaultJavaScriptConfigurationDirectory(const String& baseDataDirectory = nullString());
+
+#if ENABLE(CONTENT_EXTENSIONS)
+    static String defaultResourceMonitorThrottlerDirectory(const String& baseDataDirectory = nullString());
+#endif
 
     static constexpr uint64_t defaultPerOriginQuota() { return 1000 * MB; }
     static constexpr uint64_t defaultStandardVolumeCapacity() {
@@ -495,9 +503,10 @@ public:
 #endif
 
 #if ENABLE(CONTENT_EXTENSIONS)
-    WebCore::ResourceMonitorThrottler& resourceMonitorThrottler();
-    void resetResourceMonitorThrottlerForTesting();
+    void resetResourceMonitorThrottlerForTesting(CompletionHandler<void()>&&);
 #endif
+
+    bool isRemovingData() const { return!!m_removeDataTaskCounter.value(); }
 
 private:
     enum class ForceReinitialization : bool { No, Yes };
@@ -557,6 +566,10 @@ private:
 #endif
 
     void handleResolvedDirectoriesAsynchronously(const WebsiteDataStoreConfiguration::Directories&, bool);
+
+    enum class ServiceWorkerProcessCanBeActive : bool { No, Yes };
+    HashSet<WebCore::ProcessIdentifier> activeWebProcesses(ServiceWorkerProcessCanBeActive) const;
+    void removeDataInNetworkProcess(WebsiteDataStore::ProcessAccessType, OptionSet<WebsiteDataType>, WallTime, CompletionHandler<void()>&&);
 
     const PAL::SessionID m_sessionID;
 
@@ -640,9 +653,7 @@ private:
     bool m_storageSiteValidationEnabled { false };
     HashSet<URL> m_persistedSiteURLs;
 
-#if ENABLE(CONTENT_EXTENSIONS)
-    RefPtr<WebCore::ResourceMonitorThrottler> m_resourceMonitorThrottler;
-#endif
+    RemoveDataTaskCounter m_removeDataTaskCounter;
 };
 
 }

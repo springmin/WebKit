@@ -5,7 +5,7 @@
  *           (C) 2006 Alexey Proskuryakov (ap@webkit.org)
  * Copyright (C) 2004-2024 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
- * Copyright (C) 2008-2015 Google Inc. All rights reserved.
+ * Copyright (C) 2008-2014 Google Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) Research In Motion Limited 2010-2011. All rights reserved.
  *
@@ -281,6 +281,7 @@
 #include "StyleAdjuster.h"
 #include "StyleColorOptions.h"
 #include "StyleColorScheme.h"
+#include "StyleOriginatedTimelinesController.h"
 #include "StyleProperties.h"
 #include "StyleResolveForDocument.h"
 #include "StyleResolver.h"
@@ -2812,8 +2813,8 @@ void Document::resolveStyle(ResolveStyleType type)
     frameView->updateBaseBackgroundColorIfNecessary();
 #endif
 
-    if (CheckedPtr timelinesController = this->timelinesController())
-        timelinesController->documentDidResolveStyle();
+    if (CheckedPtr styleOriginatedTimelinesController = this->styleOriginatedTimelinesController())
+        styleOriginatedTimelinesController->documentDidResolveStyle();
 }
 
 void Document::updateTextRenderer(Text& text, unsigned offsetOfReplacedText, unsigned lengthOfReplacedText)
@@ -3612,6 +3613,11 @@ HighlightRegistry& Document::appHighlightRegistry()
     return *m_appHighlightRegistry;
 }
 
+Ref<HighlightRegistry> Document::protectedAppHighlightRegistry()
+{
+    return highlightRegistry();
+}
+
 AppHighlightStorage& Document::appHighlightStorage()
 {
     if (!m_appHighlightStorage)
@@ -4170,7 +4176,7 @@ ExceptionOr<void> Document::write(Document* entryDocument, FixedVector<std::vari
         ));
     }
 
-    if (isTrusted || !scriptExecutionContext()->settingsValues().trustedTypesEnabled) {
+    if (isTrusted || !settings().trustedTypesEnabled()) {
         text.append(lineFeed);
         return write(entryDocument, WTFMove(text));
     }
@@ -4530,11 +4536,15 @@ void Document::disableWebAssembly(const String& errorMessage)
 
 void Document::setRequiresTrustedTypes(bool required)
 {
+    if (!settings().trustedTypesEnabled())
+        return;
+
     RefPtr frame = this->frame();
     if (!frame)
         return;
 
     frame->checkedScript()->setRequiresTrustedTypes(required);
+    m_requiresTrustedTypes = required;
 }
 
 IDBClient::IDBConnectionProxy* Document::idbConnectionProxy()
@@ -4842,10 +4852,6 @@ void Document::processMetaHttpEquiv(const String& equiv, const AtomString& conte
 
     case HTTPHeaderName::ContentLanguage:
         setContentLanguage(content);
-        break;
-
-    case HTTPHeaderName::XDNSPrefetchControl:
-        parseDNSPrefetchControlHeader(content);
         break;
 
     case HTTPHeaderName::XFrameOptions:
@@ -8123,42 +8129,6 @@ TextAutoSizing& Document::textAutoSizing()
 }
 #endif // ENABLE(TEXT_AUTOSIZING)
 
-void Document::initDNSPrefetch()
-{
-    m_haveExplicitlyDisabledDNSPrefetch = false;
-    m_isDNSPrefetchEnabled = settings().dnsPrefetchingEnabled() && securityOrigin().protocol() == "http"_s ? TriState::True : TriState::False;
-
-    // Inherit DNS prefetch opt-out from parent frame
-    if (RefPtr parent = parentDocument()) {
-        if (!parent->isDNSPrefetchEnabled())
-            m_isDNSPrefetchEnabled = TriState::False;
-    }
-}
-
-bool Document::isDNSPrefetchEnabled() const
-{
-    if (m_isDNSPrefetchEnabled == TriState::Indeterminate)
-        const_cast<Document&>(*this).initDNSPrefetch();
-    return m_isDNSPrefetchEnabled == TriState::True;
-}
-
-void Document::parseDNSPrefetchControlHeader(const String& dnsPrefetchControl)
-{
-    if (!settings().dnsPrefetchingEnabled())
-        return;
-
-    if (m_isDNSPrefetchEnabled == TriState::Indeterminate)
-        initDNSPrefetch();
-
-    if (equalLettersIgnoringASCIICase(dnsPrefetchControl, "on"_s) && !m_haveExplicitlyDisabledDNSPrefetch) {
-        m_isDNSPrefetchEnabled = TriState::True;
-        return;
-    }
-
-    m_isDNSPrefetchEnabled = TriState::False;
-    m_haveExplicitlyDisabledDNSPrefetch = true;
-}
-
 void Document::getParserLocation(String& completedURL, unsigned& line, unsigned& column) const
 {
     // We definitely cannot associate the message with a location being parsed if we are not even parsing.
@@ -9290,7 +9260,7 @@ void Document::updateHoverActiveState(const HitTestRequest& request, Element* in
             elementsToSetActive.append(element);
         if (element == commonAncestor)
             sawCommonAncestor = true;
-        if (!sawCommonAncestor || element == m_hoveredElement)
+        if (!sawCommonAncestor)
             elementsToSetHover.append(element);
     }
 
@@ -10239,13 +10209,20 @@ AnimationTimelinesController& Document::ensureTimelinesController()
     return *m_timelinesController.get();
 }
 
+StyleOriginatedTimelinesController& Document::ensureStyleOriginatedTimelinesController()
+{
+    if (!m_styleOriginatedTimelinesController)
+        lazyInitialize(m_styleOriginatedTimelinesController, makeUnique<StyleOriginatedTimelinesController>());
+    return *m_styleOriginatedTimelinesController.get();
+}
+
 void Document::updateAnimationsAndSendEvents()
 {
     RefPtr domWindow = this->domWindow();
     if (!domWindow)
         return;
 
-    if (auto* timelinesController = this->timelinesController())
+    if (CheckedPtr timelinesController = this->timelinesController())
         timelinesController->updateAnimationsAndSendEvents(domWindow->frozenNowTimestamp());
 }
 
@@ -10828,7 +10805,7 @@ void Document::dispatchSystemPreviewActionEvent(const SystemPreviewInfo& systemP
 HTMLVideoElement* Document::pictureInPictureElement() const
 {
     if (quirks().returnNullPictureInPictureElementDuringFullscreenChange()) {
-        auto* JSDOMWindowBase = toJSDOMWindow(frame(), mainThreadNormalWorld());
+        auto* JSDOMWindowBase = toJSDOMWindow(frame(), mainThreadNormalWorldSingleton());
 
         if (!JSDOMWindowBase)
             return m_pictureInPictureElement.get();

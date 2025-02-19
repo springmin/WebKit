@@ -2221,7 +2221,7 @@ void CommandEncoder::resolveQuerySet(const QuerySet& querySet, uint32_t firstQue
         [m_commandBuffer encodeSignalEvent:workaround value:1];
         [m_commandBuffer encodeWaitForEvent:workaround value:1];
         ensureBlitCommandEncoder();
-        [m_blitCommandEncoder resolveCounters:querySet.counterSampleBuffer() inRange:NSMakeRange(0, querySet.count()) destinationBuffer:destination.buffer() destinationOffset:destinationOffset];
+        [m_blitCommandEncoder resolveCounters:querySet.counterSampleBuffer() inRange:NSMakeRange(firstQuery, queryCount) destinationBuffer:destination.buffer() destinationOffset:destinationOffset];
         break;
     }
     default:
@@ -2272,7 +2272,7 @@ void CommandEncoder::trackEncoder(CommandEncoder& commandEncoder, WeakHashSet<Co
     encoderHashSet.add(commandEncoder);
 }
 
-void CommandEncoder::addOnCommitHandler(Function<void(CommandBuffer&)>&& onCommitHandler)
+void CommandEncoder::addOnCommitHandler(Function<bool(CommandBuffer&)>&& onCommitHandler)
 {
     ASSERT(m_commandBuffer);
     m_onCommitHandlers.append(WTFMove(onCommitHandler));

@@ -185,7 +185,7 @@ namespace WTF {
  *        }, [] (MyOtherPromise::RejectValueType val) {
  *            return MyOtherPromise::createAndReject(val);
  *        }) // The type returned by then() is of the last PromiseType returned in the chain.
- *        ->whenSettled(RunLoop::main(), [] (const MyOtherPromise::Result&) -> void {
+ *        ->whenSettled(RunLoop::protectedMain(), [] (const MyOtherPromise::Result&) -> void {
  *            // do something else
  *        });
  *
@@ -247,7 +247,7 @@ namespace WTF {
  *
  * And usage would be:
  *  auto photoProducer = PhotoProducer::create(PhotoSettings { });
- *  photoProducer->takePhoto()->whenSettled(RunLoop::main(), [] (PhotoProducer::PhotoPromise::Result&& result) mutable {
+ *  photoProducer->takePhoto()->whenSettled(RunLoop::protectedMain(), [] (PhotoProducer::PhotoPromise::Result&& result) mutable {
  *      static_assert(std::is_same_v<decltype(result.value()), std::pair<Vector<uint8_t>, String>&>);
  *      if (result)
  *          EXPECT_EQ(result.value().second, "image/jpeg"_s);
@@ -323,7 +323,7 @@ public:
         ASSERT(m_callback);
         if (!m_callback)
             return;
-        std::exchange(m_callback, nullptr)->disconnect();
+        RefPtr { std::exchange(m_callback, nullptr) }->disconnect();
     }
 
 private:
@@ -955,6 +955,11 @@ private:
         }
 
     private:
+        RefPtr<ThenCallbackType> protectedThenCallback()
+        {
+            return m_thenCallback;
+        }
+
         Ref<PromiseType> completionPromise()
         {
             ASSERT(m_thenCallback, "Conversion can only be done once");
@@ -962,10 +967,11 @@ private:
             // with the value returned by the callbacks provided to then().
             auto producer = makeUnique<typename PromiseType::Producer>(PromiseDispatchMode::Default, Logger::LogSiteIdentifier { "<completion promise>", 0 });
             auto promise = producer->promise();
-            m_thenCallback->setCompletionPromise(WTFMove(producer));
+            protectedThenCallback()->setCompletionPromise(WTFMove(producer));
             m_promise->maybeSettle(m_thenCallback.releaseNonNull(), m_logSiteIdentifier);
             return promise;
         }
+
         Ref<NativePromise> m_promise;
         RefPtr<ThenCallbackType> m_thenCallback;
         const Logger::LogSiteIdentifier m_logSiteIdentifier;

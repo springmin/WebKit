@@ -65,6 +65,7 @@ public:
 #endif
 
 private:
+    bool isWebChromeClient() const final { return true; }
     void chromeDestroyed() final;
     
     void setWindowRect(const WebCore::FloatRect&) final;
@@ -338,7 +339,7 @@ private:
 #if ENABLE(QUICKLOOK_FULLSCREEN)
     void updateImageSource(WebCore::Element&) final;
 #endif // ENABLE(QUICKLOOK_FULLSCREEN)
-    void exitFullScreenForElement(WebCore::Element*) final;
+    void exitFullScreenForElement(WebCore::Element*, CompletionHandler<void()>&&) final;
 #endif // ENABLE(FULLSCREEN_API)
 
 #if PLATFORM(COCOA)
@@ -578,3 +579,7 @@ private:
 RefPtr<API::Object> userDataFromJSONData(JSON::Value&);
 
 } // namespace WebKit
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::WebChromeClient) \
+    static bool isType(const WebCore::ChromeClient& client) { return client.isWebChromeClient(); } \
+SPECIALIZE_TYPE_TRAITS_END()

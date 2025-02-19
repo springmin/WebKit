@@ -93,10 +93,11 @@ bool defaultVideoFullscreenRequiresElementFullscreen();
 bool defaultScrollAnimatorEnabled();
 bool defaultPassiveWheelListenersAsDefaultOnDocument();
 bool defaultWheelEventGesturesBecomeNonBlocking();
+bool defaultAppleMailPaginationQuirkEnabled();
 #endif
 
-#if PLATFORM(MAC)
-bool defaultAppleMailPaginationQuirkEnabled();
+#if PLATFORM(COCOA)
+bool defaultFixedContainerEdgeSamplingEnabled();
 #endif
 
 #if ENABLE(MEDIA_STREAM)
@@ -162,5 +163,13 @@ bool defaultBuiltInNotificationsEnabled();
 bool defaultRequiresPageVisibilityForVideoToBeNowPlaying();
 
 bool defaultCookieStoreAPIEnabled();
+
+#if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
+bool defaultContentInsetBackgroundFillEnabled();
+#endif
+
+#if ENABLE(CONTENT_EXTENSIONS)
+bool defaultIFrameResourceMonitoringEnabled();
+#endif
 
 } // namespace WebKit

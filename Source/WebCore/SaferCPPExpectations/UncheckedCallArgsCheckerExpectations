@@ -34,7 +34,7 @@ html/parser/HTMLTreeBuilder.cpp
 inspector/InspectorFrontendClientLocal.cpp
 inspector/InspectorOverlay.cpp
 inspector/agents/InspectorPageAgent.cpp
-inspector/agents/InspectorTimelineAgent.cpp
+inspector/agents/page/PageTimelineAgent.cpp
 loader/WorkerThreadableLoader.cpp
 page/DragController.cpp
 page/EventHandler.cpp
@@ -69,7 +69,6 @@ platform/mac/VideoPresentationInterfaceMac.mm
 rendering/BackgroundPainter.cpp
 rendering/InlineBoxPainter.cpp
 rendering/RenderBlock.cpp
-rendering/RenderBlockFlow.cpp
 rendering/RenderBox.cpp
 rendering/RenderBoxModelObject.cpp
 rendering/RenderElement.cpp
@@ -78,7 +77,6 @@ rendering/RenderLayer.cpp
 rendering/RenderLayerBacking.cpp
 rendering/RenderLayerCompositor.cpp
 rendering/RenderLayerModelObject.cpp
-rendering/RenderLayerScrollableArea.cpp
 rendering/RenderListBox.cpp
 rendering/RenderMenuList.cpp
 rendering/RenderMultiColumnFlow.cpp
@@ -101,7 +99,6 @@ rendering/updating/RenderTreeBuilder.cpp
 style/StyleAdjuster.cpp
 style/StyleResolveForDocument.cpp
 style/StyleScope.cpp
-svg/properties/SVGPropertyOwnerRegistry.h
 testing/Internals.cpp
 testing/Internals.mm
 workers/DedicatedWorkerGlobalScope.cpp

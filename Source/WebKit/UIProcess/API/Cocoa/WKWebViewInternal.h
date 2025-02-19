@@ -32,6 +32,7 @@
 #import "WKIntelligenceSmartReplyTextEffectCoordinator.h"
 #import "WKIntelligenceTextEffectCoordinator.h"
 #import "WKTextAnimationType.h"
+#import <WebCore/FixedContainerEdges.h>
 #import <WebKit/WKShareSheet.h>
 #import <WebKit/WKWebViewConfiguration.h>
 #import <WebKit/WKWebViewPrivate.h>
@@ -243,8 +244,8 @@ struct PerWebProcessState {
     RetainPtr<WKWebViewConfiguration> _configuration;
     const RefPtr<WebKit::WebPageProxy> _page;
 
-    std::unique_ptr<WebKit::NavigationState> _navigationState;
-    std::unique_ptr<WebKit::UIDelegate> _uiDelegate;
+    const std::unique_ptr<WebKit::NavigationState> _navigationState;
+    const std::unique_ptr<WebKit::UIDelegate> _uiDelegate;
     std::unique_ptr<WebKit::IconLoadingDelegate> _iconLoadingDelegate;
     std::unique_ptr<WebKit::ResourceLoadDelegate> _resourceLoadDelegate;
 
@@ -423,6 +424,8 @@ struct PerWebProcessState {
 #if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
     BOOL _isScrollingWithOverlayRegion;
 #endif
+
+    WebCore::FixedContainerEdges _fixedContainerEdges;
 }
 
 - (BOOL)_isValid;
@@ -449,6 +452,9 @@ struct PerWebProcessState {
 #if ENABLE(SCREEN_TIME)
 - (void)_installScreenTimeWebpageController;
 - (void)_uninstallScreenTimeWebpageController;
+
+- (void)_updateScreenTimeViewGeometry;
+- (void)_updateScreenTimeShieldVisibilityForWindow;
 #endif
 
 #if ENABLE(WRITING_TOOLS)
@@ -508,11 +514,18 @@ struct PerWebProcessState {
 #endif
 #endif
 
+- (void)_updateFixedContainerEdges:(const WebCore::FixedContainerEdges&)edges;
+
 - (WKPageRef)_pageForTesting;
 - (NakedPtr<WebKit::WebPageProxy>)_page;
 - (RefPtr<WebKit::WebPageProxy>)_protectedPage;
 #if ENABLE(SCREEN_TIME)
 - (STWebpageController *)_screenTimeWebpageController;
+#if PLATFORM(MAC)
+- (NSVisualEffectView *)_screenTimeBlurredSnapshot;
+#else
+- (UIVisualEffectView *)_screenTimeBlurredSnapshot;
+#endif
 #endif
 
 @property (nonatomic, setter=_setHasActiveNowPlayingSession:) BOOL _hasActiveNowPlayingSession;
@@ -544,5 +557,10 @@ RetainPtr<NSError> nsErrorFromExceptionDetails(const WebCore::ExceptionDetails&)
 #endif // __cplusplus
 
 @interface WKWebView (NonCpp)
+
+#if PLATFORM(MAC)
+@property (nonatomic, setter=_setAlwaysBounceVertical:) BOOL _alwaysBounceVertical;
+@property (nonatomic, setter=_setAlwaysBounceHorizontal:) BOOL _alwaysBounceHorizontal;
+#endif
 
 @end

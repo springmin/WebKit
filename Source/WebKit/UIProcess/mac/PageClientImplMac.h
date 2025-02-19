@@ -203,7 +203,6 @@ private:
 
     void setEditableElementIsFocused(bool) override;
 
-    void didCommitLayerTree(const RemoteLayerTreeTransaction&) override;
     void layerTreeCommitComplete() override;
 
     void scrollingNodeScrollViewDidScroll(WebCore::ScrollingNodeID) override;
@@ -224,9 +223,9 @@ private:
     void closeFullScreenManager() override;
     bool isFullScreen() override;
     void enterFullScreen(CompletionHandler<void(bool)>&&) override;
-    void exitFullScreen() override;
+    void exitFullScreen(CompletionHandler<void()>&&) override;
     void beganEnterFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame) override;
-    void beganExitFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame) override;
+    void beganExitFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame, CompletionHandler<void()>&&) override;
 #endif
 
     void navigationGestureDidBegin() override;

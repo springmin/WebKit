@@ -133,6 +133,7 @@ struct AppHighlight;
 struct DataDetectorElementInfo;
 struct DictionaryPopupInfo;
 struct ElementContext;
+struct FixedContainerEdges;
 struct TextIndicatorData;
 struct ShareDataWithParsedURL;
 
@@ -203,6 +204,7 @@ struct EditorState;
 struct FocusedElementInformation;
 struct FrameInfoData;
 struct InteractionInformationAtPosition;
+struct KeyEventInterpretationContext;
 struct WebAutocorrectionContext;
 struct WebHitTestResultData;
 
@@ -260,6 +262,9 @@ public:
 
     // Called when the activity state of the page transitions from non-visible to visible.
     virtual void viewIsBecomingVisible() { }
+
+    // Called when the activity state of the page transitions from visible to non-visible.
+    virtual void viewIsBecomingInvisible() { }
 
 #if PLATFORM(COCOA)
     virtual bool canTakeForegroundAssertions() = 0;
@@ -548,7 +553,7 @@ public:
     virtual void focusedElementDidChangeInputMode(WebCore::InputMode) = 0;
     virtual void didUpdateEditorState() = 0;
     virtual bool isFocusingElement() = 0;
-    virtual bool interpretKeyEvent(const NativeWebKeyboardEvent&, bool isCharEvent) = 0;
+    virtual bool interpretKeyEvent(const NativeWebKeyboardEvent&, KeyEventInterpretationContext&&) = 0;
     virtual void positionInformationDidChange(const InteractionInformationAtPosition&) = 0;
     virtual void saveImageToLibrary(Ref<WebCore::SharedBuffer>&&) = 0;
     virtual void showPlaybackTargetPicker(bool hasVideo, const WebCore::IntRect& elementRect, WebCore::RouteSharingPolicy, const String&) = 0;

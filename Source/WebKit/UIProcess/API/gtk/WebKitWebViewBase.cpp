@@ -2658,12 +2658,11 @@ static void webkitWebViewBaseDidEnterFullScreen(WebKitWebViewBase* webkitWebView
     priv->sleepDisabler = PAL::SleepDisabler::create(String::fromUTF8(_("Website running in fullscreen mode")), PAL::SleepDisabler::Type::Display);
 }
 
-void webkitWebViewBaseWillExitFullScreen(WebKitWebViewBase* webkitWebViewBase)
+void webkitWebViewBaseWillExitFullScreen(WebKitWebViewBase* webkitWebViewBase, CompletionHandler<void()>&& completionHandler)
 {
     WebKitWebViewBasePrivate* priv = webkitWebViewBase->priv;
     ASSERT(priv->fullScreenState == WebFullScreenManagerProxy::FullscreenState::EnteringFullscreen || priv->fullScreenState == WebFullScreenManagerProxy::FullscreenState::InFullscreen);
-    if (auto* fullScreenManagerProxy = priv->pageProxy->fullScreenManager())
-        fullScreenManagerProxy->willExitFullScreen();
+    completionHandler();
     priv->fullScreenState = WebFullScreenManagerProxy::FullscreenState::ExitingFullscreen;
 }
 
@@ -2685,8 +2684,6 @@ static void webkitWebViewBaseDidExitFullScreen(WebKitWebViewBase* webkitWebViewB
 {
     WebKitWebViewBasePrivate* priv = webkitWebViewBase->priv;
     ASSERT(priv->fullScreenState == WebFullScreenManagerProxy::FullscreenState::ExitingFullscreen);
-    if (auto* fullScreenManagerProxy = priv->pageProxy->fullScreenManager())
-        fullScreenManagerProxy->didExitFullScreen();
     priv->fullScreenState = WebFullScreenManagerProxy::FullscreenState::NotInFullscreen;
     priv->sleepDisabler = nullptr;
 }

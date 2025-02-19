@@ -27,6 +27,7 @@
 
 #if PLATFORM(MAC)
 
+#include "AppKitSPI.h"
 #include "DrawingAreaInfo.h"
 #include "EditorState.h"
 #include "ImageAnalysisUtilities.h"
@@ -133,6 +134,10 @@ enum class ReplacementBehavior : uint8_t;
 
 } // namespace WebCore
 
+#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WebViewImplAdditionsBefore.h>)
+#import <WebKitAdditions/WebViewImplAdditionsBefore.h>
+#endif
+
 @protocol WebViewImplDelegate
 
 - (NSTextInputContext *)_web_superInputContext;
@@ -215,7 +220,7 @@ class WebViewImpl final : public CanMakeWeakPtr<WebViewImpl>, public CanMakeChec
     WTF_MAKE_TZONE_ALLOCATED(WebViewImpl);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(WebViewImpl);
 public:
-    WebViewImpl(NSView <WebViewImplDelegate> *, WKWebView *outerWebView, WebProcessPool&, Ref<API::PageConfiguration>&&);
+    WebViewImpl(WKWebView *, WebProcessPool&, Ref<API::PageConfiguration>&&);
 
     ~WebViewImpl();
 
@@ -224,7 +229,7 @@ public:
     WebPageProxy& page() { return m_page.get(); }
     Ref<WebPageProxy> protectedPage() const;
 
-    NSView *view() const { return m_view.getAutoreleased(); }
+    WKWebView *view() const { return m_view.getAutoreleased(); }
 
     void processWillSwap();
     void processDidExit();
@@ -319,6 +324,7 @@ public:
     void windowDidChangeScreen();
     void windowDidChangeLayerHosting();
     void windowDidChangeOcclusionState();
+    void windowWillClose();
     void screenDidChangeColorSpace();
     bool shouldDelayWindowOrderingForEvent(NSEvent *);
     bool windowResizeMouseLocationIsInVisibleScrollerThumb(CGPoint);
@@ -355,6 +361,11 @@ public:
     _WKRectEdge pinnedState();
     _WKRectEdge rubberBandingEnabled();
     void setRubberBandingEnabled(_WKRectEdge);
+
+    bool alwaysBounceVertical();
+    void setAlwaysBounceVertical(bool);
+    bool alwaysBounceHorizontal();
+    void setAlwaysBounceHorizontal(bool);
 
     void setOverlayScrollbarStyle(std::optional<WebCore::ScrollbarOverlayStyle> scrollbarStyle);
     std::optional<WebCore::ScrollbarOverlayStyle> overlayScrollbarStyle() const;
@@ -771,6 +782,10 @@ public:
     bool allowsInlinePredictions() const;
 #endif
 
+#if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
+    void updateContentInsetFillViews();
+#endif
+
 private:
 #if HAVE(TOUCH_BAR)
     void setUpTextTouchBar(NSTouchBar *);
@@ -872,7 +887,7 @@ private:
 
     std::optional<EditorState::PostLayoutData> postLayoutDataForContentEditable();
 
-    WeakObjCPtr<NSView<WebViewImplDelegate>> m_view;
+    WeakObjCPtr<WKWebView> m_view;
     std::unique_ptr<PageClient> m_pageClient;
     Ref<WebPageProxy> m_page;
 
@@ -1040,8 +1055,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     WeakObjCPtr<NSPopover> m_lastContextMenuTranslationPopover;
 #endif
 
-#if HAVE(REDESIGNED_TEXT_CURSOR) && PLATFORM(MAC)
-    RetainPtr<_WKWebViewTextInputNotifications> _textInputNotifications;
+#if HAVE(REDESIGNED_TEXT_CURSOR)
+    RetainPtr<_WKWebViewTextInputNotifications> m_textInputNotifications;
+#endif
+
+#if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
+    RetainPtr<WKNSContentInsetFillView> m_topContentInsetFillView;
 #endif
 
 #if HAVE(INLINE_PREDICTIONS)

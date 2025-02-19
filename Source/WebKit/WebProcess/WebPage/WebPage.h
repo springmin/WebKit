@@ -604,6 +604,7 @@ public:
 
 #if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
     PlaybackSessionManager& playbackSessionManager();
+    Ref<PlaybackSessionManager> protectedPlaybackSessionManager();
     void videoControlsManagerDidChange();
 #endif
 
@@ -762,7 +763,7 @@ public:
     void executeEditingCommand(const String& commandName, const String& argument);
     void sendClose();
 
-    void suspendForProcessSwap();
+    void suspendForProcessSwap(CompletionHandler<void(std::optional<bool>)>&&);
 
     void sendSetWindowFrame(const WebCore::FloatRect&);
 
@@ -1120,7 +1121,8 @@ public:
 
 #if ENABLE(CONTEXT_MENUS)
     WebContextMenu& contextMenu();
-    WebContextMenu* contextMenuAtPointInWindow(WebCore::FrameIdentifier, const WebCore::IntPoint&);
+    Ref<WebContextMenu> protectedContextMenu();
+    RefPtr<WebContextMenu> contextMenuAtPointInWindow(WebCore::FrameIdentifier, const WebCore::IntPoint&);
 #endif
 
     static bool canHandleRequest(const WebCore::ResourceRequest&);
@@ -2373,7 +2375,7 @@ private:
     void setIsTakingSnapshotsForApplicationSuspension(bool);
     void setNeedsDOMWindowResizeEvent();
 
-    void setIsSuspended(bool);
+    void setIsSuspended(bool, CompletionHandler<void(std::optional<bool>)>&&);
 
     RefPtr<WebImage> snapshotAtSize(const WebCore::IntRect&, const WebCore::IntSize& bitmapSize, SnapshotOptions, WebCore::LocalFrame&, WebCore::LocalFrameView&);
     RefPtr<WebImage> snapshotNode(WebCore::Node&, SnapshotOptions, unsigned maximumPixelCount = std::numeric_limits<unsigned>::max());
@@ -2500,7 +2502,7 @@ private:
 
     RefPtr<WebPageTesting> m_webPageTesting;
 
-    Ref<WebFrame> m_mainFrame;
+    const Ref<WebFrame> m_mainFrame;
 
     RefPtr<WebPageGroupProxy> m_pageGroup;
 
@@ -2645,7 +2647,7 @@ private:
     RefPtr<WebOpenPanelResultListener> m_activeOpenPanelResultListener;
     RefPtr<NotificationPermissionRequestManager> m_notificationPermissionRequestManager;
 
-    Ref<WebUserContentController> m_userContentController;
+    const Ref<WebUserContentController> m_userContentController;
 
 #if ENABLE(WK_WEB_EXTENSIONS) && PLATFORM(COCOA)
     RefPtr<WebExtensionControllerProxy> m_webExtensionController;
@@ -2685,7 +2687,7 @@ private:
                 m_webPage->endPrintingImmediately();
         }
     private:
-        Ref<WebPage> m_webPage;
+        const Ref<WebPage> m_webPage;
         const bool m_wasInActivePrintContextAccessScope;
     };
 

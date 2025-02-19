@@ -126,18 +126,6 @@ void WebFullScreenManagerProxy::didEnterFullScreen()
     }
 }
 
-void WebFullScreenManagerProxy::willExitFullScreen()
-{
-    ALWAYS_LOG(LOGIDENTIFIER);
-    RefPtr page = m_page.get();
-    if (!page)
-        return;
-
-    m_fullscreenState = FullscreenState::ExitingFullscreen;
-    page->fullscreenClient().willExitFullscreen(page.get());
-    sendToWebProcess(Messages::WebFullScreenManager::WillExitFullScreen());
-}
-
 void WebFullScreenManagerProxy::callCloseCompletionHandlers()
 {
     auto closeMediaCallbacks = WTFMove(m_closeCompletionHandlers);
@@ -149,22 +137,6 @@ void WebFullScreenManagerProxy::closeWithCallback(CompletionHandler<void()>&& co
 {
     m_closeCompletionHandlers.append(WTFMove(completionHandler));
     close();
-}
-
-void WebFullScreenManagerProxy::didExitFullScreen()
-{
-    ALWAYS_LOG(LOGIDENTIFIER);
-    m_fullscreenState = FullscreenState::NotInFullscreen;
-    if (RefPtr page = m_page.get()) {
-        page->fullscreenClient().didExitFullscreen(page.get());
-        sendToWebProcess(Messages::WebFullScreenManager::DidExitFullScreen());
-
-        if (page->isControlledByAutomation()) {
-            if (RefPtr automationSession = page->configuration().processPool().automationSession())
-                automationSession->didExitFullScreenForPage(*page);
-        }
-    }
-    callCloseCompletionHandlers();
 }
 
 void WebFullScreenManagerProxy::setAnimatingFullScreen(bool animating)
@@ -273,13 +245,20 @@ void WebFullScreenManagerProxy::updateImageSource(FullScreenMediaDetails&& media
 }
 #endif // ENABLE(QUICKLOOK_FULLSCREEN)
 
-void WebFullScreenManagerProxy::exitFullScreen()
+void WebFullScreenManagerProxy::exitFullScreen(CompletionHandler<void()>&& completionHandler)
 {
 #if ENABLE(QUICKLOOK_FULLSCREEN)
     m_imageBuffer = nullptr;
 #endif
     if (CheckedPtr client = m_client)
-        client->exitFullScreen();
+        client->exitFullScreen([this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)] mutable {
+            m_fullscreenState = FullscreenState::ExitingFullscreen;
+            if (RefPtr page = m_page.get())
+                page->fullscreenClient().willExitFullscreen(page.get());
+            completionHandler();
+        });
+    else
+        completionHandler();
 }
 
 #if ENABLE(QUICKLOOK_FULLSCREEN)
@@ -316,10 +295,26 @@ void WebFullScreenManagerProxy::beganEnterFullScreen(const IntRect& initialFrame
     });
 }
 
-void WebFullScreenManagerProxy::beganExitFullScreen(const IntRect& initialFrame, const IntRect& finalFrame)
+void WebFullScreenManagerProxy::beganExitFullScreen(const IntRect& initialFrame, const IntRect& finalFrame, CompletionHandler<void()>&& completionHandler)
 {
-    if (CheckedPtr client = m_client)
-        client->beganExitFullScreen(initialFrame, finalFrame);
+    CheckedPtr client = m_client;
+    if (!client)
+        return completionHandler();
+    client->beganExitFullScreen(initialFrame, finalFrame, [this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler), logIdentifier = LOGIDENTIFIER] mutable {
+        m_fullscreenState = FullscreenState::NotInFullscreen;
+        RefPtr page = m_page.get();
+        if (!page)
+            return completionHandler();
+        ALWAYS_LOG(logIdentifier);
+        page->fullscreenClient().didExitFullscreen(page.get());
+        completionHandler();
+
+        if (page->isControlledByAutomation()) {
+            if (RefPtr automationSession = page->configuration().processPool().automationSession())
+                automationSession->didExitFullScreenForPage(*page);
+        }
+        callCloseCompletionHandlers();
+    });
 }
 
 bool WebFullScreenManagerProxy::lockFullscreenOrientation(WebCore::ScreenOrientationType orientation)

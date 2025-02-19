@@ -26,11 +26,13 @@
 #import "config.h"
 #import "PageClientImplCocoa.h"
 
+#import "RemoteLayerTreeTransaction.h"
 #import "WKTextAnimationType.h"
 #import "WKWebViewInternal.h"
 #import "WebFullScreenManagerProxy.h"
 #import "WebPageProxy.h"
 #import <WebCore/AlternativeTextUIController.h>
+#import <WebCore/FixedContainerEdges.h>
 #import <WebCore/TextAnimationTypes.h>
 #import <WebCore/WritingToolsTypes.h>
 #import <WebKit/WKWebViewConfigurationPrivate.h>
@@ -370,6 +372,20 @@ void PageClientImplCocoa::setURLIsPlayingVideoForScreenTime(bool value)
 
 #endif
 
+void PageClientImplCocoa::viewIsBecomingVisible()
+{
+#if ENABLE(SCREEN_TIME)
+    [m_webView _updateScreenTimeShieldVisibilityForWindow];
+#endif
+}
+
+void PageClientImplCocoa::viewIsBecomingInvisible()
+{
+#if ENABLE(SCREEN_TIME)
+    [m_webView _updateScreenTimeShieldVisibilityForWindow];
+#endif
+}
+
 #if ENABLE(GAMEPAD)
 void PageClientImplCocoa::setGamepadsRecentlyAccessed(GamepadsRecentlyAccessed gamepadsRecentlyAccessed)
 {
@@ -420,5 +436,10 @@ void PageClientImplCocoa::setFullScreenClientForTesting(std::unique_ptr<WebFullS
     m_fullscreenClientForTesting = WTFMove(client);
 }
 #endif
+
+void PageClientImplCocoa::didCommitLayerTree(const RemoteLayerTreeTransaction& transaction)
+{
+    [webView() _updateFixedContainerEdges:transaction.fixedContainerEdges()];
+}
 
 } // namespace WebKit

@@ -1619,8 +1619,6 @@ css2.1/20110323/replaced-intrinsic-002.htm [ Failure ]
 
 webkit.org/b/133057 fast/table/border-collapsing/collapsed-borders-adjoining-sections.html [ ImageOnlyFailure ]
 
-webkit.org/b/169075 editing/selection/extend-by-character-007.html [ Failure ]
-
 webkit.org/b/169359 http/tests/cache/disk-cache/disk-cache-remove-several-pending-writes.html [ Pass Failure ]
 
 # CSS Font Loading is not yet enabled on all platforms
@@ -2493,6 +2491,9 @@ fast/images/jpegxl-as-image.html [ Skip ]
 fast/images/jpegxl-with-color-profile.html [ Skip ]
 fast/images/animated-jpegxl-loop-count.html [ Skip ]
 
+# Only applicable on platforms with HDR support
+compositing/hdr/hdr-basic-canvas.html [ Skip ]
+
 # Experimental H265 support.
 webrtc/h265.html [ Pass Failure ]
 
@@ -2841,7 +2842,6 @@ crypto/subtle/ecdsa-import-pkcs8-key-p256-validate-ecprivatekey-parameters-publi
 crypto/subtle/ecdsa-import-pkcs8-key-p384-validate-ecprivatekey-parameters-publickey.html [ Skip ]
 crypto/subtle/ecdh-import-spki-key-ecdh-identifier.html [ Skip ]
 crypto/subtle/rsa-pss-generate-export-key-jwk-sha1.html [ Skip ]
-crypto/subtle/rsa-pss-generate-export-key-jwk-sha224.html [ Skip ]
 crypto/subtle/rsa-pss-generate-export-key-jwk-sha256.html [ Skip ]
 crypto/subtle/rsa-pss-generate-export-key-jwk-sha384.html [ Skip ]
 crypto/subtle/rsa-pss-generate-export-key-jwk-sha512.html [ Skip ]
@@ -2851,7 +2851,6 @@ crypto/subtle/rsa-pss-generate-key.html [ Skip ]
 crypto/subtle/rsa-pss-import-jwk-private-key.html [ Skip ]
 crypto/subtle/rsa-pss-import-jwk-public-key-empty-usages.html [ Skip ]
 crypto/subtle/rsa-pss-import-jwk-public-key-sha1.html [ Skip ]
-crypto/subtle/rsa-pss-import-jwk-public-key-sha224.html [ Skip ]
 crypto/subtle/rsa-pss-import-jwk-public-key-sha256.html [ Skip ]
 crypto/subtle/rsa-pss-import-jwk-public-key-sha384.html [ Skip ]
 crypto/subtle/rsa-pss-import-jwk-public-key-sha512.html [ Skip ]
@@ -2957,6 +2956,9 @@ imported/w3c/web-platform-tests/html/semantics/the-button-element/command-and-co
 imported/w3c/web-platform-tests/html/semantics/the-button-element/command-and-commandfor/on-details-invalid-behavior.tentative.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/the-button-element/command-and-commandfor/on-input-number.tentative.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/the-button-element/command-and-commandfor/on-video-behavior.tentative.html [ Skip ]
+
+# interesttarget failures - not specced yet
+imported/w3c/web-platform-tests/html/semantics/the-button-element/interest-target/interesttarget-keyboard-invalidation.tentative.html [ ImageOnlyFailure ]
 
 # text-transform: full-width
 # no full width mapping for characters ( and )
@@ -7578,7 +7580,6 @@ webkit.org/b/282024 fast/text/text-box-edge-with-margin-padding-border-simple.ht
 # -- Anchor Positioning -- #
 
 # general failures
-imported/w3c/web-platform-tests/css/css-anchor-position/anchor-center-scroll.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-position-top-layer-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-position-top-layer-003.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-position-top-layer-005.html [ ImageOnlyFailure ]
@@ -7606,7 +7607,6 @@ imported/w3c/web-platform-tests/css/css-anchor-position/position-try-switch-to-f
 imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-add-no-overflow.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-anchors-valid.tentative.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-anchors-visible-after-scroll-in.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-anchors-visible-after-scroll-out.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-anchors-visible-both-position-fixed.tentative.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-anchors-visible-chained-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-anchors-visible-chained-002.html [ ImageOnlyFailure ]
@@ -7619,7 +7619,6 @@ imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-anch
 imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-anchors-visible-position-fixed.tentative.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-anchors-visible-stacked-child.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-anchors-visible-stacked-child.tentative.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-anchors-visible.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-no-overflow-scroll.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-no-overflow-stacked-child.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-no-overflow.html [ ImageOnlyFailure ]
@@ -7628,7 +7627,6 @@ imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-remo
 
 # timeouts
 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-scroll-js-expose.html [ Skip ]
-imported/w3c/web-platform-tests/css/css-anchor-position/anchor-size-animation.html [ Skip ]
 
 # -- End: Anchor Positioning -- #
 
@@ -7651,10 +7649,10 @@ imported/w3c/web-platform-tests/css/css-viewport/zoom/text-stroke-width.html [ I
 imported/w3c/web-platform-tests/css/css-viewport/zoom/word-spacing.html [ ImageOnlyFailure ]
 
 # has-slotted is not implemeneted - https://bugs.webkit.org/show_bug.cgi?id=280608
-imported/w3c/web-platform-tests/css/css-scoping/has-slotted-001.tentative.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-scoping/has-slotted-003.tentative.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-scoping/has-slotted-flattened-001.tentative.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-scoping/has-slotted-flattened-003.tentative.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-scoping/has-slotted-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-scoping/has-slotted-003.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-scoping/has-slotted-flattened-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-scoping/has-slotted-flattened-003.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-scoping/has-slotted-functional-001.tentative.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-scoping/has-slotted-functional-004.tentative.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-scoping/has-slotted-functional-006.tentative.html [ ImageOnlyFailure ]
@@ -7710,6 +7708,8 @@ imported/w3c/web-platform-tests/css/selectors/featureless-005.html [ ImageOnlyFa
 # Cocoa-only test.
 webkit.org/b/286318 http/tests/iframe-monitor [ Skip ]
 
+# Currently only supported on WK2 Cocoa ports.
+fast/page-color-sampling [ Skip ]
 
 # webkit.org/b/286934 REGRESSION(289634@main): [macOS iOS] ipc/create-media-source-wit h-invalid-constraints-crash .html is a constant crash (failure in EWS)
 ipc/create-media-source-with-invalid-constraints-crash.html [ Skip ]

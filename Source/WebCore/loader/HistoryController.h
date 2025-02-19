@@ -31,7 +31,6 @@
 
 #include "BackForwardItemIdentifier.h"
 #include "FrameLoader.h"
-#include <wtf/CheckedPtr.h>
 
 namespace WebCore {
 
@@ -45,18 +44,17 @@ enum class ShouldTreatAsContinuingLoad : uint8_t;
 struct NavigationAPIMethodTracker;
 struct StringWithDirection;
 
-class HistoryController final : public CanMakeCheckedPtr<HistoryController>, public CanMakeWeakPtr<HistoryController>  {
+class HistoryController final : public CanMakeWeakPtr<HistoryController>  {
     WTF_MAKE_NONCOPYABLE(HistoryController);
     WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Loader);
-    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(HistoryController);
 public:
     enum HistoryUpdateType { UpdateAll, UpdateAllExceptBackForwardList };
 
     explicit HistoryController(LocalFrame&);
     ~HistoryController();
 
-    void ref() const;
-    void deref() const;
+    WEBCORE_EXPORT void ref() const;
+    WEBCORE_EXPORT void deref() const;
 
     WEBCORE_EXPORT void saveScrollPositionAndViewStateToItem(HistoryItem*);
     WEBCORE_EXPORT void restoreScrollPositionAndViewState();
@@ -79,7 +77,7 @@ public:
     void updateForFrameLoadCompleted();
 
     HistoryItem* currentItem() const { return m_currentItem.get(); }
-    RefPtr<HistoryItem> protectedCurrentItem() const;
+    WEBCORE_EXPORT RefPtr<HistoryItem> protectedCurrentItem() const;
     WEBCORE_EXPORT void setCurrentItem(Ref<HistoryItem>&&);
     void setCurrentItemTitle(const StringWithDirection&);
     bool currentItemShouldBeReplaced() const;
@@ -143,8 +141,8 @@ private:
     bool m_frameLoadComplete;
 
     bool m_defersLoading;
-    RefPtr<HistoryItem> m_deferredItem;
     FrameLoadType m_deferredFrameLoadType;
+    RefPtr<HistoryItem> m_deferredItem;
 };
 
 } // namespace WebCore

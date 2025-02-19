@@ -525,7 +525,7 @@ inline Expected<std::invoke_result_t<Func, std::span<const char8_t>>, UTF8Conver
 {
     if (!m_impl)
         return function(nonNullEmptyUTF8Span());
-    return m_impl->tryGetUTF8(function, mode);
+    SUPPRESS_UNCOUNTED_ARG return m_impl->tryGetUTF8(function, mode);
 }
 
 #if USE(FOUNDATION) && defined(__OBJC__)
@@ -586,14 +586,10 @@ inline bool startsWithLettersIgnoringASCIICase(const String& string, ASCIILitera
 
 inline namespace StringLiterals {
 
-#ifndef __swift__
-// Swift will import this as global and then all literals will be WTF.String
-// instead of Swift.String
 inline String operator""_str(const char* characters, size_t)
 {
     return ASCIILiteral::fromLiteralUnsafe(characters);
 }
-#endif
 
 inline String operator""_str(const UChar* characters, size_t length)
 {

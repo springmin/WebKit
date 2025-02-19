@@ -450,16 +450,16 @@ void PageClientImpl::enterFullScreen(CompletionHandler<void(bool)>&& completionH
     WebFullScreenManagerProxy* fullScreenManagerProxy = m_view.page().fullScreenManager();
     if (fullScreenManagerProxy) {
         if (!static_cast<WKWPE::ViewLegacy&>(m_view).setFullScreen(true))
-            fullScreenManagerProxy->didExitFullScreen();
+            fullScreenManagerProxy->requestExitFullScreen();
     }
 }
 
-void PageClientImpl::exitFullScreen()
+void PageClientImpl::exitFullScreen(CompletionHandler<void()>&& completionHandler)
 {
     if (!isFullScreen())
-        return;
+        return completionHandler();
 
-    m_view.willExitFullScreen();
+    m_view.willExitFullScreen(WTFMove(completionHandler));
 #if ENABLE(WPE_PLATFORM)
     if (m_view.wpeView()) {
         static_cast<WKWPE::ViewPlatform&>(m_view).exitFullScreen();
@@ -479,9 +479,9 @@ void PageClientImpl::beganEnterFullScreen(const WebCore::IntRect& /* initialFram
     notImplemented();
 }
 
-void PageClientImpl::beganExitFullScreen(const WebCore::IntRect& /* initialFrame */, const WebCore::IntRect& /* finalFrame */)
+void PageClientImpl::beganExitFullScreen(const WebCore::IntRect& /* initialFrame */, const WebCore::IntRect& /* finalFrame */, CompletionHandler<void()>&& completionHandler)
 {
-    notImplemented();
+    completionHandler();
 }
 
 #endif // ENABLE(FULLSCREEN_API)

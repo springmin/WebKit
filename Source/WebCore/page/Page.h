@@ -663,6 +663,10 @@ public:
 
     Document* outermostFullscreenDocument() const;
 
+#if HAVE(HDR_SUPPORT)
+    bool canDrawHDRContents() const;
+#endif
+
     bool shouldSuppressScrollbarAnimations() const { return m_suppressScrollbarAnimations; }
     WEBCORE_EXPORT void setShouldSuppressScrollbarAnimations(bool suppressAnimations);
     void lockAllOverlayScrollbarsToHidden(bool lockOverlayScrollbars);
@@ -828,7 +832,6 @@ public:
 
     WEBCORE_EXPORT void userAgentChanged();
 
-    void dnsPrefetchingStateChanged();
     void storageBlockingStateChanged();
 
 #if ENABLE(RESOURCE_USAGE)
@@ -1420,7 +1423,7 @@ private:
     std::unique_ptr<PerformanceLoggingClient> m_performanceLoggingClient;
 
 #if ENABLE(SPEECH_SYNTHESIS)
-    RefPtr<SpeechSynthesisClient> m_speechSynthesisClient;
+    const RefPtr<SpeechSynthesisClient> m_speechSynthesisClient;
 #endif
 
     const UniqueRef<SpeechRecognitionProvider> m_speechRecognitionProvider;

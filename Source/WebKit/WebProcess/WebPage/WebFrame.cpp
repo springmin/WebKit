@@ -190,6 +190,12 @@ WebLocalFrameLoaderClient* WebFrame::localFrameLoaderClient() const
         return toWebLocalFrameLoaderClient(localFrame->loader().client());
     return nullptr;
 }
+
+RefPtr<WebLocalFrameLoaderClient> WebFrame::protectedLocalFrameLoaderClient() const
+{
+    return localFrameLoaderClient();
+}
+
 WebRemoteFrameClient* WebFrame::remoteFrameClient() const
 {
     if (auto* remoteFrame = dynamicDowncast<RemoteFrame>(m_coreFrame.get()))
@@ -266,6 +272,11 @@ WebCore::Frame* WebFrame::coreFrame() const
     return m_coreFrame.get();
 }
 
+RefPtr<WebCore::Frame> WebFrame::protectedCoreFrame() const
+{
+    return coreFrame();
+}
+
 FrameInfoData WebFrame::info() const
 {
     RefPtr parent = parentFrame();
@@ -294,6 +305,7 @@ FrameInfoData WebFrame::info() const
         frameID(),
         parent ? std::optional { parent->frameID() } : std::nullopt,
         document ? std::optional { document->identifier() } : std::nullopt,
+        certificateInfo(),
         getCurrentProcessID(),
         isFocused(),
         coreLocalFrame ? coreLocalFrame->loader().errorOccurredInLoading() : false,
@@ -842,7 +854,7 @@ JSGlobalContextRef WebFrame::jsContext()
     if (!localFrame)
         return nullptr;
 
-    return toGlobalRef(localFrame->script().globalObject(mainThreadNormalWorld()));
+    return toGlobalRef(localFrame->script().globalObject(mainThreadNormalWorldSingleton()));
 }
 
 JSGlobalContextRef WebFrame::jsContextForWorld(DOMWrapperWorld& world)

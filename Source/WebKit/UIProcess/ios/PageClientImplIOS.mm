@@ -35,6 +35,7 @@
 #import "EndowmentStateTracker.h"
 #import "FrameInfoData.h"
 #import "InteractionInformationAtPosition.h"
+#import "KeyEventInterpretationContext.h"
 #import "NativeWebKeyboardEvent.h"
 #import "NavigationState.h"
 #import "PlatformXRSystem.h"
@@ -166,6 +167,8 @@ bool PageClientImpl::isViewVisible()
 
 void PageClientImpl::viewIsBecomingVisible()
 {
+    PageClientImplCocoa::viewIsBecomingVisible();
+
 #if ENABLE(PAGE_LOAD_OBSERVER)
     if (RetainPtr webView = this->webView())
         [webView _updatePageLoadObserverState];
@@ -395,9 +398,9 @@ void PageClientImpl::accessibilityWebProcessTokenReceived(std::span<const uint8_
     [contentView() _setAccessibilityWebProcessToken:toNSData(data).get()];
 }
 
-bool PageClientImpl::interpretKeyEvent(const NativeWebKeyboardEvent& event, bool isCharEvent)
+bool PageClientImpl::interpretKeyEvent(const NativeWebKeyboardEvent& event, KeyEventInterpretationContext&& context)
 {
-    return [contentView() _interpretKeyEvent:event.nativeEvent() isCharEvent:isCharEvent];
+    return [contentView() _interpretKeyEvent:event.nativeEvent() withContext:WTFMove(context)];
 }
 
 void PageClientImpl::positionInformationDidChange(const InteractionInformationAtPosition& info)
@@ -650,6 +653,8 @@ void PageClientImpl::didGetTapHighlightGeometries(WebKit::TapIdentifier requestI
 
 void PageClientImpl::didCommitLayerTree(const RemoteLayerTreeTransaction& layerTreeTransaction)
 {
+    PageClientImplCocoa::didCommitLayerTree(layerTreeTransaction);
+
     [contentView() _didCommitLayerTree:layerTreeTransaction];
 }
 
@@ -822,9 +827,11 @@ void PageClientImpl::updateImageSource()
 }
 #endif
 
-void PageClientImpl::exitFullScreen()
+void PageClientImpl::exitFullScreen(CompletionHandler<void()>&& completionHandler)
 {
-    [[webView() fullScreenWindowController] exitFullScreen];
+    if (![webView() fullScreenWindowController])
+        return completionHandler();
+    [[webView() fullScreenWindowController] exitFullScreen:WTFMove(completionHandler)];
 }
 
 static UIInterfaceOrientationMask toUIInterfaceOrientationMask(WebCore::ScreenOrientationType orientation)
@@ -859,9 +866,11 @@ void PageClientImpl::beganEnterFullScreen(const IntRect& initialFrame, const Int
     [[webView() fullScreenWindowController] beganEnterFullScreenWithInitialFrame:initialFrame finalFrame:finalFrame];
 }
 
-void PageClientImpl::beganExitFullScreen(const IntRect& initialFrame, const IntRect& finalFrame)
+void PageClientImpl::beganExitFullScreen(const IntRect& initialFrame, const IntRect& finalFrame, CompletionHandler<void()>&& completionHandler)
 {
-    [[webView() fullScreenWindowController] beganExitFullScreenWithInitialFrame:initialFrame finalFrame:finalFrame];
+    if (![webView() fullScreenWindowController])
+        return completionHandler();
+    [[webView() fullScreenWindowController] beganExitFullScreenWithInitialFrame:initialFrame finalFrame:finalFrame completionHandler:WTFMove(completionHandler)];
 }
 
 #endif // ENABLE(FULLSCREEN_API)
