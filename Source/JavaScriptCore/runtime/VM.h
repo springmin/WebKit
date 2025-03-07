@@ -906,9 +906,18 @@ public:
     ShadowChicken& ensureShadowChicken() { return m_shadowChicken.get(*this); }
     
 #if USE(BUN_JSC_ADDITIONS)
+    const ErrorInfoFunction& onComputeErrorInfo() const { return m_onComputeErrorInfo; }
     ErrorInfoFunction& onComputeErrorInfo() { return m_onComputeErrorInfo; }
+    
+    const ErrorInfoFunctionJSValue& onComputeErrorInfoJSValue() const { return m_onComputeErrorInfoJSValue; }
     ErrorInfoFunctionJSValue& onComputeErrorInfoJSValue() { return m_onComputeErrorInfoJSValue; }
+    
+    const WTF::Function<void(VM&, SourceProvider*, LineColumn&)>& computeLineColumnWithSourcemap() const { return m_computeLineColumnWithSourcemap; }
     WTF::Function<void(VM&, SourceProvider*, LineColumn&)>& computeLineColumnWithSourcemap() { return m_computeLineColumnWithSourcemap; }
+    
+    void setOnComputeErrorInfo(ErrorInfoFunction&& function) { m_onComputeErrorInfo = WTFMove(function); }
+    void setOnComputeErrorInfoJSValue(ErrorInfoFunctionJSValue&& function) { m_onComputeErrorInfoJSValue = WTFMove(function); }
+    void setComputeLineColumnWithSourcemap(WTF::Function<void(VM&, SourceProvider*, LineColumn&)>&& function) { m_computeLineColumnWithSourcemap = WTFMove(function); }
 #endif
     
     template<typename Func>
