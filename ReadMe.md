@@ -16,8 +16,11 @@ The changes to WebKit are as follows:
 - `JSString` iterator that exposes the pointer of each nested `JSRopeString`'s underlying buffer to a callback without flattening/allocating an entirely new string. This is useful for native code piping strings from JavaScript to elsewhere, or manually allocating strings outside of `WTF::String`. `console.log` or server-side rendering (when not using streams) are examples.
 - `ExternalStringImpl` now supports static strings. This is somewhat of a hack; the better solution for this case is a script that generates all the static strings at compile time using `NeverDestroyed<StaticStringImpl>`, however need to figure out a way to do that well from Zig.
 - `OptionsList::useV8DateParser` enables v8's date parser.
+- The [`ReferenceError`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/ReferenceError) message was changed to match V8 (`ReferenceError: Can't find variable: <variable>` -> `ReferenceError: <variable> is undefined`).
 
 Still need to figure out how to get the remote inspector to work.
+
+_NOTE_: If you make a change to this repo make sure to update the commit hash in `cmake/tools/SetupWebKit.cmake` in Bun.
 
 ---
 
@@ -91,7 +94,7 @@ Select the "Everything up to WebKit + Tools" scheme to build the entire
 project.
 
 If you don't use a custom build location in Xcode preferences, you have to
-update the workspace settings to use `WebKitBuild` directory.  In menu bar,
+update the workspace settings to use `WebKitBuild` directory. In menu bar,
 choose File > Workspace Settings, then click the Advanced button, select
 "Custom", "Relative to Workspace", and enter `WebKitBuild` for both Products
 and Intermediates.
@@ -168,7 +171,7 @@ In both cases, if you have built release builds instead, use `--release` instead
 
 To run other applications, for example MobileMiniBrowser, with your local build of WebKit, run the following command:
 
-``` shell
+```shell
 Tools/Scripts/run-webkit-app --debug --iphone-simulator <application-path>
 ```
 
