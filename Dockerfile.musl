@@ -5,7 +5,7 @@ ARG LTO_FLAG="-flto=full -fwhole-program-vtables -fforce-emit-vtables "
 ARG LLVM_VERSION="18"
 ARG DEFAULT_CFLAGS="-mno-omit-leaf-frame-pointer -g -fno-omit-frame-pointer -ffunction-sections -fdata-sections -faddrsig -fno-unwind-tables -fno-asynchronous-unwind-tables -DU_STATIC_IMPLEMENTATION=1 "
 
-FROM alpine:edge as base
+FROM alpine:3.21 as base
 
 ARG MARCH_FLAG
 ARG WEBKIT_RELEASE_TYPE
