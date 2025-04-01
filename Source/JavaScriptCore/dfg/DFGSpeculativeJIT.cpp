@@ -9845,6 +9845,11 @@ void SpeculativeJIT::compileArrayIndexOfOrArrayIncludes(Node* node)
                 callOperation(operationArrayIndexOfValueDouble, lengthGPR, storageGPR, searchElementRegs, indexGPR);
             break;
         case Array::Int32:
+            if (isArrayIncludes)
+                callOperation(operationArrayIncludesValueInt32, lengthGPR, LinkableConstant::globalObject(*this, node), storageGPR, searchElementRegs, indexGPR);
+            else
+                callOperation(operationArrayIndexOfValueInt32, lengthGPR, LinkableConstant::globalObject(*this, node), storageGPR, searchElementRegs, indexGPR);
+            break;
         case Array::Contiguous:
             if (isArrayIncludes)
                 callOperation(operationArrayIncludesValueInt32OrContiguous, lengthGPR, LinkableConstant::globalObject(*this, node), storageGPR, searchElementRegs, indexGPR);
@@ -16772,17 +16777,6 @@ void SpeculativeJIT::compileStringIndexOf(Node* node)
 void SpeculativeJIT::compileGlobalIsNaN(Node* node)
 {
     switch (node->child1().useKind()) {
-    case DoubleRepUse: {
-        SpeculateDoubleOperand argument(this, node->child1());
-        GPRTemporary scratch(this);
-
-        FPRReg argumentFPR = argument.fpr();
-        GPRReg scratchGPR = scratch.gpr();
-
-        compareDouble(DoubleNotEqualOrUnordered, argumentFPR, argumentFPR, scratchGPR);
-        unblessedBooleanResult(scratchGPR, node);
-        break;
-    }
     case UntypedUse: {
         JSValueOperand argument(this, node->child1());
         GPRTemporary scratch1(this);

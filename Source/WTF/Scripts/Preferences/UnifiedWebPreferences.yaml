@@ -2935,6 +2935,19 @@ ExperimentalSandboxEnabled:
     WebKit:
       default: false
 
+ExposeCaptureDevicesAfterCaptureEnabled:
+  type: bool
+  status: internal
+  category: media
+  humanReadableName: "Expose all capture devices when one is used"
+  humanReadableDescription: "Expose all capture devices when one is used"
+  condition: ENABLE(MEDIA_STREAM)
+  defaultValue:
+    WebKit:
+      default: true
+    WebCore:
+      default: false
+
 ExposeSpeakersEnabled:
   type: bool
   status: internal
@@ -3909,6 +3922,19 @@ InspectorAttachmentSide:
   defaultValue:
     WebKit:
       default: 0
+
+InspectorMaximumResourcesContentSize:
+  type: uint32_t
+  status: embedder
+  defaultValue:
+    WebKitLegacy:
+      default: 200
+    WebKit:
+      "PLATFORM(WPE)": 50
+      default: 200
+    WebCore:
+      "PLATFORM(WPE)": 50
+      default: 200
 
 InspectorStartsAttached:
   type: bool
@@ -5146,10 +5172,8 @@ MediaSourcePrefersDecompressionSession:
     WebKitLegacy:
       default: false
     WebKit:
-      "PLATFORM(VISION)": false
       default: true
     WebCore:
-      "PLATFORM(VISION)": false
       default: true
   sharedPreferenceForWebProcess: true
 
