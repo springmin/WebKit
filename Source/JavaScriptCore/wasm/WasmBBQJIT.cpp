@@ -386,13 +386,6 @@ RegisterBinding RegisterBinding::fromValue(Value value)
     return binding;
 }
 
-RegisterBinding RegisterBinding::none()
-{
-    RegisterBinding binding;
-    binding.m_kind = None;
-    return binding;
-}
-
 RegisterBinding RegisterBinding::scratch()
 {
     RegisterBinding binding;
@@ -415,27 +408,15 @@ Value RegisterBinding::toValue() const
     }
 }
 
-bool RegisterBinding::isNone() const
-{
-    return m_kind == None;
-}
-
-bool RegisterBinding::isValid() const
-{
-    return m_kind != None;
-}
-
-bool RegisterBinding::isScratch() const
-{
-    return m_kind == Scratch;
-}
-
 bool RegisterBinding::operator==(RegisterBinding other) const
 {
     if (m_kind != other.m_kind)
         return false;
 
-    return m_kind == None || (m_index == other.m_index && m_type == other.m_type);
+    if (m_kind == None || m_kind == Scratch)
+        return true;
+
+    return m_index == other.m_index && m_type == other.m_type;
 }
 
 void RegisterBinding::dump(PrintStream& out) const
@@ -453,17 +434,14 @@ void RegisterBinding::dump(PrintStream& out) const
     case Temp:
         out.print("Temp(", m_index, ")");
         break;
+    default:
+        RELEASE_ASSERT_NOT_REACHED();
     }
 }
 
 unsigned RegisterBinding::hash() const
 {
     return pairIntHash(static_cast<unsigned>(m_kind), m_index);
-}
-
-uint32_t RegisterBinding::encode() const
-{
-    return m_uintValue;
 }
 
 ControlData::ControlData(BBQJIT& generator, BlockType blockType, BlockSignature signature, LocalOrTempIndex enclosedHeight, RegisterSet liveScratchGPRs = { }, RegisterSet liveScratchFPRs = { })
@@ -1452,23 +1430,6 @@ StorageType BBQJIT::getArrayElementType(uint32_t typeIndex)
 {
     const ArrayType* arrayType = getArrayTypeDefinition(typeIndex);
     return arrayType->elementType().type;
-}
-
-PartialResult WARN_UNUSED_RETURN BBQJIT::addArrayNewDefault(uint32_t typeIndex, ExpressionType size, ExpressionType& result)
-{
-    Vector<Value, 8> arguments = {
-        instanceValue(),
-        Value::fromI32(typeIndex),
-        size,
-    };
-    result = topValue(TypeKind::Arrayref);
-    emitCCall(&operationWasmArrayNewEmpty, arguments, result);
-
-    Location resultLocation = loadIfNecessary(result);
-    emitThrowOnNullReference(ExceptionType::BadArrayNew, resultLocation);
-
-    LOG_INSTRUCTION("ArrayNewDefault", typeIndex, size, RESULT(result));
-    return { };
 }
 
 void BBQJIT::pushArrayNewFromSegment(ArraySegmentOperation operation, uint32_t typeIndex, uint32_t segmentIndex, ExpressionType arraySize, ExpressionType offset, ExceptionType exceptionType, ExpressionType& result)
@@ -4043,7 +4004,7 @@ void BBQJIT::RegisterBindings::dump(PrintStream& out) const
         out.print("]");
 
     // FIXME: These should be store load pairs.
-    comma = CommaPrinter(", ", ", [");
+    comma = CommaPrinter(", ", comma.didPrint() ? ", ["_s : "["_s);
     for (unsigned i = 0; i < m_gprBindings.size(); ++i) {
         if (!m_gprBindings[i].isNone())
             out.print(comma, "<", static_cast<GPRReg>(i), ": ", m_gprBindings[i], ">");
@@ -4054,7 +4015,6 @@ void BBQJIT::RegisterBindings::dump(PrintStream& out) const
 
 void BBQJIT::slowPathSpillBindings(const RegisterBindings& bindings)
 {
-    dataLogLn(bindings);
     for (unsigned i = 0; i < bindings.m_fprBindings.size(); ++i) {
         Value value = bindings.m_fprBindings[i].toValue();
         if (!value.isNone())

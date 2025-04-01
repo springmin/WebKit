@@ -107,7 +107,6 @@ PluginInfo PDFPluginBase::pluginInfo()
     info.desc = pdfDocumentTypeDescription();
     info.file = "internal-pdf-viewer"_s;
     info.isApplicationPlugin = true;
-    info.clientLoadPolicy = PluginLoadClientPolicy::Undefined;
     info.bundleIdentifier = "com.apple.webkit.builtinpdfplugin"_s;
 
     MimeClassInfo pdfMimeClassInfo;
@@ -1012,7 +1011,7 @@ void PDFPluginBase::destroyScrollbar(ScrollbarOrientation orientation)
     if (!scrollbar)
         return;
 
-    willRemoveScrollbar(scrollbar.get(), orientation);
+    willRemoveScrollbar(*scrollbar, orientation);
     scrollbar->removeFromParent();
     scrollbar = nullptr;
 }

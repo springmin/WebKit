@@ -1810,7 +1810,7 @@ void RenderObject::willBeDestroyed()
     ASSERT(renderTreeBeingDestroyed() || !is<RenderElement>(*this) || !view().frameView().hasSlowRepaintObject(downcast<RenderElement>(*this)));
 
     if (CheckedPtr cache = document().existingAXObjectCache())
-        cache->remove(this);
+        cache->remove(*this);
 
     if (RefPtr node = this->node()) {
         // FIXME: Continuations should be anonymous.
@@ -2971,7 +2971,7 @@ String RenderObject::debugDescription() const
 
 bool RenderObject::isSkippedContent() const
 {
-    return parent() && parent()->style().hasSkippedContent();
+    return parent() && parent()->style().isSkippedRootOrSkippedContent();
 }
 
 TextStream& operator<<(TextStream& ts, const RenderObject& renderer)
