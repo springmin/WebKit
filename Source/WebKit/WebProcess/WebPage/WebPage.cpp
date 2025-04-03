@@ -1191,15 +1191,6 @@ void WebPage::createRemoteSubframe(WebCore::FrameIdentifier parentID, WebCore::F
     WebFrame::createRemoteSubframe(*this, *parentFrame, newChildID, newChildFrameName, std::nullopt, WTFMove(frameTreeSyncData));
 }
 
-void WebPage::getFrameInfo(WebCore::FrameIdentifier frameID, CompletionHandler<void(std::optional<FrameInfoData>&&)>&& completionHandler)
-{
-    RefPtr frame = WebProcess::singleton().webFrame(frameID);
-    if (!frame)
-        return completionHandler(std::nullopt);
-
-    completionHandler(frame->info(WithCertificateInfo::Yes));
-}
-
 Awaitable<std::optional<FrameTreeNodeData>> WebPage::getFrameTree()
 {
     co_return m_mainFrame->frameTreeData();
@@ -3380,41 +3371,6 @@ void WebPage::updateFrameScrollingMode(FrameIdentifier frameID, ScrollbarMode sc
     frame->setScrollingMode(scrollingMode);
 }
 
-void WebPage::updateFrameSize(WebCore::FrameIdentifier frameID, WebCore::IntSize newSize)
-{
-    if (!m_page)
-        return;
-
-    ASSERT(m_page->settings().siteIsolationEnabled());
-    RefPtr webFrame = WebProcess::singleton().webFrame(frameID);
-    if (!webFrame)
-        return;
-
-    RefPtr frame = webFrame->coreLocalFrame();
-    if (!frame)
-        return;
-
-    RefPtr frameView = frame->view();
-    if (!frameView)
-        return;
-
-    if (frameView->size() == newSize)
-        return;
-
-    frameView->resize(newSize);
-#if PLATFORM(IOS_FAMILY)
-    // FIXME: This ensures cross-site iframe render correctly;
-    // it should be removed after rdar://122429810 is fixed.
-    frameView->setExposedContentRect(frameView->frameRect());
-    frameView->setUnobscuredContentSize(frameView->size());
-#endif
-
-    if (RefPtr drawingArea = m_drawingArea) {
-        drawingArea->setNeedsDisplay();
-        drawingArea->triggerRenderingUpdate();
-    }
-}
-
 void WebPage::tryMarkLayersVolatile(CompletionHandler<void(bool)>&& completionHandler)
 {
     RefPtr drawingArea = m_drawingArea;
@@ -4871,10 +4827,6 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
     
 #if ENABLE(ALTERNATE_WEBM_PLAYER)
     PlatformMediaSessionManager::setAlternateWebMPlayerEnabled(settings.alternateWebMPlayerEnabled());
-#endif
-
-#if HAVE(SC_CONTENT_SHARING_PICKER)
-    PlatformMediaSessionManager::setUseSCContentSharingPicker(settings.useSCContentSharingPicker());
 #endif
 
 #if ENABLE(VP9)
@@ -8796,22 +8748,6 @@ void WebPage::updateAttachmentAttributes(const String& identifier, std::optional
         attachment->updateAssociatedElementWithData(contentType, associatedElementData.isNull() ? WebCore::SharedBuffer::create() : associatedElementData.unsafeBuffer().releaseNonNull());
     }
     callback();
-}
-
-void WebPage::updateAttachmentThumbnail(const String& identifier, std::optional<ShareableBitmap::Handle>&& qlThumbnailHandle)
-{
-    if (RefPtr attachment = attachmentElementWithIdentifier(identifier)) {
-        if (RefPtr thumbnail = qlThumbnailHandle ? ShareableBitmap::create(WTFMove(*qlThumbnailHandle)) : nullptr) {
-            if (attachment->isWideLayout()) {
-                if (auto imageBuffer = ImageBuffer::create(thumbnail->size(), RenderingMode::Unaccelerated, RenderingPurpose::Unspecified, 1.0, DestinationColorSpace::SRGB(), ImageBufferPixelFormat::BGRA8)) {
-                    thumbnail->paint(imageBuffer->context(), IntPoint::zero(), IntRect(IntPoint::zero(), thumbnail->size()));
-                    auto data = imageBuffer->toData("image/png"_s);
-                    attachment->updateThumbnailForWideLayout(WTFMove(data));
-                }
-            } else
-                attachment->updateThumbnailForNarrowLayout(thumbnail->createImage());
-        }
-    }
 }
 
 void WebPage::updateAttachmentIcon(const String& identifier, std::optional<ShareableBitmap::Handle>&& iconHandle, const WebCore::FloatSize& size)

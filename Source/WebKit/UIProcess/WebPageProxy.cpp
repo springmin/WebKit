@@ -1254,15 +1254,10 @@ void WebPageProxy::setResourceLoadClient(std::unique_ptr<API::ResourceLoadClient
 
 void WebPageProxy::handleMessage(IPC::Connection& connection, const String& messageName, const WebKit::UserData& messageBody)
 {
-    handleMessageShared(WebProcessProxy::fromConnection(connection), messageName, messageBody);
-}
-
-void WebPageProxy::handleMessageShared(const Ref<WebProcessProxy>& process, const String& messageName, const WebKit::UserData& messageBody)
-{
     if (!m_injectedBundleClient)
         return;
 
-    m_injectedBundleClient->didReceiveMessageFromInjectedBundle(this, messageName, process->transformHandlesToObjects(messageBody.protectedObject().get()).get());
+    m_injectedBundleClient->didReceiveMessageFromInjectedBundle(this, messageName, WebProcessProxy::fromConnection(connection)->transformHandlesToObjects(messageBody.protectedObject().get()).get());
 }
 
 void WebPageProxy::handleMessageWithAsyncReply(const String& messageName, const UserData& messageBody, CompletionHandler<void(UserData&&)>&& completionHandler)
@@ -1983,6 +1978,11 @@ RefPtr<API::Navigation> WebPageProxy::loadRequest(WebCore::ResourceRequest&& req
 
     WEBPAGEPROXY_RELEASE_LOG(Loading, "loadRequest:");
 
+    if (m_isCallingCreateNewPage && request.url().protocolIsJavaScript()) {
+        WEBPAGEPROXY_RELEASE_LOG(Loading, "loadRequest: Not loading javascript URL during createNewPage.");
+        return nullptr;
+    }
+
     if (!hasRunningProcess())
         launchProcess(Site { request.url() }, ProcessLaunchReason::InitialProcess);
 
@@ -2191,7 +2191,7 @@ RefPtr<API::Navigation> WebPageProxy::loadData(Ref<WebCore::SharedBuffer>&& data
     }
 
     if (!hasRunningProcess())
-        launchProcess(Site(aboutBlankURL()), ProcessLaunchReason::InitialProcess);
+        launchProcess(Site(URL(baseURL)), ProcessLaunchReason::InitialProcess);
 
     Ref navigation = protectedNavigationState()->createLoadDataNavigation(legacyMainFrameProcess().coreProcessIdentifier(), makeUnique<API::SubstituteData>(Vector(data->span()), type, encoding, baseURL, userData));
 
@@ -6203,17 +6203,7 @@ void WebPageProxy::getAllFrames(CompletionHandler<void(std::optional<FrameTreeNo
     RefPtr mainFrame = m_mainFrame;
     if (!mainFrame)
         return completionHandler({ });
-    mainFrame->getFrameInfo(WTFMove(completionHandler));
-}
-
-void WebPageProxy::getFrameInfo(WebCore::FrameIdentifier frameID, CompletionHandler<void(API::FrameInfo*)>&& completionHandler)
-{
-    sendWithAsyncReplyToProcessContainingFrame(frameID, Messages::WebPage::GetFrameInfo(frameID), [weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler)] (std::optional<FrameInfoData>&& data) mutable {
-        RefPtr protectedThis = weakThis.get();
-        if (!data || !protectedThis)
-            return completionHandler(nullptr);
-        completionHandler(API::FrameInfo::create(WTFMove(*data), WTFMove(protectedThis)).ptr());
-    });
+    mainFrame->getFrameTree(WTFMove(completionHandler));
 }
 
 void WebPageProxy::getAllFrameTrees(CompletionHandler<void(Vector<FrameTreeNodeData>&&)>&& completionHandler)
@@ -6533,14 +6523,6 @@ void WebPageProxy::updateScrollingMode(IPC::Connection& connection, WebCore::Fra
         MESSAGE_CHECK(process, parentFrame && &parentFrame->process() == process.ptr());
         frame->updateScrollingMode(scrollingMode);
     }
-}
-
-void WebPageProxy::updateRemoteFrameSize(WebCore::FrameIdentifier frameID, WebCore::IntSize size)
-{
-    if (RefPtr frame = WebFrameProxy::webFrame(frameID))
-        frame->setRemoteFrameSize(size);
-
-    sendToProcessContainingFrame(frameID, Messages::WebPage::UpdateFrameSize(frameID, size));
 }
 
 void WebPageProxy::resolveAccessibilityHitTestForTesting(WebCore::FrameIdentifier frameID, WebCore::IntPoint point, CompletionHandler<void(String)>&& callback)
@@ -7705,16 +7687,12 @@ void WebPageProxy::beginSafeBrowsingCheck(const URL&, bool, WebFramePolicyListen
 
 void WebPageProxy::decidePolicyForNavigationActionAsync(IPC::Connection& connection, NavigationActionData&& data, CompletionHandler<void(PolicyDecision&&)>&& completionHandler)
 {
-    decidePolicyForNavigationActionAsyncShared(WebProcessProxy::fromConnection(connection), WTFMove(data), WTFMove(completionHandler));
-}
-
-void WebPageProxy::decidePolicyForNavigationActionAsyncShared(Ref<WebProcessProxy>&& process, NavigationActionData&& data, CompletionHandler<void(PolicyDecision&&)>&& completionHandler)
-{
     RefPtr frame = WebFrameProxy::webFrame(data.frameInfo.frameID);
     if (!frame)
         return completionHandler({ });
 
     auto url = data.request.url();
+    Ref process = WebProcessProxy::fromConnection(connection);
     decidePolicyForNavigationAction(process.copyRef(), *frame, WTFMove(data), [completionHandler = WTFMove(completionHandler), process, url = WTFMove(url)] (PolicyDecision&& policyDecision) mutable {
         if (policyDecision.policyAction == PolicyAction::Use && url.protocolIsFile())
             process->addPreviouslyApprovedFileURL(url);
@@ -8077,23 +8055,15 @@ void WebPageProxy::logFrameNavigation(const WebFrameProxy& frame, const URL& pag
 
 void WebPageProxy::decidePolicyForNavigationActionSync(IPC::Connection& connection, NavigationActionData&& data, CompletionHandler<void(PolicyDecision&&)>&& reply)
 {
-    auto& frameInfo = data.frameInfo;
-    RefPtr frame = WebFrameProxy::webFrame(frameInfo.frameID);
+    auto frameID = data.frameInfo.frameID;
+    Ref process = WebProcessProxy::fromConnection(connection);
+    RefPtr frame = WebFrameProxy::webFrame(frameID);
     if (!frame) {
         // This message should always be queued at this point, so we can pull it out with a 0 timeout.
-        connection.waitForAndDispatchImmediately<Messages::WebPageProxy::DidCreateSubframe>(webPageIDInMainFrameProcess(), 0_s);
-        frame = WebFrameProxy::webFrame(frameInfo.frameID);
+        connection.waitForAndDispatchImmediately<Messages::WebPageProxy::DidCreateSubframe>(webPageIDInProcess(process), 0_s);
+        frame = WebFrameProxy::webFrame(frameID);
         MESSAGE_CHECK_COMPLETION_BASE(frame, connection, reply({ }));
     }
-
-    decidePolicyForNavigationActionSyncShared(frame->protectedProcess(), WTFMove(data), WTFMove(reply));
-}
-
-void WebPageProxy::decidePolicyForNavigationActionSyncShared(Ref<WebProcessProxy>&& process, NavigationActionData&& data, CompletionHandler<void(PolicyDecision&&)>&& reply)
-{
-    RefPtr frame = WebFrameProxy::webFrame(data.frameInfo.frameID);
-    if (!frame)
-        return reply({ });
 
     class PolicyDecisionSender : public RefCounted<PolicyDecisionSender> {
     public:
@@ -8160,7 +8130,7 @@ void WebPageProxy::decidePolicyForResponse(IPC::Connection& connection, FrameInf
 {
     RefPtr frame = WebFrameProxy::webFrame(frameInfo.frameID);
     if (!frame)
-        return;
+        return completionHandler({ });
     decidePolicyForResponseShared(WebProcessProxy::fromConnection(connection), m_webPageID, WTFMove(frameInfo), navigationID, response, request, canShowMIMEType, downloadAttribute, isShowingInitialAboutBlank, activeDocumentCOOPValue, WTFMove(completionHandler));
 }
 
@@ -8430,6 +8400,7 @@ void WebPageProxy::createNewPage(IPC::Connection& connection, WindowFeatures&& w
         openedBlobURL,
         wantsNoOpener = windowFeatures.wantsNoOpener()
     ] (RefPtr<WebPageProxy> newPage) mutable {
+        m_isCallingCreateNewPage = false;
         if (!newPage) {
             reply(std::nullopt, std::nullopt);
             return;
@@ -8504,6 +8475,7 @@ void WebPageProxy::createNewPage(IPC::Connection& connection, WindowFeatures&& w
     }
 
     trySOAuthorization(configuration.copyRef(), WTFMove(navigationAction), *this, WTFMove(completionHandler), [this, protectedThis = Ref { *this }, configuration] (Ref<API::NavigationAction>&& navigationAction, CompletionHandler<void(RefPtr<WebPageProxy>&&)>&& completionHandler) mutable {
+        m_isCallingCreateNewPage = true;
         m_uiClient->createNewPage(*this, WTFMove(configuration), WTFMove(navigationAction), WTFMove(completionHandler));
     });
 }
@@ -14322,25 +14294,7 @@ void WebPageProxy::insertAttachment(Ref<API::Attachment>&& attachment, Completio
 void WebPageProxy::updateAttachmentAttributes(const API::Attachment& attachment, CompletionHandler<void()>&& callback)
 {
     sendWithAsyncReply(Messages::WebPage::UpdateAttachmentAttributes(attachment.identifier(), attachment.fileSizeForDisplay(), attachment.contentType(), attachment.fileName(), IPC::SharedBufferReference(attachment.associatedElementData())), WTFMove(callback));
-
-#if HAVE(QUICKLOOK_THUMBNAILING)
-    requestThumbnail(attachment, attachment.identifier());
-#endif
 }
-
-#if HAVE(QUICKLOOK_THUMBNAILING)
-void WebPageProxy::updateAttachmentThumbnail(const String& identifier, const RefPtr<ShareableBitmap>& bitmap)
-{
-    if (!hasRunningProcess())
-        return;
-    
-    std::optional<ShareableBitmap::Handle> handle;
-    if (bitmap)
-        handle = bitmap->createHandle();
-
-    send(Messages::WebPage::UpdateAttachmentThumbnail(identifier, handle));
-}
-#endif
 
 void WebPageProxy::registerAttachmentIdentifierFromData(IPC::Connection& connection, const String& identifier, const String& contentType, const String& preferredFileName, const IPC::SharedBufferReference& data)
 {
@@ -14370,9 +14324,6 @@ void WebPageProxy::registerAttachmentIdentifierFromFilePath(IPC::Connection& con
     attachment->setFilePath(filePath);
     m_attachmentIdentifierToAttachmentMap.set(identifier, attachment.copyRef());
     platformRegisterAttachment(WTFMove(attachment), filePath);
-#if HAVE(QUICKLOOK_THUMBNAILING)
-    requestThumbnailWithPath(filePath, identifier);
-#endif
 }
 
 void WebPageProxy::registerAttachmentIdentifier(IPC::Connection& connection, const String& identifier)
@@ -14393,9 +14344,6 @@ void WebPageProxy::registerAttachmentsFromSerializedData(IPC::Connection& connec
         if (!attachmentForIdentifier(identifier)) {
             Ref attachment = ensureAttachment(identifier);
             attachment->updateFromSerializedRepresentation(WTFMove(serializedData.data), WTFMove(serializedData.mimeType));
-#if HAVE(QUICKLOOK_THUMBNAILING)
-            requestThumbnail(attachment, identifier);
-#endif
         }
     }
 }

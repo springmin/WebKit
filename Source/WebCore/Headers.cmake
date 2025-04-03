@@ -526,6 +526,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/mediastream/RTCIceProtocol.h
     Modules/mediastream/RTCIceTcpCandidateType.h
     Modules/mediastream/RTCNetworkManager.h
+    Modules/mediastream/RTCRtpTransformableFrame.h
     Modules/mediastream/STUNMessageParsing.h
     Modules/mediastream/UserMediaClient.h
     Modules/mediastream/UserMediaController.h
@@ -2097,6 +2098,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/FontCascadeCache.h
     platform/graphics/FontCascadeDescription.h
     platform/graphics/FontCascadeFonts.h
+    platform/graphics/FontCascadeInlines.h
     platform/graphics/FontCreationContext.h
     platform/graphics/FontCustomPlatformData.h
     platform/graphics/FontDescription.h

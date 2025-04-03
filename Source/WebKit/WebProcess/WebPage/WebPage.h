@@ -751,7 +751,6 @@ public:
 
     void createRemoteSubframe(WebCore::FrameIdentifier parentID, WebCore::FrameIdentifier newChildID, const String& newChildFrameName, Ref<WebCore::FrameTreeSyncData>&&);
 
-    void getFrameInfo(WebCore::FrameIdentifier, CompletionHandler<void(std::optional<FrameInfoData>&&)>&&);
     Awaitable<std::optional<FrameTreeNodeData>> getFrameTree();
     void didFinishLoadInAnotherProcess(WebCore::FrameIdentifier);
     void frameWasRemovedInAnotherProcess(WebCore::FrameIdentifier);
@@ -1124,7 +1123,6 @@ public:
     void unfreezeLayerTree(LayerTreeFreezeReason);
 
     void updateFrameScrollingMode(WebCore::FrameIdentifier, WebCore::ScrollbarMode);
-    void updateFrameSize(WebCore::FrameIdentifier, WebCore::IntSize);
 
     void markLayersVolatile(CompletionHandler<void(bool)>&& completionHandler = { });
     void cancelMarkLayersVolatile();
@@ -1624,7 +1622,6 @@ public:
 #if ENABLE(ATTACHMENT_ELEMENT)
     void insertAttachment(const String& identifier, std::optional<uint64_t>&& fileSize, const String& fileName, const String& contentType, CompletionHandler<void()>&&);
     void updateAttachmentAttributes(const String& identifier, std::optional<uint64_t>&& fileSize, const String& contentType, const String& fileName, const IPC::SharedBufferReference& associatedElementData, CompletionHandler<void()>&&);
-    void updateAttachmentThumbnail(const String& identifier, std::optional<WebCore::ShareableBitmap::Handle>&& qlThumbnailHandle);
     void updateAttachmentIcon(const String& identifier, std::optional<WebCore::ShareableBitmap::Handle>&& icon, const WebCore::FloatSize&);
     void requestAttachmentIcon(const String& identifier, const WebCore::FloatSize&);
 #endif

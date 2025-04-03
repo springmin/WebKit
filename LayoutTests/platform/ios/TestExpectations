@@ -2647,7 +2647,6 @@ fast/attachment/attachment-truncated-action.html [ Pass ]
 # fast/attachment/attachment-wrapping-action.html [ Pass ] # TODO: ImageOnlyFailure expectation set below. Uncomment this line when that issue is resolved.
 fast/attachment/attachment-borderless.html [ Pass ]
 fast/attachment/attachment-dynamic-type.html [ Pass ]
-webkit.org/b/243126 fast/attachment/attachment-thumbnail-preserves-aspect-ratio.html [ Skip ]
 fast/images/pdf-as-image-dest-rect-change.html [ Pass ]
 
 fast/events/page-visibility-iframe-move-test.html [ Skip ]
@@ -7820,4 +7819,19 @@ webkit.org/b/290876 imported/w3c/web-platform-tests/trusted-types/DedicatedWorke
 
 webkit.org/b/290888 fast/loader/redirect-to-invalid-url-using-meta-refresh-calls-policy-delegate.html [ Pass Failure ]
 
-webkit.org/b/290928 editing/selection/ios/caret-rect-after-inserting-newlines-in-textarea.html [ Failure ]
+webkit.org/b/290942 [ Debug ] fast/viewport/ios/width-is-device-width-overflowing-body-overflow-hidden.html [ Pass Crash ]
+
+webkit.org/b/290958 [ Debug ] imported/w3c/web-platform-tests/navigation-api/scroll-behavior/manual-scroll-after-resolve.html [ Pass Failure ]
+
+webkit.org/b/290967 [ Debug ] imported/w3c/IndexedDB-private-browsing/idbcursor_iterating.html [ Pass Crash ]
+
+# hidden=until-found
+imported/w3c/web-platform-tests/html/editing/the-hidden-attribute/hidden-until-found-002.html [ Failure ]
+
+webkit.org/b/291001 imported/w3c/web-platform-tests/scroll-animations/css/animation-fill-outside-range-test.html [ Pass Failure ]
+
+webkit.org/b/290281 imported/w3c/web-platform-tests/svg/struct/scripted/svg-checkIntersection-001.svg [ Pass Timeout ]
+
+webkit.org/b/291021 imported/w3c/web-platform-tests/webrtc/RTCIceTransport.html [ Failure ]
+
+webkit.org/b/291035 webaudio/decode-audio-data-too-short.html [ Pass Failure ]
