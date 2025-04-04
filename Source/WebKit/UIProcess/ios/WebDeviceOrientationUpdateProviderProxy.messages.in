@@ -25,6 +25,7 @@
     ExceptionForEnabledBy,
     DispatchedFrom=WebContent,
     DispatchedTo=UI,
+    SharedPreferencesNeedsConnection,
     EnabledBy=DeviceOrientationEventEnabled
 ]
 messages -> WebDeviceOrientationUpdateProviderProxy {

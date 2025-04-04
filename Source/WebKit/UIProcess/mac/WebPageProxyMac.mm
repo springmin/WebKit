@@ -77,8 +77,7 @@
 
 #define MESSAGE_CHECK(assertion, connection) MESSAGE_CHECK_BASE(assertion, connection)
 #define MESSAGE_CHECK_COMPLETION(assertion, connection, completion) MESSAGE_CHECK_COMPLETION_BASE(assertion, connection, completion)
-#define MESSAGE_CHECK_URL(url) MESSAGE_CHECK_BASE(checkURLReceivedFromCurrentOrPreviousWebProcess(m_legacyMainFrameProcess, url), m_legacyMainFrameProcess->connection())
-#define MESSAGE_CHECK_WITH_RETURN_VALUE(assertion, returnValue) MESSAGE_CHECK_WITH_RETURN_VALUE_BASE(assertion, process().connection(), returnValue)
+#define MESSAGE_CHECK_URL(url) MESSAGE_CHECK_BASE(checkURLReceivedFromCurrentOrPreviousWebProcess(process, url), connection)
 
 @interface NSApplication ()
 - (BOOL)isSpeaking;
@@ -261,6 +260,7 @@ bool WebPageProxy::readSelectionFromPasteboard(const String& pasteboardName)
 void WebPageProxy::setPromisedDataForImage(IPC::Connection& connection, const String& pasteboardName, SharedMemory::Handle&& imageHandle, const String& filename, const String& extension,
     const String& title, const String& url, const String& visibleURL, SharedMemory::Handle&& archiveHandle, const String& originIdentifier)
 {
+    Ref process = WebProcessProxy::fromConnection(connection);
     MESSAGE_CHECK_URL(url);
     MESSAGE_CHECK_URL(visibleURL);
     MESSAGE_CHECK(extension == FileSystem::lastComponentOfPathIgnoringTrailingSlash(extension), connection);
@@ -574,7 +574,7 @@ void WebPageProxy::savePDFToTemporaryFolderAndOpenWithNativeApplication(const St
 }
 
 #if ENABLE(PDF_PLUGIN)
-void WebPageProxy::showPDFContextMenu(const WebKit::PDFContextMenu& contextMenu, PDFPluginIdentifier identifier, CompletionHandler<void(std::optional<int32_t>&&)>&& completionHandler)
+void WebPageProxy::showPDFContextMenu(const WebKit::PDFContextMenu& contextMenu, PDFPluginIdentifier identifier, WebCore::FrameIdentifier frameID, CompletionHandler<void(std::optional<int32_t>&&)>&& completionHandler)
 {
     if (!contextMenu.items.size())
         return completionHandler(std::nullopt);
@@ -619,7 +619,7 @@ void WebPageProxy::showPDFContextMenu(const WebKit::PDFContextMenu& contextMenu,
     if (RetainPtr selectedMenuItem = [menuTarget selectedMenuItem]) {
         NSInteger tag = selectedMenuItem.get().tag;
         if (contextMenu.openInPreviewTag && *contextMenu.openInPreviewTag == tag)
-            pdfOpenWithPreview(identifier);
+            pdfOpenWithPreview(identifier, frameID);
         return completionHandler(tag);
     }
     completionHandler(std::nullopt);
@@ -747,10 +747,10 @@ RetainPtr<NSView> WebPageProxy::Internals::platformView() const
 
 #if ENABLE(PDF_PLUGIN)
 
-void WebPageProxy::createPDFHUD(PDFPluginIdentifier identifier, const WebCore::IntRect& rect)
+void WebPageProxy::createPDFHUD(PDFPluginIdentifier identifier, WebCore::FrameIdentifier frameID, const WebCore::IntRect& rect)
 {
     if (RefPtr pageClient = this->pageClient())
-        pageClient->createPDFHUD(identifier, rect);
+        pageClient->createPDFHUD(identifier, frameID, rect);
 }
 
 void WebPageProxy::removePDFHUD(PDFPluginIdentifier identifier)
@@ -765,30 +765,30 @@ void WebPageProxy::updatePDFHUDLocation(PDFPluginIdentifier identifier, const We
         pageClient->updatePDFHUDLocation(identifier, rect);
 }
 
-void WebPageProxy::pdfZoomIn(PDFPluginIdentifier identifier)
+void WebPageProxy::pdfZoomIn(PDFPluginIdentifier identifier, WebCore::FrameIdentifier frameID)
 {
-    protectedLegacyMainFrameProcess()->send(Messages::WebPage::ZoomPDFIn(identifier), webPageIDInMainFrameProcess());
+    sendToProcessContainingFrame(frameID, Messages::WebPage::ZoomPDFIn(identifier));
 }
 
-void WebPageProxy::pdfZoomOut(PDFPluginIdentifier identifier)
+void WebPageProxy::pdfZoomOut(PDFPluginIdentifier identifier, WebCore::FrameIdentifier frameID)
 {
-    protectedLegacyMainFrameProcess()->send(Messages::WebPage::ZoomPDFOut(identifier), webPageIDInMainFrameProcess());
+    sendToProcessContainingFrame(frameID, Messages::WebPage::ZoomPDFOut(identifier));
 }
 
-void WebPageProxy::pdfSaveToPDF(PDFPluginIdentifier identifier)
+void WebPageProxy::pdfSaveToPDF(PDFPluginIdentifier identifier, WebCore::FrameIdentifier frameID)
 {
-    protectedLegacyMainFrameProcess()->sendWithAsyncReply(Messages::WebPage::SavePDF(identifier), [this, protectedThis = Ref { *this }] (String&& suggestedFilename, URL&& originatingURL, std::span<const uint8_t> dataReference) {
+    sendWithAsyncReplyToProcessContainingFrame(frameID, Messages::WebPage::SavePDF(identifier), Messages::WebPage::SavePDF::Reply { [this, protectedThis = Ref { *this }] (String&& suggestedFilename, URL&& originatingURL, std::span<const uint8_t> dataReference) {
         savePDFToFileInDownloadsFolder(WTFMove(suggestedFilename), WTFMove(originatingURL), dataReference);
-    }, webPageIDInMainFrameProcess());
+    } });
 }
 
-void WebPageProxy::pdfOpenWithPreview(PDFPluginIdentifier identifier)
+void WebPageProxy::pdfOpenWithPreview(PDFPluginIdentifier identifier, WebCore::FrameIdentifier frameID)
 {
-    protectedLegacyMainFrameProcess()->sendWithAsyncReply(Messages::WebPage::OpenPDFWithPreview(identifier), [this, protectedThis = Ref { *this }](String&& suggestedFilename, std::optional<FrameInfoData>&& frameInfo, std::span<const uint8_t> data) {
+    sendWithAsyncReplyToProcessContainingFrame(frameID, Messages::WebPage::OpenPDFWithPreview(identifier), Messages::WebPage::OpenPDFWithPreview::Reply { [this, protectedThis = Ref { *this }](String&& suggestedFilename, std::optional<FrameInfoData>&& frameInfo, std::span<const uint8_t> data) {
         if (!frameInfo)
             return;
         savePDFToTemporaryFolderAndOpenWithNativeApplication(WTFMove(suggestedFilename), WTFMove(*frameInfo), data);
-    }, webPageIDInMainFrameProcess());
+    } });
 }
 
 #endif // #if ENABLE(PDF_PLUGIN)
@@ -978,7 +978,6 @@ WebCore::FloatRect WebPageProxy::selectionBoundingRectInRootViewCoordinates() co
 
 #endif // PLATFORM(MAC)
 
-#undef MESSAGE_CHECK_WITH_RETURN_VALUE
 #undef MESSAGE_CHECK_URL
 #undef MESSAGE_CHECK_COMPLETION
 #undef MESSAGE_CHECK
