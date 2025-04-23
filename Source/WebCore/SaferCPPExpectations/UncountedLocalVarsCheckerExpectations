@@ -44,7 +44,6 @@ Modules/model-element/HTMLModelElement.cpp
 Modules/notifications/Notification.cpp
 Modules/paymentrequest/PaymentRequest.cpp
 Modules/permissions/Permissions.cpp
-Modules/pictureinpicture/DocumentPictureInPicture.cpp
 Modules/speech/SpeechRecognition.cpp
 Modules/speech/SpeechSynthesis.cpp
 Modules/storage/WorkerStorageConnection.cpp
@@ -213,7 +212,6 @@ css/CSSImageSetValue.cpp
 css/CSSImageValue.cpp
 css/CSSKeyframeRule.cpp
 css/CSSLayerBlockRule.cpp
-css/CSSPrimitiveValue.cpp
 css/CSSRule.cpp
 css/CSSStyleProperties.cpp
 css/CSSStyleRule.cpp
@@ -561,7 +559,6 @@ platform/graphics/ComplexTextController.cpp
 platform/graphics/DisplayRefreshMonitorManager.cpp
 platform/graphics/FontCache.cpp
 platform/graphics/FontRanges.cpp
-platform/graphics/GlyphBuffer.h
 platform/graphics/GraphicsLayer.cpp
 platform/graphics/Image.cpp
 platform/graphics/Path.cpp

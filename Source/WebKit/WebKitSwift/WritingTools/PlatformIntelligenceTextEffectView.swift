@@ -23,19 +23,30 @@
 
 import Foundation
 
-#if HAVE_WRITING_TOOLS_FRAMEWORK
+#if ENABLE_WRITING_TOOLS
 
 #if canImport(AppKit) && !targetEnvironment(macCatalyst)
+
 import AppKit
 // WritingToolsUI is not present in the base system, but WebKit is, so it must be weak-linked.
 // WritingToolsUI need not be soft-linked from WebKitSwift because although WTUI links WebKit, WebKit does not directly link WebKitSwift.
+#if USE_APPLE_INTERNAL_SDK
 @_weakLinked internal import WritingToolsUI_Private._WTTextEffectView
 @_weakLinked internal import WritingToolsUI_Private._WTSweepTextEffect
 @_weakLinked internal import WritingToolsUI_Private._WTReplaceTextEffect
 #else
-internal import UIKit_Private
+@_weakLinked internal import WritingToolsUI_Private_SPI
+#endif // USE_APPLE_INTERNAL_SDK
+
+#else
+
+#if USE_APPLE_INTERNAL_SDK
 @_spi(TextEffects) import UIKit
-#endif
+#else
+import UIKit_SPI
+#endif // USE_APPLE_INTERNAL_SDK
+
+#endif // canImport(AppKit) && !targetEnvironment(macCatalyst)
 
 import WebKitSwift
 // Work around rdar://145157171 by manually importing the cross-import module.
@@ -640,4 +651,4 @@ class PlatformIntelligencePonderingTextEffect<Chunk>: PlatformIntelligenceTextEf
     }
 }
 
-#endif // HAVE_WRITING_TOOLS_FRAMEWORK
+#endif // ENABLE_WRITING_TOOLS

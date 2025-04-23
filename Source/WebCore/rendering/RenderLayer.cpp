@@ -3327,8 +3327,13 @@ void RenderLayer::paintLayerWithEffects(GraphicsContext& context, const LayerPai
         return;
 
     // If this layer is totally invisible then there is nothing to paint.
-    if (!renderer().opacity())
+    if (!renderer().opacity() && !is<AccessibilityRegionContext>(paintingInfo.regionContext)) {
+        // However, we do want to continue painting for accessibility paints, as we still need accurate
+        // geometry for opacity:0 things. It's very common to make form controls "screenreader-only" via
+        // CSS, often involving opacity:0, while positioning some other visual-only / mouse-only control in
+        // its place. Having the correct geometry is vital for ensuring VoiceOver can still press these controls.
         return;
+    }
 
     if (paintsWithTransparency(paintingInfo.paintBehavior))
         paintFlags.add(PaintLayerFlag::HaveTransparency);
@@ -3621,9 +3626,10 @@ void RenderLayer::paintLayerContents(GraphicsContext& context, const LayerPainti
     bool isCollectingAccessibilityRegion = is<AccessibilityRegionContext>(paintingInfo.regionContext);
 
     bool isSelfPaintingLayer = this->isSelfPaintingLayer();
+    bool isInsideSkippedSubtree = renderer().isSkippedContent();
 
     auto hasVisibleContent = [&]() -> bool {
-        if (renderer().isSkippedContent())
+        if (isInsideSkippedSubtree)
             return false;
 
         if (!m_hasVisibleContent)
@@ -3848,14 +3854,10 @@ void RenderLayer::paintLayerContents(GraphicsContext& context, const LayerPainti
         if (shouldPaintNegativeZIndexChildren)
             paintList(negativeZOrderLayers(), currentContext, paintingInfo, localPaintFlags);
         
-        if (isPaintingCompositedForeground) {
-            if (shouldPaintContent) {
-                paintForegroundForFragments(layerFragments, currentContext, context, paintingInfo.paintDirtyRect, haveTransparency,
-                    localPaintingInfo, paintBehavior, subtreePaintRootForRenderer);
-            }
-        }
+        if (isPaintingCompositedForeground && shouldPaintContent)
+            paintForegroundForFragments(layerFragments, currentContext, context, paintingInfo.paintDirtyRect, haveTransparency, localPaintingInfo, paintBehavior, subtreePaintRootForRenderer);
 
-        if (isCollectingEventRegion)
+        if (isCollectingEventRegion && !isInsideSkippedSubtree)
             collectEventRegionForFragments(layerFragments, currentContext, localPaintingInfo, paintBehavior);
 
         if (isCollectingAccessibilityRegion)

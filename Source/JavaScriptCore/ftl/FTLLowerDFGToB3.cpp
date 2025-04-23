@@ -8296,7 +8296,7 @@ IGNORE_CLANG_WARNINGS_END
             Vector<ValueFromBlock, 3> results;
             results.append(m_out.anchor(m_out.constInt64(JSValue::encode(jsUndefined()))));
             m_out.branch(
-                m_out.isZero32(prevLength), rarely(continuation), usually(vectorLengthCheckCase));
+                m_out.isZero32(prevLength), rarely(slowCase), usually(vectorLengthCheckCase));
 
             LBasicBlock lastNext = m_out.appendTo(vectorLengthCheckCase, popCheckCase);
             LValue newLength = m_out.sub(prevLength, m_out.int32One);
@@ -10214,7 +10214,6 @@ IGNORE_CLANG_WARNINGS_END
 
     void compileToStringOrCallStringConstructorOrStringValueOf()
     {
-        ASSERT(m_node->op() != StringValueOf || m_node->child1().useKind() == UntypedUse);
         JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
         switch (m_node->child1().useKind()) {
         case StringObjectUse: {
@@ -10264,12 +10263,25 @@ IGNORE_CLANG_WARNINGS_END
             LBasicBlock nullCase = m_out.newBlock();
             LBasicBlock continuation = m_out.newBlock();
 
-            m_out.branch(isCell(value, provenType(edge)), unsure(cellCase), unsure(notCellCase));
+            m_out.branch(isCell(value, provenType(edge)),
+                m_node->op() == StringValueOf ? usually(cellCase) : unsure(cellCase),
+                m_node->op() == StringValueOf ? rarely(notCellCase) : unsure(notCellCase));
 
             LBasicBlock lastNext = m_out.appendTo(cellCase, notCellCase);
             FTL_TYPE_CHECK(jsValueValue(value), edge, (~SpecCellCheck) | SpecString, isNotString(value));
             ValueFromBlock simpleResult = m_out.anchor(value);
             m_out.jump(continuation);
+
+            if (m_node->op() == StringValueOf) {
+                m_out.appendTo(notCellCase, continuation);
+                FTL_TYPE_CHECK(jsValueValue(value), edge, SpecCellCheck | SpecOther, isNotOther(value, provenType(edge)));
+                ValueFromBlock errorResult = m_out.anchor(vmCall(Int64, operationStringValueOf, weakPointer(globalObject), value));
+                m_out.jump(continuation);
+
+                m_out.appendTo(continuation, lastNext);
+                setJSValue(m_out.phi(pointerType(), simpleResult, errorResult));
+                return;
+            }
 
             m_out.appendTo(notCellCase, undefinedCase);
             m_out.branch(m_out.equal(value, m_out.constInt64(JSValue::ValueUndefined)), unsure(undefinedCase), unsure(nullCase));

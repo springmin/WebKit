@@ -426,8 +426,6 @@ css/CSSOffsetRotateValue.cpp
 css/CSSOffsetRotateValue.h
 css/CSSPageRule.cpp
 css/CSSPendingSubstitutionValue.cpp
-css/CSSPrimitiveValue.cpp
-css/CSSPrimitiveValueMappings.h
 css/CSSProperty.h
 css/CSSPropertyRule.cpp
 css/CSSReflectValue.cpp
@@ -939,7 +937,6 @@ page/scrolling/ScrollingTree.cpp
 page/scrolling/ScrollingTree.h
 page/scrolling/ScrollingTreeGestureState.cpp
 page/scrolling/ThreadedScrollingCoordinator.cpp
-page/scrolling/mac/ScrollerMac.mm
 page/scrolling/mac/ScrollingCoordinatorMac.mm
 page/scrolling/mac/ScrollingTreeScrollingNodeDelegateMac.mm
 page/text-extraction/TextExtraction.cpp
@@ -1111,7 +1108,6 @@ rendering/RenderLayerScrollableArea.cpp
 rendering/RenderListBox.cpp
 rendering/RenderListItem.cpp
 rendering/RenderListMarker.cpp
-rendering/RenderMedia.cpp
 rendering/RenderMenuList.cpp
 rendering/RenderMeter.cpp
 rendering/RenderMultiColumnFlow.cpp
