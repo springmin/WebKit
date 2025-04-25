@@ -133,14 +133,12 @@ jobs:
             package_json_arch: "x64"
             CMAKE_BUILD_TYPE: "Debug"
             RELEASE_FLAGS: "-O3 -DNDEBUG=1"
-            ENABLE_SANITIZERS: "address,undefined"
           - lto_flag: ""
             label: bun-webkit-linux-arm64-debug
             os: linux-arm64-gh
             package_json_arch: "arm64"
             CMAKE_BUILD_TYPE: "Debug"
             RELEASE_FLAGS: "-O3 -DNDEBUG=1"
-            ENABLE_SANITIZERS: "address,undefined"
           - lto_flag: "-flto=full -fwhole-program-vtables -fforce-emit-vtables"
             label: bun-webkit-linux-arm64-lto
             os: linux-arm64-gh
