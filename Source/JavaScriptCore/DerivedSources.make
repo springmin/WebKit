@@ -312,6 +312,7 @@ INSPECTOR_DOMAINS := \
     $(JavaScriptCore)/inspector/protocol/Memory.json \
     $(JavaScriptCore)/inspector/protocol/Network.json \
     $(JavaScriptCore)/inspector/protocol/HTTPServer.json \
+    $(JavaScriptCore)/inspector/protocol/BunFrontendDevServer.json \
     $(JavaScriptCore)/inspector/protocol/Page.json \
     $(JavaScriptCore)/inspector/protocol/Recording.json \
     $(JavaScriptCore)/inspector/protocol/Runtime.json \
