@@ -1,6 +1,8 @@
 {
   "domain": "HTTPServer",
   "description": "Provides events and commands for debugging server-side HTTP requests and responses within the Bun runtime.",
+  "debuggableTypes": ["itml", "javascript"],
+  "targetTypes": ["itml", "javascript", "worker"],
   "types": [
     {
       "id": "ServerId",
@@ -81,7 +83,7 @@
         {
           "name": "scriptId",
           "$ref": "Debugger.ScriptId",
-          "description": "Unique identifier of the script the test is in. Available when the debugger is attached.",
+          "description": "Unique identifier of the script the route is in. Available when the debugger is attached.",
           "optional": true
         },
         {
@@ -264,13 +266,13 @@
         {
           "name": "url",
           "type": "string",
-          "description": "url of the script the test is in. Available when the debugger is not attached.",
+          "description": "url of the script the route is in. Available when the debugger is not attached.",
           "optional": true
         },
         {
           "name": "line",
           "type": "integer",
-          "description": "Line number in the script that started the test."
+          "description": "Line number in the script that started the route."
         }
       ]
     },
