@@ -139,6 +139,20 @@ jobs:
             package_json_arch: "arm64"
             CMAKE_BUILD_TYPE: "Debug"
             RELEASE_FLAGS: "-O3 -DNDEBUG=1"
+          - lto_flag: ""
+            label: bun-webkit-linux-arm64-debug-asan
+            os: linux-arm64-gh
+            package_json_arch: "arm64"
+            CMAKE_BUILD_TYPE: "Debug"
+            RELEASE_FLAGS: "-O3 -DNDEBUG=1"
+            ENABLE_SANITIZERS: "address,undefined"
+          - lto_flag: ""
+            label: bun-webkit-linux-amd64-debug-asan
+            os: linux-x64-gh
+            package_json_arch: "x64"
+            CMAKE_BUILD_TYPE: "Debug"
+            RELEASE_FLAGS: "-O3 -DNDEBUG=1"
+            ENABLE_SANITIZERS: "address,undefined"
           - lto_flag: "-flto=full -fwhole-program-vtables -fforce-emit-vtables"
             label: bun-webkit-linux-arm64-lto
             os: linux-arm64-gh
@@ -351,8 +365,16 @@ jobs:
           path: ${{runner.temp}}/bun-webkit-linux-amd64-debug
       - uses: actions/download-artifact@v4
         with:
+          name: bun-webkit-linux-amd64-debug-asan
+          path: ${{runner.temp}}/bun-webkit-linux-amd64-debug-asan
+      - uses: actions/download-artifact@v4
+        with:
           name: bun-webkit-linux-arm64-debug
           path: ${{runner.temp}}/bun-webkit-linux-arm64-debug
+      - uses: actions/download-artifact@v4
+        with:
+          name: bun-webkit-linux-arm64-debug-asan
+          path: ${{runner.temp}}/bun-webkit-linux-arm64-debug-asan
       - uses: actions/download-artifact@v4
         with:
           name: bun-webkit-macos-arm64
@@ -454,6 +476,8 @@ jobs:
           files: |
             ${{runner.temp}}/bun-webkit-linux-amd64-debug.tar.gz
             ${{runner.temp}}/bun-webkit-linux-arm64-debug.tar.gz
+            ${{runner.temp}}/bun-webkit-linux-amd64-debug-asan.tar.gz
+            ${{runner.temp}}/bun-webkit-linux-arm64-debug-asan.tar.gz
             ${{runner.temp}}/bun-webkit-linux-amd64-musl-debug.tar.gz
             ${{runner.temp}}/bun-webkit-linux-arm64-musl-debug.tar.gz
             ${{runner.temp}}/bun-webkit-macos-arm64-debug.tar.gz
