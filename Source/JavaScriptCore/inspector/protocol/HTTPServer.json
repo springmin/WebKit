@@ -81,9 +81,9 @@
           "description": "Filesystem path associated with 'static' or 'html' routes."
         },
         {
-          "name": "scriptId",
-          "$ref": "Debugger.ScriptId",
-          "description": "Unique identifier of the script the route is in. Available when the debugger is attached.",
+          "name": "method",
+          "$ref": "HTTPMethod",
+          "description": "The HTTP method associated with the route.",
           "optional": true
         },
         {
@@ -253,12 +253,6 @@
           "description": "Error message."
         },
         {
-          "name": "stackTrace",
-          "$ref": "Console.StackTrace",
-          "optional": true,
-          "description": "JavaScript stack trace for the error."
-        },
-        {
           "name": "timestamp",
           "type": "number",
           "description": "Timestamp when the error occurred (Unix epoch milliseconds)."
@@ -275,33 +269,6 @@
           "description": "Line number in the script that started the route."
         }
       ]
-    },
-    {
-      "id": "ServerInfo",
-      "type": "object",
-      "description": "Information about a running HTTP server instance.",
-      "properties": [
-        {
-          "name": "serverId",
-          "$ref": "ServerId",
-          "description": "Unique identifier for this server instance."
-        },
-        {
-          "name": "hotReloadId",
-          "$ref": "HotReloadId",
-          "description": "Identifier tracking hot reloads for this server instance."
-        },
-        {
-          "name": "address",
-          "type": "string",
-          "description": "The address the server is listening on. Either a hostname:port or a unix socket path."
-        },
-        {
-          "name": "startTime",
-          "type": "number",
-          "description": "Timestamp when the server started (Unix epoch milliseconds)."
-        }
-      ]
     }
   ],
   "commands": [
@@ -312,60 +279,6 @@
     {
       "name": "disable",
       "description": "Disables the HTTPServer domain."
-    },
-    {
-      "name": "startListening",
-      "description": "Starts listening for events from a specific server instance. This will trigger a `serverRoutesUpdated` event with the current routes.",
-      "parameters": [
-        {
-          "name": "serverId",
-          "$ref": "ServerId",
-          "description": "Identifier of the server to listen to."
-        }
-      ]
-    },
-    {
-      "name": "stopListening",
-      "description": "Stops listening for events from a specific server instance.",
-      "parameters": [
-        {
-          "name": "serverId",
-          "$ref": "ServerId",
-          "description": "Identifier of the server to stop listening to."
-        }
-      ]
-    },
-    {
-      "name": "getRequestBody",
-      "description": "Requests the body content for a given request. Triggers `bodyChunkReceived` events.",
-      "parameters": [
-        {
-          "name": "requestId",
-          "$ref": "RequestId",
-          "description": "Identifier of the request whose body is needed."
-        },
-        {
-          "name": "serverId",
-          "$ref": "ServerId",
-          "description": "Identifier of the server handling the request."
-        }
-      ]
-    },
-    {
-      "name": "getResponseBody",
-      "description": "Requests the body content for a given response. Triggers `bodyChunkReceived` events.",
-      "parameters": [
-        {
-          "name": "requestId",
-          "$ref": "RequestId",
-          "description": "Identifier of the request whose response body is needed."
-        },
-        {
-          "name": "serverId",
-          "$ref": "ServerId",
-          "description": "Identifier of the server handling the request."
-        }
-      ]
     }
   ],
   "events": [
@@ -374,9 +287,19 @@
       "description": "Fired when an HTTP server starts listening.",
       "parameters": [
         {
-          "name": "serverInfo",
-          "$ref": "ServerInfo",
-          "description": "Details about the started server."
+          "name": "serverId",
+          "$ref": "ServerId",
+          "description": "Unique identifier for this server instance."
+        },
+        {
+          "name": "url",
+          "type": "string",
+          "description": "A URL you can fetch from the server. Example: 'http://localhost:3000' or 'https://localhost:3000'"
+        },
+        {
+          "name": "startTime",
+          "type": "number",
+          "description": "Timestamp when the server started (Unix epoch milliseconds)."
         }
       ]
     },
@@ -408,7 +331,7 @@
         {
           "name": "hotReloadId",
           "$ref": "HotReloadId",
-          "description": "Identifier for this version of the server configuration."
+          "description": "The number of times Bun has hot reloaded. When hot reloading server-side code, the server ID will be the same and the hotReloadId will increment. When not hot reloading, the server ID will be different and the hotReloadId will not increment."
         },
         {
           "name": "routes",
