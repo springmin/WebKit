@@ -41,7 +41,7 @@
       "description": "Fired when a new HMR WebSocket client connects.",
       "parameters": [
         {
-          "name": "severId",
+          "name": "serverId",
           "$ref": "ServerId",
           "description": "Server ID"
         },
@@ -57,7 +57,7 @@
       "description": "Fired when an HMR WebSocket client disconnects.",
       "parameters": [
         {
-          "name": "severId",
+          "name": "serverId",
           "$ref": "ServerId",
           "description": "Server ID"
         },
@@ -73,7 +73,7 @@
       "description": "Fired when the DevServer starts processing a new bundle.",
       "parameters": [
         {
-          "name": "severId",
+          "name": "serverId",
           "$ref": "ServerId",
           "description": "Server ID"
         },
@@ -90,7 +90,7 @@
       "description": "Fired when the DevServer successfully completes a bundle without build errors.",
       "parameters": [
         {
-          "name": "severId",
+          "name": "serverId",
           "$ref": "ServerId",
           "description": "Server ID"
         },
@@ -106,7 +106,7 @@
       "description": "Fired when the DevServer completes a bundle with build errors. The payload is the base64 encoded binary data corresponding to the 'errors' MessageId.",
       "parameters": [
         {
-          "name": "severId",
+          "name": "serverId",
           "$ref": "ServerId",
           "description": "Server ID"
         },
@@ -121,8 +121,8 @@
       "name": "clientNavigated",
       "description": "Fired when a connected client navigates to a new URL (via history API or initial load).",
       "parameters": [
-       {
-          "name": "severId",
+        {
+          "name": "serverId",
           "$ref": "ServerId",
           "description": "Server ID"
         },
@@ -148,8 +148,8 @@
       "name": "clientErrorReported",
       "description": "Fired when an error reported by a client (via the /_bun/report_error endpoint) has been processed and potentially remapped by the server. The payload is the base64 encoded binary data corresponding to the remapped error format (similar to MessageId.errors but potentially containing only one error).",
       "parameters": [
-       {
-          "name": "severId",
+        {
+          "name": "serverId",
           "$ref": "ServerId",
           "description": "Server ID"
         },
