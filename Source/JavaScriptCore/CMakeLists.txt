@@ -1413,6 +1413,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
 
     bytecode/GlobalCodeBlock.h
     bytecode/ProgramCodeBlock.h
+    parser/ModuleAnalyzer.h
 )
 
 if(USE_INSPECTOR_SOCKET_SERVER)
