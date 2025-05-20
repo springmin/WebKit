@@ -332,6 +332,7 @@
 
 #ifndef BENABLE_MALLOC_HEAP_BREAKDOWN
 /* Enable this to put each IsoHeap and other allocation categories into their own malloc heaps, so that tools like vmmap can show how big each heap is. */
+#if !defined(BENABLE_MALLOC_HEAP_BREAKDOWN)
 #define BENABLE_MALLOC_HEAP_BREAKDOWN 0
 #endif
 

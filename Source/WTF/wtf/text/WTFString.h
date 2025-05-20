@@ -58,7 +58,7 @@ inline const String& nullString();
 enum class TrailingZerosPolicy : bool { Keep, Truncate };
 
 class String final {
-    WTF_MAKE_FAST_COMPACT_ALLOCATED;
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     // Construct a null string, distinguishable from an empty string.
     String() = default;
@@ -366,7 +366,7 @@ NSString * nsStringNilIfNull(const String&);
 
 #endif
 
-WTF_EXPORT_PRIVATE int codePointCompare(const String&, const String&);
+WTF_EXPORT_PRIVATE std::strong_ordering codePointCompare(const String&, const String&);
 bool codePointCompareLessThan(const String&, const String&);
 
 // Shared global empty and null string.
