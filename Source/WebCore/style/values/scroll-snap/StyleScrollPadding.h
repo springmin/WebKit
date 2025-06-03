@@ -72,9 +72,28 @@ struct ScrollPaddingEdge {
 
     bool isZero() const { return m_value.isZero(); }
 
+    template<typename F> decltype(auto) switchOn(F&& functor) const
+    {
+        switch (m_value.type()) {
+        case WebCore::LengthType::Auto:
+            return functor(CSS::Keyword::Auto { });
+        case WebCore::LengthType::Fixed:
+            return functor(LengthPercentage<CSS::Nonnegative>::Dimension { m_value.value() });
+        case WebCore::LengthType::Percent:
+            return functor(LengthPercentage<CSS::Nonnegative>::Percentage { m_value.value() });
+        case WebCore::LengthType::Calculated:
+            return functor(LengthPercentage<CSS::Nonnegative>::Calc { m_value.protectedCalculationValue() });
+        default:
+            break;
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+
     bool operator==(const ScrollPaddingEdge&) const = default;
 
 private:
+    friend WTF::TextStream& operator<<(WTF::TextStream&, const ScrollPaddingEdge&);
+
     WebCore::Length m_value;
 };
 
@@ -110,7 +129,12 @@ template<> struct Evaluation<ScrollPaddingEdge> {
 
 LayoutBoxExtent extentForRect(const ScrollPadding&, const LayoutRect&);
 
+// MARK: - Logging
+
+WTF::TextStream& operator<<(WTF::TextStream&, const ScrollPaddingEdge&);
+
 } // namespace Style
 } // namespace WebCore
 
+template<> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::ScrollPaddingEdge> = true;
 DEFINE_TUPLE_LIKE_CONFORMANCE(WebCore::Style::ScrollPadding, 4)

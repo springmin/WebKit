@@ -7,6 +7,7 @@
  * Copyright (C) Research In Motion Limited 2009-2010. All rights reserved.
  * Copyright (C) 2018 Adobe Systems Incorporated. All rights reserved.
  * Copyright (C) 2020-2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -485,7 +486,7 @@ void SVGRenderSupport::applyStrokeStyleToContext(GraphicsContext& context, const
     if (style.joinStyle() == LineJoin::Miter)
         context.setMiterLimit(style.strokeMiterLimit());
 
-    const Vector<SVGLengthValue>& dashes = svgStyle.strokeDashArray();
+    auto& dashes = svgStyle.strokeDashArray();
     if (dashes.isEmpty())
         context.setStrokeStyle(StrokeStyle::SolidStroke);
     else {
@@ -504,7 +505,7 @@ void SVGRenderSupport::applyStrokeStyleToContext(GraphicsContext& context, const
         
         bool canSetLineDash = false;
         auto dashArray = WTF::map(dashes, [&](auto& dash) -> DashArrayElement {
-            auto value = dash.value(lengthContext) * scaleFactor;
+            auto value = lengthContext.valueForLength(dash) * scaleFactor;
             if (value > 0)
                 canSetLineDash = true;
             return value;

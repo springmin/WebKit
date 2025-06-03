@@ -669,7 +669,7 @@ static void addBrowsingContextControllerMethodStubIfNeeded()
 
     _page->setCocoaView(self);
 
-    [WebViewVisualIdentificationOverlay installForWebViewIfNeeded:self kind:@"WKWebView" deprecated:NO];
+    [WebViewVisualIdentificationOverlay installForWebViewIfNeeded:self kind:self._nameForVisualIdentificationOverlay deprecated:NO];
 
 #if PLATFORM(IOS_FAMILY)
     auto timeNow = MonotonicTime::now();
@@ -1869,6 +1869,11 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
 
 #pragma mark - macOS/iOS internal
 
+- (NSString *)_nameForVisualIdentificationOverlay
+{
+    return @"WKWebView";
+}
+
 - (void)_showWarningView:(const WebKit::BrowsingWarning&)warning completionHandler:(CompletionHandler<void(Variant<WebKit::ContinueUnsafeLoad, URL>&&)>&&)completionHandler
 {
     _warningView = adoptNS([[_WKWarningView alloc] initWithFrame:self.bounds browsingWarning:warning completionHandler:[weakSelf = WeakObjCPtr<WKWebView>(self), completionHandler = WTFMove(completionHandler)] (auto&& result) mutable {
@@ -2680,19 +2685,19 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
 #if PLATFORM(IOS_FAMILY)
 - (void)intelligenceTextEffectCoordinator:(id<WKIntelligenceTextEffectCoordinating>)coordinator textPreviewsForRange:(NSRange)range completion:(void (^)(UITargetedPreview *))completion
 {
-    _page->textPreviewDataForActiveWritingToolsSession(range, [completion = makeBlockPtr(completion), weakSelf = WeakObjCPtr<WKWebView>(self)](auto&& textIndicatorData) {
+    _page->textPreviewDataForActiveWritingToolsSession(range, [completion = makeBlockPtr(completion), weakSelf = WeakObjCPtr<WKWebView>(self)](RefPtr<WebCore::TextIndicator>&& textIndicator) {
         auto strongSelf = weakSelf.get();
         if (!strongSelf) {
             completion(nil);
             return;
         }
 
-        if (!textIndicatorData) {
+        if (!textIndicator) {
             completion(nil);
             return;
         }
 
-        RetainPtr preview = [strongSelf->_contentView _createTargetedPreviewFromTextIndicator:*textIndicatorData previewContainer:strongSelf.get()];
+        RetainPtr preview = [strongSelf->_contentView _createTargetedPreviewFromTextIndicator:textIndicator->data() previewContainer:strongSelf.get()];
         completion(preview.get());
     });
 }
@@ -2700,13 +2705,13 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
 - (void)intelligenceTextEffectCoordinator:(id<WKIntelligenceTextEffectCoordinating>)coordinator textPreviewsForRange:(NSRange)range completion:(void (^)(NSArray<_WKTextPreview *> *))completion
 {
     // FIXME: This logic is currently duplicated in a bunch of places; it should be unified.
-    _page->textPreviewDataForActiveWritingToolsSession(range, [completion = makeBlockPtr(completion)](auto&& textIndicatorData) {
-        if (!textIndicatorData) {
+    _page->textPreviewDataForActiveWritingToolsSession(range, [completion = makeBlockPtr(completion)](RefPtr<WebCore::TextIndicator>&& textIndicator) {
+        if (!textIndicator) {
             completion(@[ ]);
             return;
         }
 
-        RefPtr contentImage = textIndicatorData->contentImage;
+        RefPtr contentImage = textIndicator->contentImage();
         if (!contentImage) {
             ASSERT_NOT_REACHED();
             completion(@[ ]);
@@ -2722,9 +2727,9 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
 
         RetainPtr platformImage = nativeImage->platformImage();
 
-        auto textBoundingRectInRootViewCoordinates = textIndicatorData->textBoundingRectInRootViewCoordinates;
-        auto textRectsInBoundingRectCoordinates = textIndicatorData->textRectsInBoundingRectCoordinates;
-        auto contentImageScaleFactor = textIndicatorData->contentImageScaleFactor;
+        auto textBoundingRectInRootViewCoordinates = textIndicator->textBoundingRectInRootViewCoordinates();
+        auto textRectsInBoundingRectCoordinates = textIndicator->textRectsInBoundingRectCoordinates();
+        auto contentImageScaleFactor = textIndicator->contentImageScaleFactor();
 
         RetainPtr previews = createNSArray(textRectsInBoundingRectCoordinates, [platformImage, textBoundingRectInRootViewCoordinates, contentImageScaleFactor](auto& textRectInBoundingRectCoordinates) -> _WKTextPreview * {
 
@@ -2747,13 +2752,13 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
 - (void)intelligenceTextEffectCoordinator:(id<WKIntelligenceTextEffectCoordinating>)coordinator contentPreviewForRange:(NSRange)range completion:(void (^)(_WKTextPreview *))completion
 {
     // FIXME: This logic is currently duplicated in a bunch of places; it should be unified.
-    _page->textPreviewDataForActiveWritingToolsSession(range, [completion = makeBlockPtr(completion)](auto&& textIndicatorData) {
-        if (!textIndicatorData) {
+    _page->textPreviewDataForActiveWritingToolsSession(range, [completion = makeBlockPtr(completion)](RefPtr<WebCore::TextIndicator>&& textIndicator) {
+        if (!textIndicator) {
             completion(nil);
             return;
         }
 
-        RefPtr contentImage = textIndicatorData->contentImage;
+        RefPtr contentImage = textIndicator->contentImage();
         if (!contentImage) {
             ASSERT_NOT_REACHED();
             completion(nil);
@@ -2774,8 +2779,8 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
             return;
         }
 
-        auto textBoundingRectInRootViewCoordinates = textIndicatorData->textBoundingRectInRootViewCoordinates;
-        auto textRectsInBoundingRectCoordinates = textIndicatorData->textRectsInBoundingRectCoordinates;
+        auto textBoundingRectInRootViewCoordinates = textIndicator->textBoundingRectInRootViewCoordinates();
+        auto textRectsInBoundingRectCoordinates = textIndicator->textRectsInBoundingRectCoordinates();
 
         RetainPtr textPreview = adoptNS([[_WKTextPreview alloc] initWithSnapshotImage:platformImage.get() presentationFrame:textBoundingRectInRootViewCoordinates]);
 
@@ -3112,6 +3117,13 @@ static WebCore::CocoaColor *sampledFixedPositionContentColor(const WebCore::Fixe
 
 #if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
 
+- (void)_updateTopContentInsetFillCaptureColor
+{
+#if PLATFORM(MAC)
+    _impl->updateTopContentInsetFillCaptureColor();
+#endif
+}
+
 - (WebCore::FloatBoxExtent)_obscuredInsetsForFixedColorExtension
 {
 #if PLATFORM(MAC)
@@ -3144,12 +3156,13 @@ static WebCore::CocoaColor *sampledFixedPositionContentColor(const WebCore::Fixe
     RetainPtr parentView = [self _containerForFixedColorExtension];
     auto addColorExtensionView = [&](CocoaView *extensionView) {
 #if PLATFORM(MAC)
-        if (RetainPtr contentInsetFillView = _impl->topContentInsetFillView()) {
+        if (RetainPtr contentInsetFillView = _impl->topContentInsetFillView())
             [parentView addSubview:extensionView positioned:NSWindowBelow relativeTo:contentInsetFillView.get()];
-            return;
-        }
+        else
+            [parentView addSubview:extensionView];
+#else
+        [parentView insertSubview:extensionView aboveSubview:_contentView.get()];
 #endif
-        [parentView addSubview:extensionView];
     };
 
     auto insets = [self _obscuredInsetsForFixedColorExtension];
@@ -3221,9 +3234,9 @@ static WebCore::CocoaColor *sampledFixedPositionContentColor(const WebCore::Fixe
 - (void)_updateFixedColorExtensionEdges
 {
 #if PLATFORM(IOS_FAMILY)
-    [_scrollView _setFixedColorExtensionEdges:[&] {
+    [_scrollView _setHiddenContentInsetFillEdges:[&] {
         UIRectEdge edges = UIRectEdgeNone;
-        if ([self _hasVisibleColorExtensionView:WebCore::BoxSide::Top])
+        if (_reasonsToHideTopContentInsetFill || [self _hasVisibleColorExtensionView:WebCore::BoxSide::Top])
             edges |= UIRectEdgeTop;
         if ([self _hasVisibleColorExtensionView:WebCore::BoxSide::Right])
             edges |= UIRectEdgeRight;
@@ -3242,6 +3255,43 @@ static WebCore::CocoaColor *sampledFixedPositionContentColor(const WebCore::Fixe
 {
     RetainPtr view = _fixedColorExtensionViews.at(side);
     return view && ![view isHiddenOrFadingOut];
+}
+
+- (void)_addReasonToHideTopContentInsetFill:(WebKit::HideContentInsetFillReason)reason
+{
+    if (_reasonsToHideTopContentInsetFill.contains(reason))
+        return;
+
+    if (!_reasonsToHideTopContentInsetFill)
+        [self _setTopContentInsetFillHidden:YES];
+
+    _reasonsToHideTopContentInsetFill.add(reason);
+}
+
+- (void)_removeReasonToHideTopContentInsetFill:(WebKit::HideContentInsetFillReason)reason
+{
+    if (!_reasonsToHideTopContentInsetFill.contains(reason))
+        return;
+
+    _reasonsToHideTopContentInsetFill.remove(reason);
+
+    if (!_reasonsToHideTopContentInsetFill)
+        [self _setTopContentInsetFillHidden:NO];
+}
+
+- (void)_setTopContentInsetFillHidden:(BOOL)hidden
+{
+#if PLATFORM(IOS_FAMILY)
+    [_scrollView _setHiddenContentInsetFillEdges:[&] {
+        UIRectEdge hiddenEdges = [_scrollView _hiddenContentInsetFillEdges];
+        return hidden ? (hiddenEdges | UIRectEdgeTop) : (hiddenEdges & ~UIRectEdgeTop);
+    }()];
+#else
+    RetainPtr topContentInsetFillView = _impl->topContentInsetFillView();
+    RetainPtr captureView = [topContentInsetFillView captureView];
+    [topContentInsetFillView setHidden:hidden];
+    [captureView setHidden:hidden];
+#endif
 }
 
 #pragma mark - WKColorExtensionViewDelegate

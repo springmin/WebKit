@@ -45,6 +45,7 @@
 #import "ViewGestureController.h"
 #import "VisibleContentRectUpdateInfo.h"
 #import "WKBackForwardListItemInternal.h"
+#import "WKColorExtensionView.h"
 #import "WKContentViewInteraction.h"
 #import "WKDataDetectorTypesInternal.h"
 #import "WKErrorInternal.h"
@@ -66,6 +67,7 @@
 #import "WebProcessPool.h"
 #import "_WKActivatedElementInfoInternal.h"
 #import "_WKWarningView.h"
+#import <WebCore/BoxSides.h>
 #import <WebCore/ColorCocoa.h>
 #import <WebCore/ContentsFormatCocoa.h>
 #import <WebCore/FloatConversion.h>
@@ -976,6 +978,7 @@ static void changeContentOffsetBoundedInValidRange(UIScrollView *scrollView, Web
 
 - (void)_updateScrollViewForTransaction:(const WebKit::RemoteLayerTreeTransaction&)layerTreeTransaction
 {
+    CGSize oldContentSize = [_scrollView contentSize];
     CGSize newContentSize = roundScrollViewContentSize(*_page, [_contentView frame].size);
     [_scrollView _setContentSizePreservingContentOffsetDuringRubberband:newContentSize];
 
@@ -1018,8 +1021,16 @@ static void changeContentOffsetBoundedInValidRange(UIScrollView *scrollView, Web
     // FIXME: <rdar://99001670> Get the default list of allowed touch types from UIKit instead of caching the returned value.
     [_scrollView panGestureRecognizer].allowedTouchTypes = scrollingEnabled ? _scrollViewDefaultAllowedTouchTypes.get() : @[ ];
     [_scrollView _setScrollEnabledInternal:YES];
-    if (!layerTreeTransaction.scaleWasSetByUIProcess() && ![_scrollView isZooming] && ![_scrollView isZoomBouncing] && ![_scrollView _wk_isZoomAnimating] && !WebKit::scalesAreEssentiallyEqual([_scrollView zoomScale], layerTreeTransaction.pageScaleFactor())) {
-        LOG_WITH_STREAM(VisibleRects, stream << " updating scroll view with pageScaleFactor " << layerTreeTransaction.pageScaleFactor());
+
+    BOOL shouldUpdateZoomScale = !layerTreeTransaction.scaleWasSetByUIProcess() && ![_scrollView isZooming] && ![_scrollView isZoomBouncing] && ![_scrollView _wk_isZoomAnimating] && !WebKit::scalesAreEssentiallyEqual([_scrollView zoomScale], layerTreeTransaction.pageScaleFactor());
+    BOOL shouldUpdateContentOffsetForFittingScale = !shouldUpdateZoomScale && !CGSizeEqualToSize(oldContentSize, newContentSize) && (oldContentSize.height > 0) && self._isDisplayingPDF;
+
+    if (shouldUpdateZoomScale || shouldUpdateContentOffsetForFittingScale) {
+        if (shouldUpdateZoomScale) {
+            LOG_WITH_STREAM(VisibleRects, stream << " updating scroll view with pageScaleFactor " << layerTreeTransaction.pageScaleFactor());
+            [_scrollView setZoomScale:layerTreeTransaction.pageScaleFactor()];
+        }
+
         UIEdgeInsets contentInsets = [_scrollView adjustedContentInset];
         CGPoint minimumContentOffset = CGPointMake(-contentInsets.left, -contentInsets.top);
         CGPoint contentOffset = [_scrollView contentOffset];
@@ -1028,10 +1039,14 @@ static void changeContentOffsetBoundedInValidRange(UIScrollView *scrollView, Web
         // scroll position to the top edge of the content,
         // instead of the center (which UIScrollView does by default).
         CGFloat scaleRatio = layerTreeTransaction.pageScaleFactor() / [_scrollView zoomScale];
-        CGFloat contentOffsetX = minimumContentOffset.x + ((contentOffset.x - minimumContentOffset.x) * scaleRatio);
-        CGFloat contentOffsetY = minimumContentOffset.y + ((contentOffset.y - minimumContentOffset.y) * scaleRatio);
+        if (shouldUpdateContentOffsetForFittingScale)
+            scaleRatio = newContentSize.height / oldContentSize.height;
 
-        [_scrollView setZoomScale:layerTreeTransaction.pageScaleFactor()];
+        CGFloat contentOffsetX = contentOffset.x;
+        if (shouldUpdateZoomScale)
+            contentOffsetX = minimumContentOffset.x + ((contentOffsetX - minimumContentOffset.x) * scaleRatio);
+
+        CGFloat contentOffsetY = minimumContentOffset.y + ((contentOffset.y - minimumContentOffset.y) * scaleRatio);
 
         changeContentOffsetBoundedInValidRange(_scrollView.get(), CGPointMake(contentOffsetX, contentOffsetY));
     }
@@ -2331,12 +2346,55 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 #endif // HAVE(UISCROLLVIEW_ASYNCHRONOUS_SCROLL_EVENT_HANDLING)
 
+#if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
+
+- (void)_reinsertTopFixedColorExtensionViewIfNeeded
+{
+    RetainPtr topColorExtensionView = _fixedColorExtensionViews.at(WebCore::BoxSide::Top);
+    if (!topColorExtensionView || [topColorExtensionView isHidden])
+        return;
+
+    auto refreshControlIndex = NSNotFound;
+    auto topColorExtensionViewIndex = NSNotFound;
+
+    NSInteger index = 0;
+    RetainPtr refreshControl = [_scrollView refreshControl];
+    for (UIView *subview in [_scrollView subviews]) {
+        if (subview == refreshControl)
+            refreshControlIndex = index;
+        else if (subview == topColorExtensionView)
+            topColorExtensionViewIndex = index;
+
+        if (refreshControlIndex != NSNotFound && topColorExtensionViewIndex != NSNotFound)
+            break;
+
+        index++;
+    }
+
+    if (refreshControlIndex == NSNotFound || topColorExtensionViewIndex == NSNotFound)
+        return;
+
+    BOOL scrolledBeyondTopExtent = [_scrollView _wk_isScrolledBeyondTopExtent];
+    if (scrolledBeyondTopExtent == (refreshControlIndex > topColorExtensionViewIndex))
+        return;
+
+    if (scrolledBeyondTopExtent) {
+        [_scrollView insertSubview:topColorExtensionView.get() belowSubview:refreshControl.get()];
+        return;
+    }
+
+    [_scrollView insertSubview:topColorExtensionView.get() aboveSubview:_contentView.get()];
+}
+
+#endif // ENABLE(CONTENT_INSET_BACKGROUND_FILL)
+
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView
 {
     if (scrollView == _scrollView) {
         [_scrollView updateInteractiveScrollVelocity];
 #if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
         [self _updateFixedColorExtensionViewFrames];
+        [self _reinsertTopFixedColorExtensionViewIfNeeded];
 #endif
     }
 

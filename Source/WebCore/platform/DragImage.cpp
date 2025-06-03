@@ -257,7 +257,7 @@ DragImage::DragImage(DragImageRef dragImageRef)
 
 DragImage::DragImage(DragImage&& other)
     : m_dragImageRef { std::exchange(other.m_dragImageRef, nullptr) }
-    , m_indicatorData { WTFMove(other.m_indicatorData) }
+    , m_textIndicator { WTFMove(other.m_textIndicator) }
     , m_visiblePath { WTFMove(other.m_visiblePath) }
 {
 }
@@ -268,7 +268,7 @@ DragImage& DragImage::operator=(DragImage&& other)
         deleteDragImage(m_dragImageRef);
 
     m_dragImageRef = std::exchange(other.m_dragImageRef, nullptr);
-    m_indicatorData = WTFMove(other.m_indicatorData);
+    m_textIndicator = WTFMove(other.m_textIndicator);
     m_visiblePath = WTFMove(other.m_visiblePath);
 
     return *this;
@@ -280,7 +280,7 @@ DragImage::~DragImage()
         deleteDragImage(m_dragImageRef);
 }
 
-#if !PLATFORM(COCOA) && !PLATFORM(GTK) && !PLATFORM(WIN)
+#if !PLATFORM(COCOA) && !PLATFORM(GTK) && !PLATFORM(WIN) && !(PLATFORM(WPE) && ENABLE(DRAG_SUPPORT) && USE(SKIA))
 
 IntSize dragImageSize(DragImageRef)
 {

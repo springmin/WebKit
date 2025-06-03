@@ -45,7 +45,6 @@ Modules/mediastream/libwebrtc/LibWebRTCPeerConnectionBackend.cpp
 Modules/model-element/HTMLModelElement.cpp
 Modules/notifications/Notification.cpp
 Modules/paymentrequest/PaymentRequest.cpp
-Modules/permissions/Permissions.cpp
 Modules/speech/SpeechRecognition.cpp
 Modules/speech/SpeechSynthesis.cpp
 Modules/storage/WorkerStorageConnection.cpp
@@ -325,10 +324,6 @@ editing/cocoa/WebContentReaderCocoa.mm
 editing/mac/EditorMac.mm
 editing/mac/FrameSelectionMac.mm
 editing/markup.cpp
-fileapi/Blob.cpp
-fileapi/BlobURL.cpp
-fileapi/NetworkSendQueue.cpp
-fileapi/ThreadableBlobRegistry.cpp
 history/CachedFrame.cpp
 history/CachedPage.cpp
 history/HistoryItem.cpp
@@ -341,7 +336,6 @@ html/FormAssociatedCustomElement.cpp
 html/FormListedElement.cpp
 html/HTMLAnchorElement.cpp
 html/HTMLAttachmentElement.cpp
-html/HTMLCanvasElement.cpp
 html/HTMLCollection.cpp
 html/HTMLDocument.cpp
 html/HTMLEmbedElement.cpp
@@ -362,15 +356,12 @@ html/HTMLTableElement.cpp
 html/HTMLTableRowElement.cpp
 html/HTMLTextFormControlElement.cpp
 html/ImageBitmap.cpp
-html/ImageInputType.cpp
 html/LazyLoadFrameObserver.cpp
 html/LazyLoadImageObserver.cpp
 html/MediaElementSession.cpp
 html/ModelDocument.cpp
 html/OffscreenCanvas.cpp
-html/PermissionsPolicy.cpp
 html/PluginDocument.cpp
-html/RangeInputType.cpp
 html/ValidatedFormListedElement.cpp
 html/ValidationMessage.cpp
 html/canvas/CanvasRenderingContext2D.cpp
@@ -464,7 +455,6 @@ page/IntersectionObserver.cpp
 page/LocalDOMWindow.cpp
 page/LocalFrame.cpp
 page/LocalFrameView.cpp
-page/Navigator.cpp
 page/OpportunisticTaskScheduler.cpp
 page/PageColorSampler.cpp
 page/PageConsoleClient.cpp
@@ -499,7 +489,6 @@ page/UserMessageHandlersNamespace.cpp
 page/VisitedLinkStore.cpp
 page/VisualViewport.cpp
 page/WindowOrWorkerGlobalScope.cpp
-page/WorkerNavigator.cpp
 page/cocoa/ResourceUsageThreadCocoa.mm
 page/cocoa/WebTextIndicatorLayer.mm
 page/mac/EventHandlerMac.mm

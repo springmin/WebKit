@@ -907,9 +907,9 @@ void RenderThemeIOS::adjustButtonLikeControlStyle(RenderStyle& style, const Elem
     if (!style.hasAutoAccentColor()) {
         auto tintColor = style.usedAccentColor(element.document().styleColorOptions(&style));
         if (isSubmitStyleButton(element))
-            style.setBackgroundColor(tintColor);
+            style.setBackgroundColor(WTFMove(tintColor));
         else
-            style.setColor(tintColor);
+            style.setColor(WTFMove(tintColor));
     }
 
     if (!element.active())
@@ -1251,7 +1251,7 @@ Color RenderThemeIOS::pictureFrameColor(const RenderObject& buttonRenderer)
 
 #if ENABLE(ATTACHMENT_ELEMENT)
 
-RenderThemeIOS::IconAndSize RenderThemeIOS::iconForAttachment(const String& fileName, const String& attachmentType, const String& title)
+RenderThemeCocoa::IconAndSize RenderThemeIOS::iconForAttachment(const String& fileName, const String& attachmentType, const String& title)
 {
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     auto documentInteractionController = adoptNS([PAL::allocUIDocumentInteractionControllerInstance() init]);

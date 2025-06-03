@@ -138,6 +138,10 @@ class WebViewImpl;
 #if PLATFORM(IOS_FAMILY)
 class ViewGestureController;
 #endif
+enum class HideContentInsetFillReason : uint8_t {
+    FullScreen      = 1 << 0,
+    ScrolledToTop   = 1 << 1,
+};
 }
 
 @class WKColorExtensionView;
@@ -458,6 +462,7 @@ struct PerWebProcessState {
 
 #if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
     WebCore::RectEdges<RetainPtr<WKColorExtensionView>> _fixedColorExtensionViews;
+    OptionSet<WebKit::HideContentInsetFillReason> _reasonsToHideTopContentInsetFill;
 #endif
 }
 
@@ -530,6 +535,9 @@ struct PerWebProcessState {
 #if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
 - (void)_updateFixedColorExtensionViewFrames;
 - (BOOL)_hasVisibleColorExtensionView:(WebCore::BoxSide)side;
+- (void)_addReasonToHideTopContentInsetFill:(WebKit::HideContentInsetFillReason)reason;
+- (void)_removeReasonToHideTopContentInsetFill:(WebKit::HideContentInsetFillReason)reason;
+- (void)_updateTopContentInsetFillCaptureColor;
 #endif
 
 #if ENABLE(GAMEPAD)
@@ -604,6 +612,8 @@ RetainPtr<NSError> nsErrorFromExceptionDetails(const std::optional<WebCore::Exce
 #if PLATFORM(IOS_FAMILY)
 @property (nonatomic, setter=_setAllowsMagnification:) BOOL _allowsMagnification;
 #endif
+
+@property (nonatomic, readonly) NSString *_nameForVisualIdentificationOverlay;
 
 - (void)_scrollToEdge:(_WKRectEdge)edge animated:(BOOL)animated;
 

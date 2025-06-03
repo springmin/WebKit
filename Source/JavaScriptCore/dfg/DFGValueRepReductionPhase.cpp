@@ -124,7 +124,7 @@ private:
                             | Uint32ArrayMode
                             | 0;
 
-                        if (!(child1->arrayModes() & supportedArrays))
+                        if (child1->arrayModes() & ~supportedArrays)
                             break;
 
                         if (child1.useKind() == AnyIntUse || child1.useKind() == RealNumberUse) {
@@ -174,7 +174,7 @@ private:
                             | Uint32ArrayMode
                             | 0;
 
-                        if (!(child1->arrayModes() & supportedArrays))
+                        if (child1->arrayModes() & ~supportedArrays)
                             break;
 
                         if (child1->origin.exitOK)

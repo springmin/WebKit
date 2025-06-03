@@ -64,10 +64,11 @@ bool ImageInputType::isFormDataAppendable() const
 bool ImageInputType::appendFormData(DOMFormData& formData) const
 {
     ASSERT(element());
-    if (!element()->isActivatedSubmit())
+    Ref element = *this->element();
+    if (!element->isActivatedSubmit())
         return false;
 
-    auto& name = protectedElement()->name();
+    auto& name = element->name();
     if (name.isEmpty()) {
         formData.append("x"_s, String::number(m_clickLocation.x()));
         formData.append("y"_s, String::number(m_clickLocation.y()));
@@ -90,12 +91,9 @@ void ImageInputType::handleDOMActivateEvent(Event& event)
     Ref protectedForm = *element->form();
 
     m_clickLocation = IntPoint();
-    if (event.underlyingEvent()) {
-        Event& underlyingEvent = *event.underlyingEvent();
-        if (auto* mouseEvent = dynamicDowncast<MouseEvent>(underlyingEvent)) {
-            if (!mouseEvent->isSimulated())
-                m_clickLocation = IntPoint(mouseEvent->offsetX(), mouseEvent->offsetY());
-        }
+    if (RefPtr mouseEvent = dynamicDowncast<MouseEvent>(event.underlyingEvent())) {
+        if (!mouseEvent->isSimulated())
+            m_clickLocation = IntPoint(mouseEvent->offsetX(), mouseEvent->offsetY());
     }
 
     // Update layout before processing form actions in case the style changes
@@ -111,7 +109,8 @@ void ImageInputType::handleDOMActivateEvent(Event& event)
 RenderPtr<RenderElement> ImageInputType::createInputRenderer(RenderStyle&& style)
 {
     ASSERT(element());
-    return createRenderer<RenderImage>(RenderObject::Type::Image, *element(), WTFMove(style));
+    // FIXME: https://github.com/llvm/llvm-project/pull/142471 Moving style is not unsafe.
+    SUPPRESS_UNCOUNTED_ARG return createRenderer<RenderImage>(RenderObject::Type::Image, *protectedElement(), WTFMove(style));
 }
 
 void ImageInputType::attributeChanged(const QualifiedName& name)
@@ -124,7 +123,7 @@ void ImageInputType::attributeChanged(const QualifiedName& name)
     } else if (name == srcAttr) {
         if (RefPtr element = this->element()) {
             if (element->renderer())
-                element->ensureImageLoader().updateFromElementIgnoringPreviousError();
+                element->ensureProtectedImageLoader()->updateFromElementIgnoringPreviousError();
         }
     }
     BaseButtonInputType::attributeChanged(name);
@@ -176,7 +175,8 @@ unsigned ImageInputType::height() const
 
     element->protectedDocument()->updateLayout({ LayoutOptions::TreatContentVisibilityHiddenAsVisible, LayoutOptions::TreatContentVisibilityAutoAsVisible }, element.ptr());
 
-    if (CheckedPtr renderer = element->renderer())
+    CheckedPtr renderer = element->renderer();
+    if (renderer)
         return adjustForAbsoluteZoom(downcast<RenderBox>(*renderer).contentBoxHeight(), *renderer);
 
     // Check the attribute first for an explicit pixel value.
@@ -186,7 +186,7 @@ unsigned ImageInputType::height() const
     // If the image is available, use its height.
     CheckedPtr imageLoader = element->imageLoader();
     if (imageLoader && imageLoader->image())
-        return imageLoader->image()->imageSizeForRenderer(element->renderer(), 1).height().toUnsigned();
+        return imageLoader->image()->imageSizeForRenderer(renderer.get(), 1).height().toUnsigned();
 
     return 0;
 }
@@ -198,7 +198,8 @@ unsigned ImageInputType::width() const
 
     element->protectedDocument()->updateLayout({ LayoutOptions::TreatContentVisibilityHiddenAsVisible, LayoutOptions::TreatContentVisibilityAutoAsVisible }, element.ptr());
 
-    if (CheckedPtr renderer = element->renderer())
+    CheckedPtr renderer = element->renderer();
+    if (renderer)
         return adjustForAbsoluteZoom(downcast<RenderBox>(*renderer).contentBoxWidth(), *renderer);
 
     // Check the attribute first for an explicit pixel value.
@@ -208,7 +209,7 @@ unsigned ImageInputType::width() const
     // If the image is available, use its width.
     CheckedPtr imageLoader = element->imageLoader();
     if (imageLoader && imageLoader->image())
-        return imageLoader->image()->imageSizeForRenderer(element->renderer(), 1).width().toUnsigned();
+        return imageLoader->image()->imageSizeForRenderer(renderer.get(), 1).width().toUnsigned();
 
     return 0;
 }

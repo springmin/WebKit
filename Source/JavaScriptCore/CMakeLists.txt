@@ -337,6 +337,7 @@ set(JavaScriptCore_BUILTINS_SOURCES
     ${JAVASCRIPTCORE_DIR}/builtins/ArrayConstructor.js
     ${JAVASCRIPTCORE_DIR}/builtins/ArrayIteratorPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/ArrayPrototype.js
+    ${JAVASCRIPTCORE_DIR}/builtins/AsyncDisposableStackPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/AsyncFunctionPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/AsyncGeneratorPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/AsyncIteratorPrototype.js
@@ -1679,8 +1680,4 @@ endif()
 
 if (ENABLE_JAVASCRIPT_SHELL)
   add_subdirectory(shell)
-endif ()
-
-if (ENABLE_DEVELOPER_MODE)
-    WEBKIT_PREPEND_GLOBAL_COMPILER_FLAGS(-DENABLE_OFFLINE_ASM_ALT_ENTRY=1)
 endif ()
