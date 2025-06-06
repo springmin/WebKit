@@ -2540,7 +2540,7 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
     // It's possible that the selection has already been restored by this point if the entire animation has already
     // finished, but this is not guaranteed.
 
-    [_intelligenceTextEffectCoordinator flushReplacementsWithCompletion:makeBlockPtr([webSession, accepted, weakSelf = WeakObjCPtr<WKWebView>(self)] {
+    [_intelligenceTextEffectCoordinator flushReplacementsWithCompletionHandler:makeBlockPtr([webSession, accepted, weakSelf = WeakObjCPtr<WKWebView>(self)] {
         auto strongSelf = weakSelf.get();
         if (!strongSelf)
             return;
@@ -2558,7 +2558,7 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
             if (accepted)
                 weakSelf.get()->_page->didEndWritingToolsSession(*webSession, accepted);
             else {
-                [weakSelf.get()->_intelligenceTextEffectCoordinator restoreSelectionAcceptedReplacements:accepted completion:makeBlockPtr([webSession, accepted, weakSelf] {
+                [weakSelf.get()->_intelligenceTextEffectCoordinator restoreSelectionAcceptedReplacements:accepted completionHandler:makeBlockPtr([webSession, accepted, weakSelf] {
                     weakSelf.get()->_page->didEndWritingToolsSession(*webSession, accepted);
                 }).get()];
             }
@@ -3199,7 +3199,7 @@ static WebCore::CocoaColor *sampledFixedPositionContentColor(const WebCore::Fixe
         }
 
         RetainPtr predominantColor = cocoaColorOrNil(_fixedContainerEdges.predominantColor(side));
-        [extensionView fadeToColor:predominantColor.get() ?: self.underPageBackgroundColor];
+        [extensionView updateColor:predominantColor.get() ?: self.underPageBackgroundColor];
         return;
     };
 
@@ -3231,7 +3231,7 @@ static WebCore::CocoaColor *sampledFixedPositionContentColor(const WebCore::Fixe
         [view setFrame:[parentView convertRect:CGRectMake(insets.left(), bounds.height() - insets.bottom(), bounds.width() - insets.left() - insets.right(), insets.bottom()) fromView:self]];
 }
 
-- (void)_updateFixedColorExtensionEdges
+- (void)_updateHiddenContentInsetFillEdges
 {
 #if PLATFORM(IOS_FAMILY)
     [_scrollView _setHiddenContentInsetFillEdges:[&] {
@@ -3296,17 +3296,17 @@ static WebCore::CocoaColor *sampledFixedPositionContentColor(const WebCore::Fixe
 
 #pragma mark - WKColorExtensionViewDelegate
 
-- (void)colorExtensionViewWillFadeOut:(WKColorExtensionView *)view
+- (void)colorExtensionViewWillDisappear:(WKColorExtensionView *)view
 {
 #if PLATFORM(IOS_FAMILY)
-    [self _updateFixedColorExtensionEdges];
+    [self _updateHiddenContentInsetFillEdges];
 #endif
 }
 
-- (void)colorExtensionViewDidFadeIn:(WKColorExtensionView *)view
+- (void)colorExtensionViewDidAppear:(WKColorExtensionView *)view
 {
 #if PLATFORM(IOS_FAMILY)
-    [self _updateFixedColorExtensionEdges];
+    [self _updateHiddenContentInsetFillEdges];
 #endif
 }
 

@@ -147,7 +147,6 @@ dom/Text.cpp
 dom/TextNodeTraversal.cpp
 dom/TextNodeTraversal.h
 dom/TreeScope.cpp
-dom/TrustedType.cpp
 dom/TypedElementDescendantIteratorInlines.h
 dom/ViewTransition.cpp
 dom/mac/ImageControlsMac.cpp
@@ -193,14 +192,11 @@ html/CustomPaintImage.cpp
 html/FormAssociatedCustomElement.cpp
 html/FormListedElement.cpp
 html/HTMLAttachmentElement.cpp
-html/HTMLCollection.cpp
 html/HTMLDialogElement.cpp
 html/HTMLDocument.cpp
 html/HTMLEmbedElement.cpp
 html/HTMLFormControlElement.cpp
-html/HTMLFormControlsCollection.cpp
 html/HTMLFormElement.cpp
-html/HTMLFrameElement.cpp
 html/HTMLFrameElementBase.cpp
 html/HTMLImageElement.cpp
 html/HTMLInputElement.cpp
@@ -385,7 +381,6 @@ platform/Widget.cpp
 platform/animation/AcceleratedEffect.cpp
 platform/cocoa/VideoPresentationModelVideoElement.mm
 platform/graphics/GraphicsLayer.cpp
-platform/graphics/SystemFallbackFontCache.cpp
 platform/graphics/ca/GraphicsLayerCA.cpp
 platform/graphics/ca/PlatformCALayer.mm
 platform/graphics/ca/cocoa/PlatformCALayerCocoa.mm
@@ -475,7 +470,6 @@ rendering/RenderReplica.cpp
 rendering/RenderScrollbar.cpp
 rendering/RenderSearchField.cpp
 rendering/RenderSelection.cpp
-rendering/RenderSlider.cpp
 rendering/RenderTable.cpp
 rendering/RenderTableCaption.cpp
 rendering/RenderTableCell.cpp

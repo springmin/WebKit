@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -1245,7 +1245,13 @@ void WebFrame::setTextDirection(const String& direction)
 RetainPtr<CFDataRef> WebFrame::webArchiveData(FrameFilterFunction callback, void* context, const Vector<WebCore::MarkupExclusionRule>& exclusionRules, const String& mainResourceFileName)
 {
     Ref document = *coreLocalFrame()->document();
-    auto archive = LegacyWebArchive::create(document, [this, callback, context](auto& frame) -> bool {
+    LegacyWebArchive::ArchiveOptions options {
+        LegacyWebArchive::ShouldSaveScriptsFromMemoryCache::Yes,
+        LegacyWebArchive::ShouldArchiveSubframes::Yes,
+        exclusionRules,
+        mainResourceFileName
+    };
+    auto archive = LegacyWebArchive::create(document, WTFMove(options), [this, callback, context](auto& frame) -> bool {
         if (!callback)
             return true;
 
@@ -1253,7 +1259,7 @@ RetainPtr<CFDataRef> WebFrame::webArchiveData(FrameFilterFunction callback, void
         ASSERT(webFrame);
 
         return callback(toAPI(this), toAPI(webFrame.get()), context);
-    }, exclusionRules, mainResourceFileName);
+    });
 
     if (!archive)
         return nullptr;
@@ -1311,7 +1317,7 @@ inline DocumentLoader* WebFrame::policySourceDocumentLoader() const
     if (!document)
         return nullptr;
 
-    RefPtr mainFrameDocument = document->protectedMainFrameDocument();
+    RefPtr mainFrameDocument = document->mainFrameDocument();
     if (!mainFrameDocument) {
         LOG_ONCE(SiteIsolation, "Unable to properly calculate WebFrame::policySourceDocumentLoader() without access to the main frame document ");
         return nullptr;

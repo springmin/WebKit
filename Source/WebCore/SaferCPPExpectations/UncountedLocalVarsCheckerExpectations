@@ -336,13 +336,10 @@ html/FormAssociatedCustomElement.cpp
 html/FormListedElement.cpp
 html/HTMLAnchorElement.cpp
 html/HTMLAttachmentElement.cpp
-html/HTMLCollection.cpp
 html/HTMLDocument.cpp
 html/HTMLEmbedElement.cpp
 html/HTMLFieldSetElement.cpp
-html/HTMLFormControlsCollection.cpp
 html/HTMLFormElement.cpp
-html/HTMLFrameElement.cpp
 html/HTMLFrameElementBase.cpp
 html/HTMLImageElement.cpp
 html/HTMLInputElement.cpp
@@ -582,7 +579,6 @@ rendering/RenderProgress.cpp
 rendering/RenderQuote.cpp
 rendering/RenderReplaced.cpp
 rendering/RenderScrollbar.cpp
-rendering/RenderSlider.cpp
 rendering/RenderTableCell.cpp
 rendering/RenderTextControl.cpp
 rendering/RenderTextControlMultiLine.cpp

@@ -90,6 +90,9 @@ public:
     // MARK: Strong value conversions
 
     static void serializeColor(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const Color&);
+    static void serializeInsetEdge(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const InsetEdge&);
+    static void serializeMarginEdge(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const MarginEdge&);
+    static void serializePaddingEdge(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const PaddingEdge&);
     static void serializeScrollMarginEdge(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const ScrollMarginEdge&);
     static void serializeScrollPaddingEdge(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const ScrollPaddingEdge&);
     static void serializeCornerShapeValue(ExtractorState&, StringBuilder&, const CSS::SerializationContext&, const CornerShapeValue&);
@@ -741,6 +744,21 @@ inline void ExtractorSerializer::serializeTransformOperation(const RenderStyle& 
 // MARK: - Strong value serializations
 
 inline void ExtractorSerializer::serializeColor(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const Color& value)
+{
+    serializationForCSS(builder, context, state.style, value);
+}
+
+inline void ExtractorSerializer::serializeInsetEdge(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const InsetEdge& value)
+{
+    serializationForCSS(builder, context, state.style, value);
+}
+
+inline void ExtractorSerializer::serializeMarginEdge(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const MarginEdge& value)
+{
+    serializationForCSS(builder, context, state.style, value);
+}
+
+inline void ExtractorSerializer::serializePaddingEdge(ExtractorState& state, StringBuilder& builder, const CSS::SerializationContext& context, const PaddingEdge& value)
 {
     serializationForCSS(builder, context, state.style, value);
 }
@@ -2793,7 +2811,7 @@ inline void ExtractorSerializer::serializeSingleAnimation(ExtractorState& state,
     auto showsDuration = showsDelay || animation.duration() != Animation::initialDuration();
 
     auto showsTimingFunction = [&] {
-        auto timingFunction = animation.protectedTimingFunction();
+        RefPtr timingFunction = animation.timingFunction();
         if (timingFunction && *timingFunction != initialTimingFunction.get())
             return true;
         auto& name = animation.name().name;
@@ -2913,7 +2931,7 @@ inline void ExtractorSerializer::serializeSingleTransition(ExtractorState& state
         serializeAnimationDuration(state, builder, context, transition.duration(), nullptr, nullptr);
         listEmpty = false;
     }
-    if (auto timingFunction = transition.protectedTimingFunction(); *timingFunction != initialTimingFunction.get()) {
+    if (RefPtr timingFunction = transition.timingFunction(); *timingFunction != initialTimingFunction.get()) {
         if (!listEmpty)
             builder.append(' ');
         serializeAnimationTimingFunction(state, builder, context, *timingFunction, nullptr, nullptr);

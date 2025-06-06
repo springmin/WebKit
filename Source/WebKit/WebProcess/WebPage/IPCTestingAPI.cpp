@@ -1956,14 +1956,14 @@ RefPtr<JSIPCConnection> JSIPC::processTargetFromArgument(JSC::JSGlobalObject* gl
     }
 #if ENABLE(GPU_PROCESS)
     if (name == processTargetNameGPU) {
-        RefPtr connection = &WebProcess::singleton().ensureGPUProcessConnection().connection();
+        RefPtr connection = WebProcess::singleton().ensureGPUProcessConnection().connection();
         if (!m_gpuConnection || m_gpuConnection->connection().ptr() != connection)
             m_gpuConnection = JSIPCConnection::create(connection.releaseNonNull());
         return m_gpuConnection;
     }
 #endif
     if (name == processTargetNameNetworking) {
-        RefPtr connection = &WebProcess::singleton().ensureNetworkProcessConnection().connection();
+        RefPtr connection = WebProcess::singleton().ensureNetworkProcessConnection().connection();
         if (!m_networkConnection || m_networkConnection->connection().ptr() != connection)
             m_networkConnection = JSIPCConnection::create(connection.releaseNonNull());
         return m_networkConnection;
@@ -2797,7 +2797,7 @@ JSValueRef JSIPC::serializedEnumInfo(JSContextRef context, JSObjectRef thisObjec
         auto validValuesArray = WTF::map(enumeration.validValues, [&](auto& validValue) -> JSValueRef {
             return JSValueMakeNumber(context, validValue);
         });
-        JSObjectRef jsValidValues = JSObjectMakeArray(context, enumeration.validValues.size(), validValuesArray.data(), exception);
+        JSObjectRef jsValidValues = JSObjectMakeArray(context, enumeration.validValues.size(), validValuesArray.span().data(), exception);
         if (*exception)
             return JSValueMakeUndefined(context);
 

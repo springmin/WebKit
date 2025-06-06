@@ -710,7 +710,7 @@ void RenderBlockFlow::dirtyForLayoutFromPercentageHeightDescendants()
 
         for (CheckedPtr<RenderElement> renderer = &descendant; renderer && renderer != this && !renderer->normalChildNeedsLayout(); renderer = renderer->container()) {
             renderer->setChildNeedsLayout(MarkOnlyThis);
-            if (CheckedPtr renderBox = dynamicDowncast<RenderBox>(renderer)) {
+            if (CheckedPtr renderBox = dynamicDowncast<RenderBox>(renderer.get())) {
                 // If the width of an image is affected by the height of a child (e.g., an image with an aspect ratio),
                 // then we have to dirty preferred widths, since even enclosing blocks can become dirty as a result.
                 // (A horizontal flexbox that contains an inline image wrapped in an anonymous block for example.)
@@ -4505,22 +4505,28 @@ RenderObject* InlineMinMaxIterator::next()
 
 static LayoutUnit getBorderPaddingMargin(const RenderBoxModelObject& child, bool endOfInline)
 {
-    auto borderPaddingAndMarginWidth = [](LayoutUnit childValue, const Length& cssUnit) -> LayoutUnit {
-        if (cssUnit.isFixed())
-            return LayoutUnit(cssUnit.value());
-        if (cssUnit.isAuto())
+    auto borderMarginWidth = [](LayoutUnit childValue, const Style::MarginEdge& margin) -> LayoutUnit {
+        if (auto fixed = margin.tryFixed())
+            return LayoutUnit(fixed->value);
+        if (margin.isAuto())
             return { };
         return childValue;
     };
 
-    const RenderStyle& childStyle = child.style();
+    auto borderPaddingWidth = [](LayoutUnit childValue, const Style::PaddingEdge& padding) -> LayoutUnit {
+        if (auto fixed = padding.tryFixed())
+            return LayoutUnit(fixed->value);
+        return childValue;
+    };
+
+    auto& childStyle = child.style();
     if (endOfInline) {
-        return borderPaddingAndMarginWidth(child.marginEnd(), childStyle.marginEnd()) +
-            borderPaddingAndMarginWidth(child.paddingEnd(), childStyle.paddingEnd()) +
+        return borderMarginWidth(child.marginEnd(), childStyle.marginEnd()) +
+            borderPaddingWidth(child.paddingEnd(), childStyle.paddingEnd()) +
             child.borderEnd();
     }
-    return borderPaddingAndMarginWidth(child.marginStart(), childStyle.marginStart()) +
-        borderPaddingAndMarginWidth(child.paddingStart(), childStyle.paddingStart()) +
+    return borderMarginWidth(child.marginStart(), childStyle.marginStart()) +
+        borderPaddingWidth(child.paddingStart(), childStyle.paddingStart()) +
         child.borderStart();
 }
 
@@ -4769,12 +4775,10 @@ void RenderBlockFlow::computeInlinePreferredLogicalWidths(LayoutUnit& minLogical
                     if (!child->isFloating())
                         lastText = nullptr;
                     LayoutUnit margins;
-                    Length startMargin = childStyle.marginStart(writingMode());
-                    Length endMargin = childStyle.marginEnd(writingMode());
-                    if (startMargin.isFixed())
-                        margins += LayoutUnit::fromFloatCeil(startMargin.value());
-                    if (endMargin.isFixed())
-                        margins += LayoutUnit::fromFloatCeil(endMargin.value());
+                    if (auto fixedMarginStart = childStyle.marginStart(writingMode()).tryFixed())
+                        margins += LayoutUnit::fromFloatCeil(fixedMarginStart->value);
+                    if (auto fixedMarginEnd = childStyle.marginEnd(writingMode()).tryFixed())
+                        margins += LayoutUnit::fromFloatCeil(fixedMarginEnd->value);
                     childMin += margins.ceilToFloat();
                     childMax += margins.ceilToFloat();
                 }
