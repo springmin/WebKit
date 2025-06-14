@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,8 +59,8 @@ GraphicsLayerCARemote::GraphicsLayerCARemote(Type layerType, GraphicsLayerClient
 
 GraphicsLayerCARemote::~GraphicsLayerCARemote()
 {
-    if (RefPtr<RemoteLayerTreeContext> protectedContext = m_context.get())
-        protectedContext->graphicsLayerWillLeaveContext(*this);
+    if (RefPtr context = m_context.get())
+        context->graphicsLayerWillLeaveContext(*this);
 }
 
 bool GraphicsLayerCARemote::filtersCanBeComposited(const FilterOperations& filters)
@@ -70,50 +70,49 @@ bool GraphicsLayerCARemote::filtersCanBeComposited(const FilterOperations& filte
 
 Ref<PlatformCALayer> GraphicsLayerCARemote::createPlatformCALayer(PlatformCALayer::LayerType layerType, PlatformCALayerClient* owner)
 {
-    RELEASE_ASSERT(m_context.get());
-    auto result = PlatformCALayerRemote::create(layerType, owner, *m_context);
+    Ref context = *m_context;
+    Ref result = PlatformCALayerRemote::create(layerType, owner, context.get());
 
     if (result->canHaveBackingStore()) {
-        auto* localMainFrameView = m_context->webPage().localMainFrameView();
-        result->setContentsFormat(PlatformCALayer::contentsFormatForLayer(localMainFrameView, owner));
+        RefPtr localMainFrameView = context->webPage().localMainFrameView();
+        result->setContentsFormat(PlatformCALayer::contentsFormatForLayer(localMainFrameView.get(), owner));
     }
-
     return WTFMove(result);
 }
 
 Ref<PlatformCALayer> GraphicsLayerCARemote::createPlatformCALayer(PlatformLayer* platformLayer, PlatformCALayerClient* owner)
 {
-    RELEASE_ASSERT(m_context.get());
-    return PlatformCALayerRemote::create(platformLayer, owner, *m_context);
+    Ref context = *m_context;
+    return PlatformCALayerRemote::create(platformLayer, owner, context.get());
 }
 
 #if ENABLE(MODEL_PROCESS)
 Ref<PlatformCALayer> GraphicsLayerCARemote::createPlatformCALayer(Ref<WebCore::ModelContext> modelContext, PlatformCALayerClient* owner)
 {
-    RELEASE_ASSERT(m_context.get());
-    return PlatformCALayerRemote::create(modelContext, owner, *m_context);
+    Ref context = *m_context;
+    return PlatformCALayerRemote::create(modelContext, owner, context.get());
 }
 #endif
 
 #if ENABLE(MODEL_ELEMENT)
 Ref<PlatformCALayer> GraphicsLayerCARemote::createPlatformCALayer(Ref<WebCore::Model> model, PlatformCALayerClient* owner)
 {
-    RELEASE_ASSERT(m_context.get());
-    return PlatformCALayerRemote::create(model, owner, *m_context);
+    Ref context = *m_context;
+    return PlatformCALayerRemote::create(model, owner, context.get());
 }
 #endif
 
 Ref<PlatformCALayer> GraphicsLayerCARemote::createPlatformCALayerHost(WebCore::LayerHostingContextIdentifier identifier, PlatformCALayerClient* owner)
 {
-    RELEASE_ASSERT(m_context.get());
-    return PlatformCALayerRemoteHost::create(identifier, owner, *m_context);
+    Ref context = *m_context;
+    return PlatformCALayerRemoteHost::create(identifier, owner, context.get());
 }
 
 #if HAVE(AVKIT)
 Ref<PlatformCALayer> GraphicsLayerCARemote::createPlatformVideoLayer(WebCore::HTMLVideoElement& videoElement, PlatformCALayerClient* owner)
 {
-    RELEASE_ASSERT(m_context.get());
-    return PlatformCALayerRemote::create(videoElement, owner, *m_context);
+    Ref context = *m_context;
+    return PlatformCALayerRemote::create(videoElement, owner, context.get());
 }
 #endif
 
@@ -124,8 +123,8 @@ Ref<PlatformCAAnimation> GraphicsLayerCARemote::createPlatformCAAnimation(Platfo
 
 void GraphicsLayerCARemote::moveToContext(RemoteLayerTreeContext& context)
 {
-    if (RefPtr protectedContext = m_context.get())
-        protectedContext->graphicsLayerWillLeaveContext(*this);
+    if (RefPtr oldContext = m_context.get())
+        oldContext->graphicsLayerWillLeaveContext(*this);
 
     m_context = context;
 
@@ -185,7 +184,7 @@ public:
     bool isGraphicsLayerCARemoteAsyncContentsDisplayDelegate() const final { return true; }
 
 private:
-    Ref<IPC::Connection> m_connection;
+    const Ref<IPC::Connection> m_connection;
     DrawingAreaIdentifier m_drawingArea;
     Markable<WebCore::PlatformLayerIdentifier> m_layerID;
     Lock m_surfaceLock;
@@ -203,14 +202,14 @@ namespace WebKit {
 
 RefPtr<WebCore::GraphicsLayerAsyncContentsDisplayDelegate> GraphicsLayerCARemote::createAsyncContentsDisplayDelegate(GraphicsLayerAsyncContentsDisplayDelegate* existing)
 {
-    RefPtr protectedContext = m_context.get();
-    if (!protectedContext || !protectedContext->drawingAreaIdentifier() || !WebProcess::singleton().parentProcessConnection())
+    RefPtr context = m_context.get();
+    if (!context || !context->drawingAreaIdentifier() || !WebProcess::singleton().parentProcessConnection())
         return nullptr;
 
     RefPtr delegate = dynamicDowncast<GraphicsLayerCARemoteAsyncContentsDisplayDelegate>(existing);
     if (!delegate) {
         ASSERT(!existing);
-        delegate = adoptRef(new GraphicsLayerCARemoteAsyncContentsDisplayDelegate(*WebProcess::singleton().parentProcessConnection(), *protectedContext->drawingAreaIdentifier()));
+        delegate = adoptRef(new GraphicsLayerCARemoteAsyncContentsDisplayDelegate(*WebProcess::singleton().parentProcessConnection(), *context->drawingAreaIdentifier()));
     }
 
     auto layerID = setContentsToAsyncDisplayDelegate(delegate, ContentsLayerPurpose::Canvas);

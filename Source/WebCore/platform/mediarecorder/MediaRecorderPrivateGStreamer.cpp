@@ -181,11 +181,7 @@ void MediaRecorderPrivateBackend::stopRecording(CompletionHandler<void()>&& comp
 {
     GST_DEBUG_OBJECT(m_transcoder.get(), "Stop requested");
 
-    auto scopeExit = makeScopeExit([this, completionHandler = WTFMove(completionHandler)]() mutable {
-        GST_DEBUG_OBJECT(m_transcoder.get(), "Tearing down pipeline");
-        unregisterPipeline(m_pipeline);
-        m_pipeline.clear();
-        m_transcoder.clear();
+    auto scopeExit = makeScopeExit([completionHandler = WTFMove(completionHandler)]() mutable {
         completionHandler();
     });
 
@@ -351,8 +347,7 @@ GRefPtr<GstEncodingContainerProfile> MediaRecorderPrivateBackend::containerProfi
             m_videoCodec = codecs.first();
         auto [_, videoCaps] = GStreamerCodecUtilities::capsFromCodecString(m_videoCodec, { });
         GST_DEBUG("Creating video encoding profile for caps %" GST_PTR_FORMAT, videoCaps.get());
-        m_videoEncodingProfile = adoptGRef(GST_ENCODING_PROFILE(gst_encoding_video_profile_new(videoCaps.get(), nullptr, nullptr, 1)));
-        gst_encoding_container_profile_add_profile(profile.get(), m_videoEncodingProfile.get());
+        gst_encoding_container_profile_add_profile(profile.get(), GST_ENCODING_PROFILE(gst_encoding_video_profile_new(videoCaps.get(), nullptr, nullptr, 1)));
     }
 
     if (selectedTracks.audioTrack) {
@@ -389,7 +384,7 @@ GRefPtr<GstEncodingContainerProfile> MediaRecorderPrivateBackend::containerProfi
             gst_encoding_profile_set_restriction(m_audioEncodingProfile.get(), restrictionCaps.leakRef());
         }
 
-        gst_encoding_container_profile_add_profile(profile.get(), m_audioEncodingProfile.get());
+        gst_encoding_container_profile_add_profile(profile.get(), m_audioEncodingProfile.ref());
     }
 
     return profile;
@@ -494,7 +489,12 @@ bool MediaRecorderPrivateBackend::preparePipeline()
 
     m_transcoder = adoptGRef(gst_transcoder_new_full("mediastream://", "appsink://", GST_ENCODING_PROFILE(profile.get())));
     gst_transcoder_set_avoid_reencoding(m_transcoder.get(), true);
-    m_pipeline = gst_transcoder_get_pipeline(m_transcoder.get());
+
+    auto pipeline = gst_transcoder_get_pipeline(m_transcoder.get());
+    // Workaround until https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/9198 ships.
+    if (!webkitGstCheckVersion(1, 26, 3))
+        gst_object_ref_sink(pipeline);
+    m_pipeline = adoptGRef(pipeline);
 
     auto clock = adoptGRef(gst_system_clock_obtain());
     gst_pipeline_use_clock(GST_PIPELINE(m_pipeline.get()), clock.get());
@@ -527,11 +527,11 @@ bool MediaRecorderPrivateBackend::preparePipeline()
 
     m_signalAdapter = adoptGRef(gst_transcoder_get_sync_signal_adapter(m_transcoder.get()));
 #ifndef GST_DISABLE_GST_DEBUG
-    g_signal_connect(m_signalAdapter.get(), "warning", G_CALLBACK(+[](GstTranscoder*, GError* error, GstStructure* details, MediaRecorderPrivateBackend* recorder) {
+    g_signal_connect(m_signalAdapter.get(), "warning", G_CALLBACK(+[](GstTranscoderSignalAdapter*, GError* error, GstStructure* details, MediaRecorderPrivateBackend* recorder) {
         GST_WARNING_OBJECT(recorder->m_pipeline.get(), "%s details: %" GST_PTR_FORMAT, error->message, details);
     }), this);
 
-    g_signal_connect(m_signalAdapter.get(), "error", G_CALLBACK(+[](GstTranscoder*, GError* error, GstStructure* details, MediaRecorderPrivateBackend* recorder) {
+    g_signal_connect(m_signalAdapter.get(), "error", G_CALLBACK(+[](GstTranscoderSignalAdapter*, GError* error, GstStructure* details, MediaRecorderPrivateBackend* recorder) {
         GST_ERROR_OBJECT(recorder->m_pipeline.get(), "%s details: %" GST_PTR_FORMAT, error->message, details);
     }), this);
 #endif

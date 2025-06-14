@@ -405,6 +405,8 @@ RenderLayer::~RenderLayer()
 
     clearBacking({ }, true);
 
+    removeClipperClientIfNeeded();
+
     // Layer and all its children should be removed from the tree before destruction.
     RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(renderer().renderTreeBeingDestroyed() || !parent());
     RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(renderer().renderTreeBeingDestroyed() || !firstChild());
@@ -418,6 +420,15 @@ RenderLayer::PaintedContentRequest::PaintedContentRequest(const RenderLayer& own
 #else
     UNUSED_PARAM(owningLayer);
 #endif
+}
+
+void RenderLayer::removeClipperClientIfNeeded() const
+{
+    auto& style = renderer().style();
+    if (RefPtr referenceClipPathOperation = dynamicDowncast<ReferencePathOperation>(style.clipPath())) {
+        if (auto* clipperRenderer = ReferencedSVGResources::referencedClipperRenderer(renderer().treeScopeForSVGReferences(), *referenceClipPathOperation))
+            clipperRenderer->removeClientFromCache(renderer());
+    }
 }
 
 void RenderLayer::addChild(RenderLayer& child, RenderLayer* beforeChild)
@@ -2952,8 +2963,8 @@ LayoutSize RenderLayer::minimumSizeForResizing(float zoomFactor) const
 {
     // Use the resizer size as the strict minimum size
     auto resizerRect = overflowControlsRects().resizer;
-    LayoutUnit minWidth = minimumValueForLength(renderer().style().minWidth(), renderer().containingBlock()->width());
-    LayoutUnit minHeight = minimumValueForLength(renderer().style().minHeight(), renderer().containingBlock()->height());
+    LayoutUnit minWidth = Style::evaluateMinimum(renderer().style().minWidth(), renderer().containingBlock()->width());
+    LayoutUnit minHeight = Style::evaluateMinimum(renderer().style().minHeight(), renderer().containingBlock()->height());
     minWidth = std::max(LayoutUnit(minWidth / zoomFactor), LayoutUnit(resizerRect.width()));
     minHeight = std::max(LayoutUnit(minHeight / zoomFactor), LayoutUnit(resizerRect.height()));
     return LayoutSize(minWidth, minHeight);
@@ -3684,7 +3695,7 @@ void RenderLayer::paintLayerContents(GraphicsContext& context, const LayerPainti
         if (isViewportConstrained())
             return false;
 
-        if (!m_renderer.frame().isMainFrame())
+        if (!m_renderer->frame().isMainFrame())
             return false;
 
         return true;
@@ -3731,6 +3742,24 @@ void RenderLayer::paintLayerContents(GraphicsContext& context, const LayerPainti
 
         return isPaintingCompositedBackground;
     }();
+
+    if (shouldPaintContent && paintingInfo.subtreePaintRoot) {
+        RenderLayer* subtreeRootLayer = paintingInfo.subtreePaintRoot->enclosingLayer();
+
+        if (subtreeRootLayer) {
+            bool isLayerInSubtree = (this == subtreeRootLayer) || isDescendantOf(*subtreeRootLayer);
+
+            if (isLayerInSubtree) {
+                if (paintingInfo.subtreePaintRoot != &renderer()) {
+                    if (CheckedPtr rootAsBlock = dynamicDowncast<RenderBlock>(paintingInfo.subtreePaintRoot)) {
+                        if (!rootAsBlock->isContainingBlockAncestorFor(renderer()))
+                            shouldPaintContent = false;
+                    }
+                }
+            } else
+                shouldPaintContent = false;
+        }
+    }
 
     if (localPaintFlags.contains(PaintLayerFlag::PaintingRootBackgroundOnly) && !renderer().isRenderView() && !renderer().isDocumentElementRenderer()) {
         // If beginTransparencyLayers was called prior to this, ensure the transparency state is cleaned up before returning.

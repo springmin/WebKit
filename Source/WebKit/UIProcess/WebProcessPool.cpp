@@ -651,6 +651,7 @@ void WebProcessPool::startedPlayingModels(IPC::Connection& connection)
     ASSERT(!m_processesWithModelPlayers.contains(*proxy));
     WEBPROCESSPOOL_RELEASE_LOG(Process, "startedPlayingModels (process=%p, PID=%i)", proxy.get(), proxy->processID());
     m_processesWithModelPlayers.add(*proxy);
+    updateModelProcessAssertion();
 }
 
 void WebProcessPool::stoppedPlayingModels(IPC::Connection& connection)
@@ -662,7 +663,32 @@ void WebProcessPool::stoppedPlayingModels(IPC::Connection& connection)
     if (m_processesWithModelPlayers.contains(*proxy)) {
         WEBPROCESSPOOL_RELEASE_LOG(Process, "stoppedPlayingModels (process=%p, PID=%i)", proxy.get(), proxy->processID());
         m_processesWithModelPlayers.remove(*proxy);
+        updateModelProcessAssertion();
     }
+}
+
+bool WebProcessPool::hasForegroundWebProcessesWithModels() const
+{
+    for (Ref process : m_processesWithModelPlayers) {
+        if (process->isForeground())
+            return true;
+    }
+    return false;
+}
+
+bool WebProcessPool::hasBackgroundWebProcessesWithModels() const
+{
+    for (Ref process : m_processesWithModelPlayers) {
+        if (process->isBackground())
+            return true;
+    }
+    return false;
+}
+
+void WebProcessPool::updateModelProcessAssertion()
+{
+    if (RefPtr modelProcess = ModelProcessProxy::singletonIfCreated())
+        modelProcess->updateProcessAssertion();
 }
 
 void WebProcessPool::terminateAllWebContentProcessesWithModelPlayers()
@@ -694,7 +720,7 @@ void WebProcessPool::establishRemoteWorkerContextConnectionToNetworkProcess(Remo
     RefPtr<WebProcessProxy> remoteWorkerProcessProxy;
 
     auto useProcessForRemoteWorkers = [&](WebProcessProxy& process) {
-        remoteWorkerProcessProxy = &process;
+        remoteWorkerProcessProxy = process;
         process.enableRemoteWorkers(workerType, processPool->userContentControllerIdentifierForRemoteWorkers());
         if (process.isInProcessCache()) {
             processPool->checkedWebProcessCache()->removeProcess(process, WebProcessCache::ShouldShutDownProcess::No);
@@ -1279,7 +1305,7 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
         process = openerInfo->process.ptr();
     else if (relatedPage && !relatedPage->isClosed() && relatedPage->hasSameGPUAndNetworkProcessPreferencesAs(pageConfiguration)) {
         // Sharing processes, e.g. when creating the page via window.open().
-        process = &relatedPage->ensureRunningProcess();
+        process = relatedPage->ensureRunningProcess();
         // We do not support several WebsiteDataStores sharing a single process.
         ASSERT(process->isDummyProcessProxy() || &pageConfiguration->websiteDataStore() == process->websiteDataStore());
         ASSERT(&pageConfiguration->relatedPage()->websiteDataStore() == &pageConfiguration->websiteDataStore());
@@ -1977,8 +2003,7 @@ void WebProcessPool::updateProcessAssertions()
 #endif
 
 #if ENABLE(MODEL_PROCESS)
-    if (RefPtr modelProcess = ModelProcessProxy::singletonIfCreated())
-        modelProcess->updateProcessAssertion();
+    updateModelProcessAssertion();
 #endif
 
     // Check on next run loop since the web process proxy tokens are probably being updated.
@@ -2007,7 +2032,7 @@ void WebProcessPool::addProcessToOriginCacheSet(WebProcessProxy& process, const 
     auto registrableDomain = WebCore::RegistrableDomain { url };
     auto result = m_swappedProcessesPerRegistrableDomain.add(registrableDomain, &process);
     if (!result.isNewEntry)
-        result.iterator->value = &process;
+        result.iterator->value = process;
 
     LOG(ProcessSwapping, "(ProcessSwapping) Registrable domain %s just saved a cached process with pid %i", registrableDomain.string().utf8().data(), process.processID());
     if (!result.isNewEntry)

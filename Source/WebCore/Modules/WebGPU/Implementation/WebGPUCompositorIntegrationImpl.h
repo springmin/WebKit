@@ -65,7 +65,7 @@ public:
     void setPresentationContext(PresentationContextImpl& presentationContext)
     {
         ASSERT(!m_presentationContext);
-        m_presentationContext = &presentationContext;
+        m_presentationContext = presentationContext;
     }
 
     void registerCallbacks(WTF::Function<void(CFArrayRef)>&& renderBuffersWereRecreatedCallback, WTF::Function<void(CompletionHandler<void()>&&)>&& onSubmittedWorkScheduledCallback)
@@ -101,7 +101,7 @@ private:
     WTF::Function<void(CompletionHandler<void()>&&)> m_onSubmittedWorkScheduledCallback;
 
     RefPtr<PresentationContextImpl> m_presentationContext;
-    Ref<ConvertToBackingContext> m_convertToBackingContext;
+    const Ref<ConvertToBackingContext> m_convertToBackingContext;
     WeakPtr<Device> m_device;
 };
 

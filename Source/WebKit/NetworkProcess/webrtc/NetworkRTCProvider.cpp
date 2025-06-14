@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -64,14 +64,14 @@ NetworkRTCProvider::NetworkRTCProvider(NetworkConnectionToWebProcess& connection
     , m_ipcConnection(connection.connection())
     , m_rtcMonitor(*this)
 #if PLATFORM(COCOA)
-    , m_sourceApplicationAuditToken(connection.protectedNetworkProcess()->sourceApplicationAuditToken())
+    , m_sourceApplicationAuditToken(connection.networkProcess().sourceApplicationAuditToken())
     , m_rtcNetworkThreadQueue(WorkQueue::create("NetworkRTCProvider Queue"_s, WorkQueue::QOS::UserInitiated))
 #else
     , m_packetSocketFactory(makeUniqueRefWithoutFastMallocCheck<rtc::BasicPacketSocketFactory>(rtcNetworkThread().socketserver()))
 #endif
 {
 #if PLATFORM(COCOA)
-    if (auto* session = downcast<NetworkSessionCocoa>(connection.networkSession()))
+    if (CheckedPtr session = downcast<NetworkSessionCocoa>(connection.networkSession()))
         m_applicationBundleIdentifier = session->sourceApplicationBundleIdentifier().utf8();
 #endif
 #if !RELEASE_LOG_DISABLED
@@ -201,7 +201,7 @@ void NetworkRTCProvider::createResolver(LibWebRTCResolverIdentifier identifier, 
 
         if (!result.has_value()) {
             if (result.error() != WebCore::DNSError::Cancelled)
-                protectedConnection->protectedConnection()->send(Messages::WebRTCResolver::ResolvedAddressError(1), identifier);
+                protectedConnection->connection().send(Messages::WebRTCResolver::ResolvedAddressError(1), identifier);
             return;
         }
 
@@ -215,7 +215,7 @@ void NetworkRTCProvider::createResolver(LibWebRTCResolverIdentifier identifier, 
             return std::nullopt;
         });
 
-        protectedConnection->protectedConnection()->send(Messages::WebRTCResolver::SetResolvedAddress(ipAddresses), identifier);
+        protectedConnection->connection().send(Messages::WebRTCResolver::SetResolvedAddress(ipAddresses), identifier);
     };
 
     WebCore::resolveDNS(address, identifier.toUInt64(), WTFMove(completionHandler));
@@ -235,13 +235,19 @@ void NetworkRTCProvider::stopResolver(LibWebRTCResolverIdentifier identifier)
 }
 
 #if PLATFORM(COCOA)
+bool NetworkRTCProvider::webRTCInterfaceMonitoringViaNWEnabled() const
+{
+    RefPtr connection = m_connection.get();
+    return connection && connection->webRTCInterfaceMonitoringViaNWEnabled();
+}
+
 const String& NetworkRTCProvider::attributedBundleIdentifierFromPageIdentifier(WebPageProxyIdentifier pageIdentifier)
 {
     return m_attributedBundleIdentifiers.ensure(pageIdentifier, [protectedThis = Ref { *this }, pageIdentifier]() -> String {
         String value;
         callOnMainRunLoopAndWait([protectedThis, &value, pageIdentifier] {
             RefPtr connection = protectedThis->m_connection.get();
-            if (auto* session = connection ? connection->networkSession() : nullptr)
+            if (CheckedPtr session = connection ? connection->networkSession() : nullptr)
                 value = session->attributedBundleIdentifierFromPageIdentifier(pageIdentifier).isolatedCopy();
         });
         return value;
@@ -335,8 +341,7 @@ void NetworkRTCProvider::createClientTCPSocket(LibWebRTCSocketIdentifier identif
         if (!m_connection)
             return;
 
-        auto* session = m_connection->networkSession();
-        if (!session) {
+        if (!m_connection->networkSession()) {
             signalSocketIsClosed(identifier);
             return;
         }

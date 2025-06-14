@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -174,7 +174,6 @@ public:
     void deref() const final { API::ObjectImpl<API::Object::Type::ProcessPool>::deref(); }
 
     API::ProcessPoolConfiguration& configuration() { return m_configuration.get(); }
-    Ref<API::ProcessPoolConfiguration> protectedConfiguration() { return m_configuration; }
 
     static Vector<Ref<WebProcessPool>> allProcessPools();
 
@@ -497,6 +496,11 @@ public:
     bool hasForegroundWebProcesses() const { return m_foregroundWebProcessCounter.value(); }
     bool hasBackgroundWebProcesses() const { return m_backgroundWebProcessCounter.value(); }
 
+#if ENABLE(MODEL_PROCESS)
+    bool hasForegroundWebProcessesWithModels() const;
+    bool hasBackgroundWebProcessesWithModels() const;
+#endif
+
     void processForNavigation(WebPageProxy&, WebFrameProxy&, const API::Navigation&, const URL& sourceURL, ProcessSwapRequestedByClient, WebProcessProxy::LockdownMode, LoadedWebArchive, const FrameInfoData&, Ref<WebsiteDataStore>&&, CompletionHandler<void(Ref<WebProcessProxy>&&, SuspendedPageProxy*, ASCIILiteral)>&&);
 
     void didReachGoodTimeToPrewarm();
@@ -629,6 +633,10 @@ public:
     void markHasReceivedAXRequestInUIProcess() { m_hasReceivedAXRequestInUIProcess = true; }
     bool hasReceivedAXRequestInUIProcess() const { return m_hasReceivedAXRequestInUIProcess; }
 
+#if PLATFORM(MAC)
+    void registerAdditionalFonts(NSArray *fontNames);
+#endif
+
 private:
     enum class NeedsGlobalStaticInitialization : bool { No, Yes };
     void platformInitialize(NeedsGlobalStaticInitialization);
@@ -749,6 +757,7 @@ private:
 
 #if ENABLE(MODEL_PROCESS)
     ModelProcessProxy& ensureModelProcess();
+    void updateModelProcessAssertion();
     void terminateAllWebContentProcessesWithModelPlayers();
 #endif
 
@@ -760,7 +769,7 @@ private:
     String platformResourceMonitorRuleListSourceForTesting();
 #endif
 
-    Ref<API::ProcessPoolConfiguration> m_configuration;
+    const Ref<API::ProcessPoolConfiguration> m_configuration;
 
     IPC::MessageReceiverMap m_messageReceiverMap;
 
@@ -783,7 +792,7 @@ private:
     WeakHashSet<WebProcessProxy> m_processesWithModelPlayers;
 #endif
 
-    Ref<WebPageGroup> m_defaultPageGroup;
+    const Ref<WebPageGroup> m_defaultPageGroup;
 
     RefPtr<API::Object> m_injectedBundleInitializationUserData;
     std::unique_ptr<API::InjectedBundleClient> m_injectedBundleClient;
@@ -795,7 +804,7 @@ private:
 
     RefPtr<WebAutomationSession> m_automationSession;
 
-    Ref<VisitedLinkStore> m_visitedLinkStore;
+    const Ref<VisitedLinkStore> m_visitedLinkStore;
     bool m_visitedLinksPopulated { false };
 
     HashSet<String> m_schemesToRegisterAsEmptyDocument;
@@ -931,6 +940,10 @@ private:
 #endif
 #endif
 
+#if ENABLE(WPE_PLATFORM)
+    unsigned long m_availableInputDevicesSignalID { 0 };
+#endif
+
     WebProcessWithAudibleMediaCounter m_webProcessWithAudibleMediaCounter;
 
     struct AudibleMediaActivity {
@@ -999,7 +1012,8 @@ private:
 
 #if PLATFORM(COCOA)
     std::optional<Vector<URL>> m_assetFontURLs;
-    std::optional<Vector<URL>> m_userInstalledFontURLs;
+    std::optional<HashMap<String, URL>> m_userInstalledFontURLs;
+    std::optional<Vector<URL>> m_sandboxExtensionURLs;
 #endif
 
 #if ENABLE(IPC_TESTING_API)

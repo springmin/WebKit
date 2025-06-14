@@ -754,7 +754,7 @@ public:
     inline CachedResourceLoader& cachedResourceLoader();
     inline Ref<CachedResourceLoader> protectedCachedResourceLoader() const;
 
-    void didBecomeCurrentDocumentInFrame();
+    WEBCORE_EXPORT void didBecomeCurrentDocumentInFrame();
     void destroyRenderTree();
     WEBCORE_EXPORT void willBeRemovedFromFrame();
 
@@ -1931,7 +1931,7 @@ public:
     void setFragmentDirective(const String& fragmentDirective) { m_fragmentDirective = fragmentDirective; }
     const String& fragmentDirective() const { return m_fragmentDirective; }
 
-    Ref<FragmentDirective> fragmentDirectiveForBindings();
+    FragmentDirective& fragmentDirectiveForBindings();
 
     void prepareCanvasesForDisplayOrFlushIfNeeded();
     void addCanvasNeedingPreparationForDisplayOrFlush(CanvasRenderingContext&);
@@ -2332,6 +2332,7 @@ private:
     UncheckedKeyHashSet<WeakRef<Element, WeakPtrImplWithEventTargetData>> m_articleElements;
 
     WeakHashSet<VisibilityChangeClient> m_visibilityStateCallbackClients;
+    bool m_deferResizeEventForVisibilityChange { false };
 
     std::unique_ptr<UncheckedKeyHashMap<String, WeakPtr<Element, WeakPtrImplWithEventTargetData>, ASCIICaseInsensitiveHash>> m_accessKeyCache;
 
@@ -2504,7 +2505,7 @@ private:
 
     String m_fragmentDirective;
 
-    Ref<FragmentDirective> m_fragmentDirectiveForBindings;
+    const Ref<FragmentDirective> m_fragmentDirectiveForBindings;
 
     ListHashSet<Ref<Element>> m_topLayerElements;
     ListHashSet<Ref<HTMLElement>> m_autoPopoverList;
@@ -2738,7 +2739,7 @@ private:
 
     mutable RefPtr<CSSCalc::RandomCachingKeyMap> m_randomCachingKeyMap;
 
-    Ref<DocumentSyncData> m_syncData;
+    const Ref<DocumentSyncData> m_syncData;
 }; // class Document
 
 Element* eventTargetElementForDocument(Document*);

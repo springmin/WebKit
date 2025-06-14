@@ -206,7 +206,7 @@ static RefPtr<ImageBuffer> allocateBufferInternal(RemoteLayerBackingStore::Type 
 RefPtr<WebCore::ImageBuffer> RemoteLayerWithInProcessRenderingBackingStore::allocateBuffer()
 {
     ImageBufferCreationContext creationContext;
-    creationContext.surfacePool = &WebCore::IOSurfacePool::sharedPoolSingleton();
+    creationContext.surfacePool = WebCore::IOSurfacePool::sharedPoolSingleton();
 
 #if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
     if (m_parameters.includeDisplayList == WebCore::IncludeDynamicContentScalingDisplayList::Yes) {
@@ -238,9 +238,6 @@ void RemoteLayerWithInProcessRenderingBackingStore::prepareToDisplay()
     }
 
     LOG_WITH_STREAM(RemoteLayerBuffers, stream << "RemoteLayerBackingStore " << m_layer->layerID() << " prepareToDisplay()");
-
-    if (performDelegatedLayerDisplay())
-        return;
 
     m_contentsBufferHandle = std::nullopt;
     auto displayRequirement = m_bufferSet.swapBuffersForDisplay(hasEmptyDirtyRegion(), supportsPartialRepaint());

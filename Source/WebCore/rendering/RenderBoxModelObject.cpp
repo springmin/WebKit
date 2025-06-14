@@ -248,7 +248,7 @@ static inline bool isOutOfFlowPositionedWithImplicitHeight(const RenderBoxModelO
     return child.isOutOfFlowPositioned() && !child.style().logicalTop().isAuto() && !child.style().logicalBottom().isAuto();
 }
     
-RenderBlock* RenderBoxModelObject::containingBlockForAutoHeightDetection(Length logicalHeight) const
+RenderBlock* RenderBoxModelObject::containingBlockForAutoHeightDetectionGeneric(const auto& logicalHeight) const
 {
     // For percentage heights: The percentage is calculated with respect to the
     // height of the generated box's containing block. If the height of the
@@ -257,7 +257,7 @@ RenderBlock* RenderBoxModelObject::containingBlockForAutoHeightDetection(Length 
     // calculated as if 'auto' was specified.
     if (!logicalHeight.isPercentOrCalculated() || isOutOfFlowPositioned())
         return nullptr;
-    
+
     // Anonymous block boxes are ignored when resolving percentage values that
     // would refer to it: the closest non-anonymous ancestor box is used instead.
     auto* cb = containingBlock();
@@ -272,16 +272,31 @@ RenderBlock* RenderBoxModelObject::containingBlockForAutoHeightDetection(Length 
     // if the cell specified a height or not.
     if (cb->isRenderTableCell())
         return nullptr;
-    
+
     // Match RenderBox::availableLogicalHeightUsing by special casing the layout
     // view. The available height is taken from the frame.
     if (cb->isRenderView())
         return nullptr;
-    
+
     if (isOutOfFlowPositionedWithImplicitHeight(*cb))
         return nullptr;
-    
+
     return cb;
+}
+
+RenderBlock* RenderBoxModelObject::containingBlockForAutoHeightDetection(const Style::PreferredSize& logicalHeight) const
+{
+    return containingBlockForAutoHeightDetectionGeneric(logicalHeight);
+}
+
+RenderBlock* RenderBoxModelObject::containingBlockForAutoHeightDetection(const Style::MinimumSize& logicalHeight) const
+{
+    return containingBlockForAutoHeightDetectionGeneric(logicalHeight);
+}
+
+RenderBlock* RenderBoxModelObject::containingBlockForAutoHeightDetection(const Style::MaximumSize& logicalHeight) const
+{
+    return containingBlockForAutoHeightDetectionGeneric(logicalHeight);
 }
 
 DecodingMode RenderBoxModelObject::decodingModeForImageDraw(const Image& image, const PaintInfo& paintInfo) const
@@ -995,6 +1010,38 @@ void RenderBoxModelObject::applyTransform(TransformationMatrix&, const RenderSty
 bool RenderBoxModelObject::requiresLayer() const
 {
     return isDocumentElementRenderer() || isPositioned() || createsGroup() || hasTransformRelatedProperty() || hasHiddenBackface() || hasReflection() || requiresRenderingConsolidationForViewTransition() || isRenderViewTransitionCapture();
+}
+
+void RenderBoxModelObject::removeOutOfFlowBoxesIfNeededOnStyleChange(RenderBlock& delegateBlock, const RenderStyle& oldStyle, const RenderStyle& newStyle)
+{
+    auto wasContainingBlockForFixedContent = canContainFixedPositionObjects(&oldStyle);
+    auto wasContainingBlockForAbsoluteContent = canContainAbsolutelyPositionedObjects(&oldStyle);
+    auto isContainingBlockForFixedContent = canContainFixedPositionObjects(&newStyle);
+    auto isContainingBlockForAbsoluteContent = canContainAbsolutelyPositionedObjects(&newStyle);
+
+    // FIXME: If an inline becomes a containing block, but the delegate was already one (or vice-versa),
+    // then we don't really need to remove the out-of-flows from the delegate only for them to be re-added
+    // to the same spot. We would need to correctly mark for layout instead though.
+
+    if ((wasContainingBlockForFixedContent && !isContainingBlockForFixedContent) || (wasContainingBlockForAbsoluteContent && !isContainingBlockForAbsoluteContent)) {
+        // We are no longer the containing block for out-of-flow descendants.
+        delegateBlock.removeOutOfFlowBoxes({ }, RenderBlock::ContainingBlockState::NewContainingBlock);
+    }
+
+    if (!wasContainingBlockForFixedContent && isContainingBlockForFixedContent) {
+        // We are a new containing block for all out-of-flow boxes. Find first ancestor that has our fixed positioned boxes and remove them.
+        // They will be inserted into our positioned objects list during their static position layout.
+        if (CheckedPtr containingBlock = RenderObject::containingBlockForPositionType(PositionType::Fixed, *this))
+            containingBlock->removeOutOfFlowBoxes(&delegateBlock,  RenderBlock::ContainingBlockState::NewContainingBlock);
+    }
+
+    if (!wasContainingBlockForAbsoluteContent && isContainingBlockForAbsoluteContent) {
+        // We are a new containing block for absolute positioning.
+        // Remove our absolutely positioned descendants from their current containing block.
+        // They will be inserted into our positioned objects list during layout.
+        if (CheckedPtr containingBlock = RenderObject::containingBlockForPositionType(PositionType::Absolute, *this))
+            containingBlock->removeOutOfFlowBoxes(&delegateBlock,  RenderBlock::ContainingBlockState::NewContainingBlock);
+    }
 }
 
 } // namespace WebCore

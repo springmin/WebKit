@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2018 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007, 2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -118,7 +118,7 @@ void ProgressTracker::progressStarted(LocalFrame& frame)
     if (!m_numProgressTrackedFrames || m_originatingProgressFrame == &frame) {
         reset();
         m_progressValue = initialProgressValue;
-        m_originatingProgressFrame = &frame;
+        m_originatingProgressFrame = frame;
 
         m_progressHeartbeatTimer.startRepeating(progressHeartbeatInterval);
         RefPtr originatingProgressFrame = m_originatingProgressFrame.get();

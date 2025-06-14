@@ -80,8 +80,13 @@ webkit.org/b/263473 imported/w3c/web-platform-tests/pointerevents/pointerevent_a
 webkit.org/b/263473 imported/w3c/web-platform-tests/pointerevents/pointerevent_attributes.html?touch-nonstandard
 webkit.org/b/263473 imported/w3c/web-platform-tests/pointerevents/pointerevent_capture_mouse_and_release_and_capture_again.html
 webkit.org/b/263473 imported/w3c/web-platform-tests/pointerevents/pointerevent_capture_touch_and_release_at_got_capture.html
-webkit.org/b/263473 imported/w3c/web-platform-tests/pointerevents/pointerevent_hit_test_scroll_background.html
 webkit.org/b/263473 imported/w3c/web-platform-tests/pointerevents/pointerevent_pointermove_isprimary_same_as_pointerdown.html?touch
+webkit.org/b/263473 imported/w3c/web-platform-tests/pointerevents/coalesced_events_attributes_on_redispatch.https.html?touch [ Skip ]
+webkit.org/b/263473 imported/w3c/web-platform-tests/pointerevents/crashtests/longpress-crash.html [ Skip ]
+webkit.org/b/263473 imported/w3c/web-platform-tests/pointerevents/pointerevent_click_during_parent_capture.html?pointerType=touch&preventDefault= [ Skip ]
+webkit.org/b/263473 imported/w3c/web-platform-tests/pointerevents/pointerevent_click_during_parent_capture.html?pointerType=touch&preventDefault=pointerdown [ Skip ]
+webkit.org/b/263473 imported/w3c/web-platform-tests/pointerevents/pointerevent_click_during_parent_capture.html?pointerType=touch&preventDefault=touchstart [ Skip ]
+webkit.org/b/263473 imported/w3c/web-platform-tests/pointerevents/pointerevent_range_input.html?touch [ Skip ]
 # PointerEvents currently only supports mouse on GTK (no Touch/Pen support)
 webkit.org/b/204115 imported/w3c/web-platform-tests/pointerevents/pointerevent_change-touch-action-onpointerdown_touch.html [ Skip ]
 webkit.org/b/204115 imported/w3c/web-platform-tests/pointerevents/pointerevent_pointercancel_touch.html [ Skip ]
@@ -150,6 +155,9 @@ imported/w3c/web-platform-tests/pointerevents/pointerevent_sequence_at_implicit_
 imported/w3c/web-platform-tests/pointerevents/persistentDeviceId/get-persistendeviceid-from-pointer-event.tentative.html [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_to_slotted_target.html?touch [ Skip ]
 imported/w3c/web-platform-tests/uievents/interface/keyboard-accesskey-click-event.html [ Skip ]
+
+webkit.org/b/294316 imported/w3c/web-platform-tests/pointerevents/coalesced_events_attributes.https.html?mouse [ Skip ]
+webkit.org/b/294316 imported/w3c/web-platform-tests/pointerevents/coalesced_events_attributes.https.html?pen [ Skip ]
 
 http/tests/cookies/same-site [ Pass ]
 
@@ -1146,7 +1154,7 @@ webkit.org/b/252878 compositing/backing/solid-color-with-paints-into-ancestor.ht
 webkit.org/b/252878 editing/execCommand/insert-ordered-list-and-delete.html [ Failure Pass ]
 webkit.org/b/252878 fast/frames/exponential-frames.html [ Pass Timeout ]
 webkit.org/b/252878 fast/frames/lots-of-objects.html [ Pass Timeout ]
-#webkit.org/b/252878 http/wpt/mediarecorder/MediaRecorder-video-h264-profiles.html [ Crash Pass Timeout ]
+webkit.org/b/252878 http/wpt/mediarecorder/MediaRecorder-video-h264-profiles.html [ Crash Pass Timeout ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/content-security-policy/reporting/report-multiple-violations-02.html [ Failure ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/content-security-policy/webrtc/webrtc-blocked-unknown.html [ Failure ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/css/css-transforms/huge-length-tiny-scale.html [ Pass Timeout ]
@@ -1796,6 +1804,8 @@ webkit.org/b/273396 imported/w3c/web-platform-tests/css/motion/offset-path-shape
 webkit.org/b/273396 imported/w3c/web-platform-tests/css/motion/offset-path-shape-polygon-002.html [ ImageOnlyFailure ]
 webkit.org/b/273396 platform/gtk/fonts/webkit-font-smoothing.html [ ImageOnlyFailure ]
 
+imported/w3c/web-platform-tests/css/css-fonts/generic-family-keywords-002.html [ Failure ]
+
 # Bidi content-aware paste not yet supported
 editing/pasteboard/paste-rtl-paragraph-with-leading-ltr-text.html [ ImageOnlyFailure ]
 
@@ -1895,7 +1905,7 @@ webkit.org/b/245324 http/tests/notifications/notification.html  [ Crash Pass ]
 webgl/1.0.x/conformance/textures/misc/texture-corner-case-videos.html [ Timeout ]
 
 # Flaky tests on Aug-2023
-#webkit.org/b/261024 http/wpt/mediarecorder/MediaRecorder-video-bitrate.html [ Crash Failure Pass ]
+webkit.org/b/261024 http/wpt/mediarecorder/MediaRecorder-video-bitrate.html [ Crash Failure Pass ]
 webkit.org/b/261024 imported/w3c/web-platform-tests/css/css-transforms/animation/transform-interpolation-rotate-slerp.html [ ImageOnlyFailure Pass ]
 webkit.org/b/261024 imported/w3c/web-platform-tests/fetch/metadata/generated/css-font-face.https.sub.tentative.html [ Failure Pass ]
 webkit.org/b/261024 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/javascript-url-return-value-handling-dynamic.html [ Failure Pass ]
@@ -1926,6 +1936,8 @@ webkit.org/b/261024 webrtc/utf8-sdp.html [ Pass Timeout ]
 
 
 imported/w3c/web-platform-tests/css/filter-effects/backdrop-filter-plus-filter.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/filter-effects/filtered-block-is-container.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/filter-effects/filtered-inline-is-container.html [ ImageOnlyFailure ]
 
 fast/canvas/font-family-system-ui-canvas.html [ Skip ]
 
@@ -2033,10 +2045,6 @@ http/tests/iframe-memory-monitor/media-video-autoplay-in-frames.html [ Skip ]
 # The Digital Credentials API is not supported in GTK port
 http/wpt/identity/ [ Skip ]
 imported/w3c/web-platform-tests/digital-credentials/ [ Skip ]
-
-webkit.org/b/293954 imported/w3c/web-platform-tests/mediacapture-record/ [ Skip ]
-webkit.org/b/293954 http/wpt/mediarecorder/ [ Skip ]
-webkit.org/b/293954 fast/mediastream/mediaStream-with-rotation.html [ Skip ]
 
 http/tests/css/css-masking/mask-external-svg-fragment.html [ ImageOnlyFailure ]
 http/tests/css/css-masking/mask-external-svg-image.html [ ImageOnlyFailure ]

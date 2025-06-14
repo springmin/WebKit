@@ -977,17 +977,12 @@ static void webkitMediaStreamSrcConstructed(GObject* object)
 static void webkitMediaStreamSrcDispose(GObject* object)
 {
     auto self = WEBKIT_MEDIA_STREAM_SRC_CAST(object);
-    auto element = GST_ELEMENT_CAST(self);
     auto priv = self->priv;
 
     GST_DEBUG_OBJECT(self, "Disposing");
-    for (auto& source : priv->sources.values()) {
-        source->stopObserving();
-
-        auto pad = adoptGRef(gst_element_get_static_pad(element, source->padName().ascii().data()));
-        GRefPtr appSrc = source->get();
+    for (auto& source : priv->sources.values())
         webkitMediaStreamSrcCleanup(self, source);
-    }
+
     priv->sources.clear();
 
     if (priv->stream) {
@@ -1187,7 +1182,7 @@ static GstPadProbeReturn webkitMediaStreamSrcPadProbeCb(GstPad* pad, GstPadProbe
             data->streamStartEvent = adoptGRef(gst_event_make_writable(data->streamStartEvent.leakRef()));
             IGNORE_WARNINGS_END
             gst_event_set_seqnum(data->streamStartEvent.get(), sequenceNumber);
-            info->data = gst_event_ref(data->streamStartEvent.get());
+            info->data = data->streamStartEvent.ref();
         }
         return GST_PAD_PROBE_OK;
     }

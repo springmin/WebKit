@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -373,7 +373,7 @@ private:
         bool hasAudibleSample { false };
     };
 ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
-    UncheckedKeyHashMap<RetainPtr<CFTypeRef>, AudioRendererProperties> m_sampleBufferAudioRendererMap;
+    HashMap<RetainPtr<CFTypeRef>, AudioRendererProperties> m_sampleBufferAudioRendererMap;
     RetainPtr<AVSampleBufferRenderSynchronizer> m_synchronizer;
 ALLOW_NEW_API_WITHOUT_GUARDS_END
     mutable MediaPlayer::CurrentTimeDidChangeCallback m_currentTimeDidChangeCallback;
@@ -410,7 +410,7 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     RefPtr<MediaPlaybackTarget> m_playbackTarget;
     bool m_shouldPlayToTarget { false };
 #endif
-    Ref<const Logger> m_logger;
+    const Ref<const Logger> m_logger;
     const uint64_t m_logIdentifier;
     std::unique_ptr<VideoLayerManagerObjC> m_videoLayerManager;
     const Ref<EffectiveRateChangedListener> m_effectiveRateChangedListener;

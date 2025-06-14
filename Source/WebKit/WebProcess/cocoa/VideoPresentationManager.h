@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -156,7 +156,7 @@ public:
     void swapFullscreenModes(WebCore::HTMLVideoElement&, WebCore::HTMLVideoElement&);
 
     // Interface to WebChromeClient
-    bool canEnterVideoFullscreen(WebCore::HTMLMediaElementEnums::VideoFullscreenMode) const;
+    bool canEnterVideoFullscreen(WebCore::HTMLVideoElement&, WebCore::HTMLMediaElementEnums::VideoFullscreenMode) const;
     bool supportsVideoFullscreen(WebCore::HTMLMediaElementEnums::VideoFullscreenMode) const;
     bool supportsVideoFullscreenStandby() const;
     void enterVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&, WebCore::HTMLMediaElementEnums::VideoFullscreenMode, bool standby);
@@ -219,7 +219,7 @@ protected:
     void requestRouteSharingPolicyAndContextUID(PlaybackSessionContextIdentifier, CompletionHandler<void(WebCore::RouteSharingPolicy, String)>&&);
     void ensureUpdatedVideoDimensions(PlaybackSessionContextIdentifier, WebCore::FloatSize existingVideoDimensions);
 
-    void setCurrentlyInFullscreen(VideoPresentationInterfaceContext&, bool);
+    void setCurrentVideoFullscreenMode(VideoPresentationInterfaceContext&, WebCore::HTMLMediaElementEnums::VideoFullscreenMode);
     void setRequiresTextTrackRepresentation(PlaybackSessionContextIdentifier, bool);
     void setTextTrackRepresentationBounds(PlaybackSessionContextIdentifier, const WebCore::IntRect&);
 
@@ -231,12 +231,12 @@ protected:
 #endif
 
     WeakPtr<WebPage> m_page;
-    Ref<PlaybackSessionManager> m_playbackSessionManager;
+    const Ref<PlaybackSessionManager> m_playbackSessionManager;
     WeakHashMap<WebCore::HTMLVideoElement, PlaybackSessionContextIdentifier> m_videoElements;
     HashMap<PlaybackSessionContextIdentifier, ModelInterfaceTuple> m_contextMap;
     HashMap<PlaybackSessionContextIdentifier, int> m_clientCounts;
     WeakPtr<WebCore::HTMLVideoElement> m_videoElementInPictureInPicture;
-    bool m_currentlyInFullscreen { false };
+    WebCore::HTMLMediaElementEnums::VideoFullscreenMode m_currentVideoFullscreenMode { WebCore::HTMLMediaElementEnums::VideoFullscreenModeNone };
 };
 
 } // namespace WebKit

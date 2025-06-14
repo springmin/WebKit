@@ -107,7 +107,6 @@ css/typedom/ComputedStylePropertyMapReadOnly.cpp
 css/typedom/HashMapStylePropertyMapReadOnly.cpp
 css/typedom/MainThreadStylePropertyMapReadOnly.cpp
 dom/ActiveDOMObject.cpp
-dom/BroadcastChannel.cpp
 dom/CollectionIndexCacheInlines.h
 dom/ComposedTreeAncestorIterator.h
 dom/ComposedTreeIterator.cpp
@@ -125,8 +124,6 @@ dom/ElementTextDirection.cpp
 dom/ElementTraversal.h
 dom/EventLoop.cpp
 dom/EventPath.cpp
-dom/FragmentDirectiveGenerator.cpp
-dom/FragmentDirectiveRangeFinder.cpp
 dom/InlineStyleSheetOwner.cpp
 dom/Microtasks.cpp
 dom/MouseRelatedEvent.cpp
@@ -188,7 +185,6 @@ html/Autofill.cpp
 html/CachedHTMLCollectionInlines.h
 html/CanvasBase.cpp
 html/CollectionTraversalInlines.h
-html/CustomPaintImage.cpp
 html/FormAssociatedCustomElement.cpp
 html/FormListedElement.cpp
 html/HTMLAttachmentElement.cpp
@@ -197,7 +193,6 @@ html/HTMLDocument.cpp
 html/HTMLEmbedElement.cpp
 html/HTMLFormControlElement.cpp
 html/HTMLFormElement.cpp
-html/HTMLFrameElementBase.cpp
 html/HTMLImageElement.cpp
 html/HTMLInputElement.cpp
 html/HTMLLabelElement.cpp
@@ -222,7 +217,6 @@ html/ValidatedFormListedElement.cpp
 html/ValidationMessage.cpp
 html/canvas/CanvasRenderingContext2D.cpp
 html/canvas/CanvasRenderingContext2DBase.cpp
-html/canvas/GPUCanvasContextCocoa.mm
 html/parser/HTMLConstructionSite.cpp
 html/shadow/DateTimeEditElement.cpp
 html/shadow/DateTimeNumericFieldElement.cpp
@@ -418,12 +412,10 @@ rendering/LegacyLineLayout.cpp
 rendering/MarkedText.cpp
 rendering/MotionPath.cpp
 rendering/PositionedLayoutConstraints.cpp
-rendering/ReferencedSVGResources.cpp
 rendering/RenderAttachment.cpp
 rendering/RenderBlock.cpp
 rendering/RenderBlockFlow.cpp
 rendering/RenderBox.cpp
-rendering/RenderBox.h
 rendering/RenderBoxModelObject.cpp
 rendering/RenderButton.cpp
 rendering/RenderCounter.cpp
@@ -444,11 +436,9 @@ rendering/RenderImageResourceStyleImage.cpp
 rendering/RenderInline.cpp
 rendering/RenderIterator.h
 rendering/RenderLayer.cpp
-rendering/RenderLayer.h
 rendering/RenderLayerBacking.cpp
 rendering/RenderLayerCompositor.cpp
 rendering/RenderLayerFilters.cpp
-rendering/RenderLayerInlines.h
 rendering/RenderLayerModelObject.cpp
 rendering/RenderLayerScrollableArea.cpp
 rendering/RenderLayoutState.cpp
@@ -457,7 +447,6 @@ rendering/RenderLineBreak.cpp
 rendering/RenderListBox.cpp
 rendering/RenderListItem.cpp
 rendering/RenderListMarker.cpp
-rendering/RenderMarquee.cpp
 rendering/RenderMenuList.cpp
 rendering/RenderMultiColumnFlow.cpp
 rendering/RenderMultiColumnSet.cpp
@@ -485,7 +474,6 @@ rendering/RenderTextFragment.cpp
 rendering/RenderTheme.cpp
 rendering/RenderTreeAsText.cpp
 rendering/RenderVTTCue.cpp
-rendering/RenderVideo.cpp
 rendering/RenderView.cpp
 rendering/RenderWidget.cpp
 rendering/StyledMarkedText.cpp
@@ -556,7 +544,6 @@ rendering/svg/legacy/LegacyRenderSVGResourceClipper.cpp
 rendering/svg/legacy/LegacyRenderSVGResourceContainer.cpp
 rendering/svg/legacy/LegacyRenderSVGResourceContainer.h
 rendering/svg/legacy/LegacyRenderSVGResourceGradient.cpp
-rendering/svg/legacy/LegacyRenderSVGResourceMasker.cpp
 rendering/svg/legacy/LegacyRenderSVGResourcePattern.cpp
 rendering/svg/legacy/LegacyRenderSVGRoot.cpp
 rendering/svg/legacy/LegacyRenderSVGTransformableContainer.cpp
@@ -645,9 +632,3 @@ workers/WorkerOrWorkletThread.cpp
 workers/WorkerRunLoop.cpp
 workers/service/server/SWServer.cpp
 worklets/Worklet.cpp
-xml/XPathFunctions.cpp
-xml/XPathNodeSet.cpp
-xml/XPathPath.cpp
-xml/XPathStep.cpp
-xml/XSLStyleSheetLibxslt.cpp
-xml/XSLTProcessor.cpp

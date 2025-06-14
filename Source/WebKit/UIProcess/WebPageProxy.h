@@ -972,6 +972,7 @@ public:
     WebCore::Color sampledPageTopColor() const;
 
     WebCore::Color underPageBackgroundColor() const;
+    WebCore::Color underPageBackgroundColorIgnoringPlatformColor() const;
     WebCore::Color underPageBackgroundColorOverride() const;
     void setUnderPageBackgroundColorOverride(WebCore::Color&&);
 
@@ -1714,7 +1715,6 @@ public:
     void setPreferences(WebPreferences&);
 
     WebPageGroup& pageGroup() { return m_pageGroup; }
-    Ref<WebPageGroup> protectedPageGroup() const;
 
     bool hasRunningProcess() const;
     void launchInitialProcessIfNecessary();
@@ -2740,10 +2740,6 @@ public:
 
     Ref<AboutSchemeHandler> protectedAboutSchemeHandler();
 
-#if PLATFORM(MAC)
-    void registerAdditionalFonts(NSArray *fonts);
-#endif
-
 private:
     WebPageProxy(PageClient&, WebProcessProxy&, Ref<API::PageConfiguration>&&);
     void platformInitialize();
@@ -3440,10 +3436,10 @@ private:
     std::unique_ptr<RemoteScrollingCoordinatorProxy> m_scrollingCoordinatorProxy;
 #endif
     Ref<WebProcessProxy> m_legacyMainFrameProcess;
-    Ref<WebPageGroup> m_pageGroup;
+    const Ref<WebPageGroup> m_pageGroup;
     Ref<WebPreferences> m_preferences;
 
-    Ref<WebUserContentControllerProxy> m_userContentController;
+    const Ref<WebUserContentControllerProxy> m_userContentController;
 
 #if ENABLE(WK_WEB_EXTENSIONS)
     RefPtr<WebExtensionController> m_webExtensionController;
@@ -3918,11 +3914,6 @@ private:
 
     const Ref<AboutSchemeHandler> m_aboutSchemeHandler;
     RefPtr<WebPageProxyTesting> m_pageForTesting;
-
-#if PLATFORM(MAC)
-    std::optional<Vector<URL>> m_additionalFonts;
-#endif
-
 };
 
 } // namespace WebKit

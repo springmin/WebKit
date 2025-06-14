@@ -1122,9 +1122,32 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 #endif
 
-#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WKWebViewMacAdditions.mm>)
-#import <WebKitAdditions/WKWebViewMacAdditions.mm>
-#endif
+#if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
+
+- (BOOL)scrollViewDrawsMagicPocket
+{
+    if (!_page)
+        return NO;
+
+    if (!_page->preferences().contentInsetBackgroundFillEnabled())
+        return NO;
+
+    return _page->obscuredContentInsets().top() > 0;
+}
+
+- (void)registerPocketContainer:(NSView *)container onEdge:(NSScrollPocketEdge)edge
+{
+    if (edge == NSScrollPocketEdgeTop)
+        _impl->registerViewAboveScrollPocket(container);
+}
+
+- (void)unregisterPocketContainer:(NSView *)container onEdge:(NSScrollPocketEdge)edge
+{
+    if (edge == NSScrollPocketEdgeTop)
+        _impl->unregisterViewAboveScrollPocket(container);
+}
+
+#endif // ENABLE(CONTENT_INSET_BACKGROUND_FILL)
 
 @end
 
@@ -1568,8 +1591,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     _usesAutomaticContentInsetBackgroundFill = value;
 
 #if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
-    _impl->updateTopContentInsetFillStyle();
-    _impl->updateTopContentInsetFillDueToScrolling();
+    _impl->updateTopScrollPocketStyle();
+    _impl->updateScrollPocketVisibilityWhenScrolledToTop();
 #endif
 }
 
@@ -1929,12 +1952,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #if ENABLE(WRITING_TOOLS)
     _impl->showWritingTools();
 #endif
-}
-
-- (void)_registerAdditionalFonts:(NSArray<NSURL *> *)fonts
-{
-    if (_page)
-        _page->registerAdditionalFonts(fonts);
 }
 
 @end // WKWebView (WKPrivateMac)

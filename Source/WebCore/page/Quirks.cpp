@@ -966,7 +966,7 @@ static bool isKinjaLoginAvatarElement(const Element& element)
 
     RefPtr<const Element> svgElement;
     if (is<SVGSVGElement>(element))
-        svgElement = &element;
+        svgElement = element;
     else if (is<SVGPathElement>(element) && is<SVGSVGElement>(element.parentElement()))
         svgElement = element.parentElement();
 
@@ -1678,6 +1678,7 @@ static AccessibilityRole accessibilityRole(const Element& element)
 }
 
 // walmart.com: rdar://123734840
+// live.outlook.com: rdar://152277211
 bool Quirks::shouldIgnoreContentObservationForClick(const Node& targetNode) const
 {
     if (!needsQuirks())
@@ -1686,13 +1687,28 @@ bool Quirks::shouldIgnoreContentObservationForClick(const Node& targetNode) cons
     if (!m_quirksData.mayNeedToIgnoreContentObservation)
         return false;
 
-    RefPtr target = dynamicDowncast<Element>(targetNode);
-    if (!target || accessibilityRole(*target) != AccessibilityRole::Button)
+    if (m_quirksData.isGoogleMaps) {
+        for (Ref ancestor : lineageOfType<HTMLElement>(targetNode)) {
+            if (ancestor->attributeWithoutSynchronization(HTMLNames::aria_labelAttr) == "Suggestions"_s)
+                return true;
+        }
         return false;
+    }
 
-    RefPtr parent = target->parentElementInComposedTree();
-    if (!parent || accessibilityRole(*parent) != AccessibilityRole::ListItem)
-        return false;
+    RefPtr target = dynamicDowncast<Element>(targetNode);
+    if (m_quirksData.isOutlook) {
+        if (target && target->getIdAttribute().startsWith("swatchColorPicker"_s))
+            return true;
+    }
+
+    if (m_quirksData.isWalmart) {
+        if (!target || accessibilityRole(*target) != AccessibilityRole::Button)
+            return false;
+
+        RefPtr parent = target->parentElementInComposedTree();
+        if (!parent || accessibilityRole(*parent) != AccessibilityRole::ListItem)
+            return false;
+    }
 
     return true;
 }
@@ -2061,6 +2077,7 @@ static void handleWalmartQuirks(QuirksData& quirksData, const URL& quirksURL, co
     UNUSED_PARAM(documentURL);
     // walmart.com: rdar://123734840
     quirksData.mayNeedToIgnoreContentObservation = true;
+    quirksData.isWalmart = true;
 }
 
 static void handleYahooQuirks(QuirksData& quirksData, const URL& quirksURL, const String& quirksDomainString, const URL& documentURL)
@@ -2378,6 +2395,8 @@ static void handleGoogleQuirks(QuirksData& quirksData, const URL& quirksURL, con
     if (startsWithLettersIgnoringASCIICase(quirksURL.path(), "/maps/"_s)) {
         quirksData.isGoogleMaps = true;
 #if PLATFORM(IOS_FAMILY)
+        // maps.google.com rdar://152194074
+        quirksData.mayNeedToIgnoreContentObservation = true;
         // maps.google.com rdar://67358928
         quirksData.needsGoogleMapsScrollingQuirk = true;
 #endif
@@ -2467,8 +2486,13 @@ static void handleLiveQuirks(QuirksData& quirksData, const URL& quirksURL, const
 
     UNUSED_PARAM(documentURL);
     auto topDocumentHost = quirksURL.host();
+    quirksData.isOutlook = topDocumentHost == "outlook.live.com"_s;
     // outlook.live.com: rdar://136624720
-    quirksData.needsMozillaFileTypeForDataTransferQuirk = topDocumentHost == "outlook.live.com"_s;
+    quirksData.needsMozillaFileTypeForDataTransferQuirk = quirksData.isOutlook;
+#if PLATFORM(IOS_FAMILY)
+    // outlook.live.com: rdar://152277211
+    quirksData.mayNeedToIgnoreContentObservation = quirksData.isOutlook;
+#endif
     // live.com rdar://52116170
     quirksData.shouldAvoidResizingWhenInputViewBoundsChangeQuirk = true;
     // Microsoft office online generates data URLs with incorrect padding on Safari only (rdar://114573089).

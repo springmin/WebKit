@@ -190,13 +190,16 @@ protected:
     macro(FlowToChanged) \
     macro(FocusableStateChanged) \
     macro(FocusedUIElementChanged) \
+    macro(FontChanged) \
     macro(FrameLoadComplete) \
     macro(GrabbedStateChanged) \
     macro(HasPopupChanged) \
     macro(IdAttributeChanged) \
     macro(ImageOverlayChanged) \
+    macro(InertOrVisibilityChanged) \
     macro(InputTypeChanged) \
     macro(IsAtomicChanged) \
+    macro(IsEditableWebAreaChanged) \
     macro(KeyShortcutsChanged) \
     macro(LabelChanged) \
     macro(LanguageChanged) \
@@ -218,6 +221,7 @@ protected:
     macro(SelectedStateChanged) \
     macro(SelectedTextChanged) \
     macro(SetSizeChanged) \
+    macro(TextColorChanged) \
     macro(TextCompositionBegan) \
     macro(TextCompositionEnded) \
     macro(URLChanged) \
@@ -414,6 +418,7 @@ public:
     void autofillTypeChanged(HTMLInputElement&);
     void handleRoleChanged(AccessibilityObject&, AccessibilityRole previousRole);
     void handleReferenceTargetChanged();
+    void handlePageEditibilityChanged(Document&);
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     void columnIndexChanged(AccessibilityObject&);

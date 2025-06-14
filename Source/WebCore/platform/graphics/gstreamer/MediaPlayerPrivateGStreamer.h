@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2009 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Collabora Ltd. All rights reserved.
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
  * Copyright (C) 2014 Cable Television Laboratories, Inc.
@@ -649,7 +649,7 @@ private:
     uint64_t m_lastVideoFrameMetadataSampleCount { 0 };
     mutable PlatformTimeRanges m_buffered;
 #if !RELEASE_LOG_DISABLED
-    Ref<const Logger> m_logger;
+    const Ref<const Logger> m_logger;
     const uint64_t m_logIdentifier;
 #endif
 
@@ -677,7 +677,7 @@ private:
     Ref<PlatformMediaResourceLoader> m_loader;
 
     RefPtr<GStreamerQuirksManager> m_quirksManagerForTesting;
-    UncheckedKeyHashMap<const GStreamerQuirk*, std::unique_ptr<GStreamerQuirkBase::GStreamerQuirkState>> m_quirkStates;
+    HashMap<const GStreamerQuirk*, std::unique_ptr<GStreamerQuirkBase::GStreamerQuirkState>> m_quirkStates;
 
     MediaTime m_estimatedVideoFrameDuration { MediaTime::zeroTime() };
 

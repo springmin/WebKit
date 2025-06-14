@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2008-2023 Apple Inc. All Rights Reserved.
- * Copyright (C) 2009-2022 Google Inc. All Rights Reserved.
+ * Copyright (C) 2008-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2022 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -369,7 +369,7 @@ void WorkerMessagingProxy::setResourceCachingDisabledByWebInspector(bool disable
 void WorkerMessagingProxy::workerThreadCreated(DedicatedWorkerThread& workerThread)
 {
     ASSERT(!m_askedToTerminate);
-    m_workerThread = &workerThread;
+    m_workerThread = workerThread;
 
     if (m_askedToSuspend) {
         m_askedToSuspend = false;

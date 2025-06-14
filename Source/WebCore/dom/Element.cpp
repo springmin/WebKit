@@ -3204,6 +3204,9 @@ void Element::setInvokedPopover(RefPtr<Element>&& element)
 {
     auto& data = ensureElementRareData();
     data.setInvokedPopover(WTFMove(element));
+
+    // Invalidate so isPopoverInvoker style bit gets updated.
+    invalidateStyleInternal();
 }
 
 void Element::addShadowRoot(Ref<ShadowRoot>&& newShadowRoot)
@@ -3366,6 +3369,11 @@ RefPtr<ShadowRoot> Element::shadowRootForBindings(JSC::JSGlobalObject& lexicalGl
     if (JSC::jsCast<JSDOMGlobalObject*>(&lexicalGlobalObject)->world().shadowRootIsAlwaysOpen())
         return shadow;
     return nullptr;
+}
+
+RefPtr<ShadowRoot> Element::openOrClosedShadowRoot() const
+{
+    return shadowRoot();
 }
 
 RefPtr<Element> Element::resolveReferenceTarget() const
@@ -4070,7 +4078,7 @@ void Element::focus(const FocusOptions& options)
 
     if (RefPtr page = document->page()) {
         Ref frame = *document->frame();
-        if (!frame->hasHadUserInteraction() && !frame->isMainFrame() && !document->topOrigin().isSameOriginDomain(document->securityOrigin()))
+        if (!frame->hasHadUserInteraction() && !UserGestureIndicator::processingUserGesture() && !frame->isMainFrame() && !document->topOrigin().isSameOriginDomain(document->securityOrigin()))
             return;
 
         FocusOptions optionsWithVisibility = options;
@@ -6267,7 +6275,7 @@ HTMLElement* Element::topmostPopoverAncestor(TopLayerElementType topLayerType)
 
         // https://html.spec.whatwg.org/#nearest-inclusive-open-popover
         auto nearestInclusiveOpenPopover = [](Element& candidate) -> HTMLElement* {
-            for (RefPtr element = &candidate; element; element = element->parentElementInComposedTree()) {
+            for (RefPtr element = candidate; element; element = element->parentElementInComposedTree()) {
                 if (auto* htmlElement = dynamicDowncast<HTMLElement>(element.get())) {
                     if (htmlElement->popoverState() == PopoverState::Auto && htmlElement->popoverData()->visibilityState() == PopoverVisibilityState::Showing)
                         return htmlElement;

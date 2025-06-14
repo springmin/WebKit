@@ -1132,6 +1132,10 @@ String AXCoreObject::ariaLandmarkRoleDescription() const
         return AXARIAContentGroupText("ARIALandmarkRegion"_s);
     case AccessibilityRole::LandmarkSearch:
         return AXARIAContentGroupText("ARIALandmarkSearch"_s);
+    case AccessibilityRole::SectionFooter:
+        return AXARIAContentGroupText("ARIASectionFooter"_s);
+    case AccessibilityRole::SectionHeader:
+        return AXARIAContentGroupText("ARIASectionHeader"_s);
     case AccessibilityRole::ApplicationAlert:
         return AXARIAContentGroupText("ARIAApplicationAlert"_s);
     case AccessibilityRole::ApplicationAlertDialog:
@@ -1575,7 +1579,7 @@ std::partial_ordering AXCoreObject::partialOrder(const AXCoreObject& other)
         return std::partial_ordering::equivalent;
 
     RefPtr current = this;
-    RefPtr otherCurrent = &other;
+    RefPtr otherCurrent = other;
 
     auto orderingFromIndices = [&] (unsigned ourAncestorIndex, unsigned otherAncestorIndex) {
         if (ourAncestorIndex < otherAncestorIndex)

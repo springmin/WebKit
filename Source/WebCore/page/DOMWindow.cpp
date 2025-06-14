@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -65,7 +65,7 @@ ExceptionOr<RefPtr<SecurityOrigin>> DOMWindow::createTargetOriginForPostMessage(
 {
     RefPtr<SecurityOrigin> targetSecurityOrigin;
     if (targetOrigin == "/"_s)
-        targetSecurityOrigin = &sourceDocument.securityOrigin();
+        targetSecurityOrigin = sourceDocument.securityOrigin();
     else if (targetOrigin != "*"_s) {
         targetSecurityOrigin = SecurityOrigin::createFromString(targetOrigin);
         // It doesn't make sense target a postMessage at an opaque origin
@@ -130,7 +130,7 @@ void DOMWindow::close()
 
 PageConsoleClient* DOMWindow::console() const
 {
-    auto* frame = this->frame();
+    RefPtr frame = this->frame();
     return frame && frame->page() ? &frame->page()->console() : nullptr;
 }
 

@@ -1271,7 +1271,7 @@ void Document::invalidateQuerySelectorAllResults(Node& startingNode)
 {
     if (m_querySelectorAllResults.isEmptyIgnoringNullReferences())
         return;
-    for (RefPtr<Node> currentNode = &startingNode; currentNode; currentNode = currentNode->parentNode()) {
+    for (RefPtr currentNode = startingNode; currentNode; currentNode = currentNode->parentNode()) {
         if (!currentNode->hasValidQuerySelectorAllResults())
             continue;
         m_querySelectorAllResults.remove(*currentNode);
@@ -1283,7 +1283,7 @@ void Document::invalidateQuerySelectorAllResultsForClassAttributeChange(Node& st
 {
     if (m_querySelectorAllResults.isEmptyIgnoringNullReferences())
         return;
-    for (RefPtr<Node> currentNode = &startingNode; currentNode; currentNode = currentNode->parentNode()) {
+    for (RefPtr currentNode = startingNode; currentNode; currentNode = currentNode->parentNode()) {
         if (!currentNode->hasValidQuerySelectorAllResults())
             continue;
         auto it = m_querySelectorAllResults.find(*currentNode);
@@ -2580,8 +2580,24 @@ void Document::unregisterForVisibilityStateChangedCallbacks(VisibilityChangeClie
 
 void Document::visibilityStateChanged()
 {
+    bool pageIsVisible = page() && page()->isVisible();
+
     // https://w3c.github.io/page-visibility/#reacting-to-visibilitychange-changes
-    queueTaskToDispatchEvent(TaskSource::UserInteraction, Event::create(eventNames().visibilitychangeEvent, Event::CanBubble::Yes, Event::IsCancelable::No));
+    if (!pageIsVisible)
+        m_deferResizeEventForVisibilityChange = true;
+
+    eventLoop().queueTask(TaskSource::UserInteraction, [this, protectedDocument = Ref { *this }] {
+        dispatchEvent(Event::create(eventNames().visibilitychangeEvent, Event::CanBubble::Yes, Event::IsCancelable::No));
+
+        bool pageIsVisible = page() && page()->isVisible();
+        if (!pageIsVisible)
+            return;
+
+        m_deferResizeEventForVisibilityChange = false;
+        if (m_needsDOMWindowResizeEvent || m_needsVisualViewportResizeEvent)
+            scheduleRenderingUpdate(RenderingUpdateStep::Resize);
+    });
+
     m_visibilityStateCallbackClients.forEach([](auto& client) {
         Ref { client }->visibilityStateChanged();
     });
@@ -3187,7 +3203,6 @@ bool Document::updateLayoutIfDimensionsOutOfDate(Element& element, OptionSet<Dim
 
         CheckedPtr renderer = element.renderer();
 
-        bool hasSpecifiedLogicalHeight = renderer->style().logicalMinHeight() == Length(0, LengthType::Fixed) && renderer->style().logicalHeight().isFixed() && renderer->style().logicalMaxHeight().isAuto();
         bool isVertical = !renderer->isHorizontalWritingMode();
         bool checkingLogicalWidth = (dimensionsCheck.contains(DimensionsCheck::Width) && !isVertical) || (dimensionsCheck.contains(DimensionsCheck::Height) && isVertical);
         bool checkingLogicalHeight = (dimensionsCheck.contains(DimensionsCheck::Height) && !isVertical) || (dimensionsCheck.contains(DimensionsCheck::Width) && isVertical);
@@ -3228,14 +3243,14 @@ bool Document::updateLayoutIfDimensionsOutOfDate(Element& element, OptionSet<Dim
 
                 // If a box has changed children and sizes its width to
                 // its content, then require a full layout.
-                if (checkingLogicalWidth && currentBox->needsLayout() && currentBox->sizesLogicalWidthToFitContent(RenderBox::SizeType::MainOrPreferredSize)) {
+                if (checkingLogicalWidth && currentBox->needsLayout() && currentBox->sizesPreferredLogicalWidthToFitContent()) {
                     requireFullLayout = true;
                     break;
                 }
 
                 // If a block contains floats and the child's height isn't specified, then
                 // give up also, since our height could end up being influenced by the floats.
-                if (checkingLogicalHeight && !hasSpecifiedLogicalHeight) {
+                if (checkingLogicalHeight) {
                     if (CheckedPtr currentBlockFlow = dynamicDowncast<RenderBlockFlow>(*currentBox)) {
                         if (currentBlockFlow->containsFloats() && previousBox && !previousBox->isFloatingOrOutOfFlowPositioned()) {
                             requireFullLayout = true;
@@ -4630,7 +4645,7 @@ void Document::processBaseElement()
     auto baseDescendants = descendantsOfType<HTMLBaseElement>(*this);
     for (auto& base : baseDescendants) {
         if (!baseElement)
-            baseElement = &base;
+            baseElement = base;
 
         if (href.isNull()) {
             auto& value = base.attributeWithoutSynchronization(hrefAttr);
@@ -4711,7 +4726,7 @@ IDBClient::IDBConnectionProxy* Document::idbConnectionProxy()
         RefPtr currentPage = page();
         if (!currentPage)
             return nullptr;
-        m_idbConnectionProxy = &currentPage->idbConnection().proxy();
+        m_idbConnectionProxy = currentPage->idbConnection().proxy();
     }
     return m_idbConnectionProxy.get();
 }
@@ -5511,6 +5526,9 @@ void Document::setNeedsVisualViewportResize()
 void Document::runResizeSteps()
 {
     if (auto page = this->page(); page && page->shouldDeferResizeEvents())
+        return;
+
+    if (m_deferResizeEventForVisibilityChange)
         return;
 
     // FIXME: The order of dispatching is not specified: https://github.com/WICG/visual-viewport/issues/65.
@@ -7721,6 +7739,8 @@ void Document::setDesignMode(const String& value)
     DesignMode mode = equalLettersIgnoringASCIICase(value, "on"_s) ? DesignMode::On : DesignMode::Off;
     m_designMode = mode;
     scheduleFullStyleRebuild();
+    if (CheckedPtr cache = existingAXObjectCache())
+        cache->handlePageEditibilityChanged(*this);
 }
 
 Document* Document::parentDocument() const
@@ -10847,6 +10867,9 @@ void Document::updateServiceWorkerClientData()
     if (!serviceWorkerConnection)
         return;
 
+    if (!Ref { topOrigin() }->isHTTPFamily() && !(page() && page()->isServiceWorkerPage()))
+        return;
+
     auto controllingServiceWorkerRegistrationIdentifier = activeServiceWorker() ? std::make_optional<ServiceWorkerRegistrationIdentifier>(activeServiceWorker()->registrationIdentifier()) : std::nullopt;
     serviceWorkerConnection->registerServiceWorkerClient(clientOrigin(), ServiceWorkerClientData::from(*this), controllingServiceWorkerRegistrationIdentifier, userAgent(url()));
 }
@@ -11117,7 +11140,7 @@ const CrossOriginOpenerPolicy& Document::crossOriginOpenerPolicy() const
     return SecurityContext::crossOriginOpenerPolicy();
 }
 
-Ref<FragmentDirective> Document::fragmentDirectiveForBindings()
+FragmentDirective& Document::fragmentDirectiveForBindings()
 {
     return m_fragmentDirectiveForBindings;
 }

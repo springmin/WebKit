@@ -1664,37 +1664,6 @@ bool RenderElement::isVisibleInViewport() const
     return isVisibleInDocumentRect(visibleRect);
 }
 
-const Element* RenderElement::defaultAnchor() const
-{
-    if (!element())
-        return nullptr;
-
-    auto& anchorPositionedMap = document().styleScope().anchorPositionedToAnchorMap();
-    auto it = anchorPositionedMap.find(*element());
-    if (it == anchorPositionedMap.end())
-        return nullptr;
-    const auto& anchorName = style().positionAnchor();
-    if (!anchorName)
-        return nullptr;
-
-    for (auto& anchor : it->value) {
-        if (!anchor)
-            continue;
-        for (auto& name : anchor->style().anchorNames()) {
-            if (name.name == anchorName->name)
-                return anchor->element();
-        }
-    }
-    return nullptr;
-}
-
-const RenderBoxModelObject* RenderElement::defaultAnchorRenderer() const
-{
-    if (auto* defaultAnchor = this->defaultAnchor())
-        return dynamicDowncast<RenderBoxModelObject>(defaultAnchor->renderer());
-    return nullptr;
-}
-
 VisibleInViewportState RenderElement::imageFrameAvailable(CachedImage& image, ImageAnimatingState animatingState, const IntRect* changeRect)
 {
     bool isVisible = isVisibleInViewport();
@@ -2513,11 +2482,11 @@ void RenderElement::repaintOldAndNewPositionsForSVGRenderer() const
 static RenderObject::BlockContentHeightType includeNonFixedHeight(const RenderObject& renderer)
 {
     const RenderStyle& style = renderer.style();
-    if (style.height().isFixed()) {
+    if (auto fixedHeight = style.height().tryFixed()) {
         if (CheckedPtr block = dynamicDowncast<RenderBlock>(renderer)) {
             // For fixed height styles, if the overflow size of the element spills out of the specified
             // height, assume we can apply text auto-sizing.
-            if (block->effectiveOverflowY() == Overflow::Visible && style.height().value() < block->layoutOverflowRect().maxY())
+            if (block->effectiveOverflowY() == Overflow::Visible && fixedHeight->value < block->layoutOverflowRect().maxY())
                 return RenderObject::OverflowHeight;
         }
         return RenderObject::FixedHeight;

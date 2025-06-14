@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -191,7 +191,7 @@ void IDBTransaction::abortDueToFailedRequest(DOMException& error)
     if (isFinishedOrFinishing())
         return;
 
-    m_domError = &error;
+    m_domError = error;
     abortInternal();
 }
 
@@ -436,7 +436,7 @@ void IDBTransaction::completeNoncursorRequest(IDBRequest& request, const IDBResu
 
     request.completeRequestAndDispatchEvent(result);
 
-    m_currentlyCompletingRequest = &request;
+    m_currentlyCompletingRequest = request;
 }
 
 void IDBTransaction::completeCursorRequest(IDBRequest& request, const IDBResultData& result)
@@ -445,7 +445,7 @@ void IDBTransaction::completeCursorRequest(IDBRequest& request, const IDBResultD
 
     request.didOpenOrIterateCursor(result);
 
-    m_currentlyCompletingRequest = &request;
+    m_currentlyCompletingRequest = request;
 }
 
 void IDBTransaction::finishedDispatchEventForRequest(IDBRequest& request)
@@ -1565,11 +1565,6 @@ uint64_t IDBTransaction::generateOperationID()
 {
     static std::atomic<uint64_t> currentOperationID(1);
     return currentOperationID += 1;
-}
-
-Ref<IDBDatabase> IDBTransaction::protectedDatabase() const
-{
-    return m_database;
 }
 
 void IDBTransaction::generateIndexKeyForRecord(const IDBResourceIdentifier& requestIdentifier, const IDBIndexInfo& indexInfo, const std::optional<IDBKeyPath>& keyPath, const IDBKeyData& key, const IDBValue& value, std::optional<int64_t> recordID)

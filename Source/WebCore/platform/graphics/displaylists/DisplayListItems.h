@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -394,14 +394,14 @@ public:
     {
     }
 
-    Ref<ImageBuffer> imageBuffer() const { return m_imageBuffer; }
+    ImageBuffer& imageBuffer() const { return m_imageBuffer; }
     FloatRect destinationRect() const { return m_destinationRect; }
 
     void apply(GraphicsContext&) const;
     void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
-    Ref<ImageBuffer> m_imageBuffer;
+    const Ref<ImageBuffer> m_imageBuffer;
     FloatRect m_destinationRect;
 };
 
@@ -478,17 +478,17 @@ public:
     {
     }
 
-    RefPtr<ImageBuffer> sourceImage() const { return m_sourceImage; }
+    ImageBuffer* sourceImage() const { return m_sourceImage.get(); }
     FloatRect sourceImageRect() const { return m_sourceImageRect; }
-    Ref<Filter> filter() const { return m_filter; }
+    Filter& filter() const { return m_filter; }
 
     void apply(GraphicsContext&) const;
     void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
-    RefPtr<ImageBuffer> m_sourceImage;
+    const RefPtr<ImageBuffer> m_sourceImage;
     FloatRect m_sourceImageRect;
-    Ref<Filter> m_filter;
+    const Ref<Filter> m_filter;
 };
 
 class DrawGlyphs {
@@ -571,7 +571,7 @@ public:
     {
     }
 
-    Ref<ImageBuffer> imageBuffer() const { return m_imageBuffer; }
+    ImageBuffer& imageBuffer() const { return m_imageBuffer; }
     FloatRect source() const { return m_srcRect; }
     FloatRect destinationRect() const { return m_destinationRect; }
     ImagePaintingOptions options() const { return m_options; }
@@ -580,7 +580,7 @@ public:
     void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
-    Ref<ImageBuffer> m_imageBuffer;
+    const Ref<ImageBuffer> m_imageBuffer;
     FloatRect m_destinationRect;
     FloatRect m_srcRect;
     ImagePaintingOptions m_options;
@@ -598,7 +598,7 @@ public:
     {
     }
 
-    Ref<NativeImage> nativeImage() const { return m_image; }
+    NativeImage& nativeImage() const { return m_image; }
     const FloatRect& destinationRect() const { return m_destinationRect; }
     const FloatRect& source() const { return m_srcRect; }
     ImagePaintingOptions options() const { return m_options; }
@@ -607,7 +607,7 @@ public:
     void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
-    Ref<NativeImage> m_image;
+    const Ref<NativeImage> m_image;
     FloatRect m_destinationRect;
     FloatRect m_srcRect;
     ImagePaintingOptions m_options;
@@ -623,14 +623,14 @@ public:
     {
     }
 
-    const Ref<SystemImage>& systemImage() const { return m_systemImage; }
+    const SystemImage& systemImage() const { return m_systemImage; }
     const FloatRect& destinationRect() const { return m_destinationRect; }
 
     void apply(GraphicsContext&) const;
     void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
-    Ref<SystemImage> m_systemImage;
+    const Ref<SystemImage> m_systemImage;
     FloatRect m_destinationRect;
 };
 
@@ -648,7 +648,7 @@ public:
         , m_options(options)
     {
     }
-    Ref<NativeImage> nativeImage() const { return m_image; }
+    NativeImage& nativeImage() const { return m_image; }
     FloatRect destRect() const { return m_destination; }
     FloatRect tileRect() const { return m_tileRect; }
     const AffineTransform& patternTransform() const { return m_patternTransform; }
@@ -660,7 +660,7 @@ public:
     void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
-    Ref<NativeImage> m_image;
+    const Ref<NativeImage> m_image;
     FloatRect m_destination;
     FloatRect m_tileRect;
     AffineTransform m_patternTransform;
@@ -683,7 +683,7 @@ public:
         , m_options(options)
     {
     }
-    Ref<ImageBuffer> imageBuffer() const { return m_imageBuffer; }
+    ImageBuffer& imageBuffer() const { return m_imageBuffer; }
     FloatRect destRect() const { return m_destination; }
     FloatRect tileRect() const { return m_tileRect; }
     const AffineTransform& patternTransform() const { return m_patternTransform; }
@@ -695,7 +695,7 @@ public:
     void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
-    Ref<ImageBuffer> m_imageBuffer;
+    const Ref<ImageBuffer> m_imageBuffer;
     FloatRect m_destination;
     FloatRect m_tileRect;
     AffineTransform m_patternTransform;
@@ -993,14 +993,14 @@ public:
     WEBCORE_EXPORT FillRectWithGradient(FloatRect&&, Ref<Gradient>&&);
 
     const FloatRect& rect() const { return m_rect; }
-    const Ref<Gradient>& gradient() const { return m_gradient; }
+    const Gradient& gradient() const { return m_gradient; }
 
     WEBCORE_EXPORT void apply(GraphicsContext&) const;
     void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
     FloatRect m_rect;
-    Ref<Gradient> m_gradient;
+    const Ref<Gradient> m_gradient;
 };
 
 class FillRectWithGradientAndSpaceTransform {
@@ -1011,7 +1011,7 @@ public:
     WEBCORE_EXPORT FillRectWithGradientAndSpaceTransform(FloatRect&&, Ref<Gradient>&&, AffineTransform&&, GraphicsContext::RequiresClipToRect);
 
     const FloatRect& rect() const { return m_rect; }
-    const Ref<Gradient>& gradient() const { return m_gradient; }
+    const Gradient& gradient() const { return m_gradient; }
     const AffineTransform& gradientSpaceTransform() const { return m_gradientSpaceTransform; }
     GraphicsContext::RequiresClipToRect requiresClipToRect() const { return m_requiresClipToRect; }
 
@@ -1020,7 +1020,7 @@ public:
 
 private:
     FloatRect m_rect;
-    Ref<Gradient> m_gradient;
+    const Ref<Gradient> m_gradient;
     AffineTransform m_gradientSpaceTransform;
     GraphicsContext::RequiresClipToRect m_requiresClipToRect;
 };
@@ -1227,7 +1227,7 @@ public:
 
     WEBCORE_EXPORT DrawControlPart(ControlPart&, const FloatRoundedRect& borderRect, float deviceScaleFactor, const ControlStyle&);
 
-    Ref<ControlPart> part() const { return m_part; }
+    ControlPart& part() const { return m_part; }
     FloatRoundedRect borderRect() const { return m_borderRect; }
     float deviceScaleFactor() const { return m_deviceScaleFactor; }
     const ControlStyle& style() const { return m_style; }
@@ -1237,7 +1237,7 @@ public:
     void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
-    Ref<ControlPart> m_part;
+    const Ref<ControlPart> m_part;
     FloatRoundedRect m_borderRect;
     float m_deviceScaleFactor;
     ControlStyle m_style;

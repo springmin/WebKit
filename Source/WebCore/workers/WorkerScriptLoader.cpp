@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2009-2025 Apple Inc. All Rights Reserved.
- * Copyright (C) 2009, 2011 Google Inc. All Rights Reserved.
+ * Copyright (C) 2009-2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -130,7 +130,7 @@ std::optional<Exception> WorkerScriptLoader::loadSynchronously(ScriptExecutionCo
 
 void WorkerScriptLoader::loadAsynchronously(ScriptExecutionContext& scriptExecutionContext, ResourceRequest&& scriptRequest, Source source, FetchOptions&& fetchOptions, ContentSecurityPolicyEnforcement contentSecurityPolicyEnforcement, ServiceWorkersMode serviceWorkerMode, WorkerScriptLoaderClient& client, String&& taskMode, std::optional<ScriptExecutionContextIdentifier> clientIdentifier)
 {
-    m_client = &client;
+    m_client = client;
     m_url = scriptRequest.url();
     m_source = source;
     m_destination = fetchOptions.destination;

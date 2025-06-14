@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003-2023 Apple Inc.
+ * Copyright (C) 2003-2023 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -438,7 +438,7 @@ RefPtr<const Font> FontCascade::fontForCombiningCharacterSequence(StringView str
         if (font->platformData().orientation() == FontOrientation::Vertical) {
             if (isCJKIdeographOrSymbol(baseCharacter)) {
                 if (!font->hasVerticalGlyphs())
-                    font = &font->brokenIdeographFont();
+                    font = font->brokenIdeographFont();
             } else if (m_fontDescription.nonCJKGlyphOrientation() == NonCJKGlyphOrientation::Mixed) {
                 Ref verticalRightFont = font->verticalRightOrientationFont();
                 Glyph verticalRightGlyph = verticalRightFont->glyphForCharacter(baseCharacter);

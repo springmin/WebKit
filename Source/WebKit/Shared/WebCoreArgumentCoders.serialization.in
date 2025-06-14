@@ -2732,6 +2732,7 @@ header: <WebCore/TextIndicator.h>
     WebCore::Color estimatedBackgroundColor;
     WebCore::TextIndicatorPresentationTransition presentationTransition;
     OptionSet<WebCore::TextIndicatorOption> options;
+    std::optional<WebCore::PlatformLayerIdentifier> enclosingGraphicsLayerID;
 }
 
 #if ENABLE(MEDIA_STREAM)
@@ -4067,7 +4068,7 @@ header: <WebCore/FEComponentTransfer.h>
     float diffuseConstant();
     float kernelUnitLengthX();
     float kernelUnitLengthY();
-    Ref<WebCore::LightSource> lightSource();
+    WebCore::LightSource lightSource();
 
     WebCore::DestinationColorSpace operatingColorSpace();
 };
@@ -4144,7 +4145,7 @@ header: <WebCore/FEComponentTransfer.h>
     float specularExponent();
     float kernelUnitLengthX();
     float kernelUnitLengthY();
-    Ref<WebCore::LightSource> lightSource();
+    WebCore::LightSource lightSource();
 
     WebCore::DestinationColorSpace operatingColorSpace();
 };
@@ -6059,6 +6060,7 @@ header: <WebCore/RTCDataChannelHandler.h>
     bool madeHTTPS;
     bool blockedCookies;
     bool hasNotifications;
+    bool redirectedPriorToBlock;
     [NotSerialized] Vector<WebCore::ContentExtensions::ModifyHeadersAction> modifyHeadersActions;
     [NotSerialized] Vector<std::pair<WebCore::ContentExtensions::RedirectAction, URL>> redirectActions;
 };
@@ -8544,6 +8546,7 @@ header: <WebCore/ShareableBitmap.h>
     std::optional<WebCore::DestinationColorSpace> m_colorSpace;
     WebCore::Headroom m_headroom;
     bool m_isOpaque;
+    unsigned bitsPerComponent();
     unsigned bytesPerPixel();
     unsigned bytesPerRow();
 #if USE(CG)

@@ -69,7 +69,7 @@ public:
     inline LayoutUnit borderTop() const final;
     inline LayoutUnit borderBottom() const final;
 
-    Color bgColor() const { return style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor); }
+    Color bgColor() const { return checkedStyle()->visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor); }
 
     LayoutUnit outerBorderBefore() const;
     LayoutUnit outerBorderAfter() const;
@@ -245,8 +245,8 @@ protected:
     
     void updateLogicalWidth() final;
 
-    LayoutUnit convertStyleLogicalWidthToComputedWidth(const Length& styleLogicalWidth, LayoutUnit availableWidth);
-    LayoutUnit convertStyleLogicalHeightToComputedHeight(const Length& styleLogicalHeight);
+    template<typename SizeType> LayoutUnit convertStyleLogicalWidthToComputedWidth(const SizeType& styleLogicalWidth, LayoutUnit availableWidth);
+    template<typename SizeType> LayoutUnit convertStyleLogicalHeightToComputedHeight(const SizeType& styleLogicalHeight);
 
     LayoutRect overflowClipRect(const LayoutPoint& location, OverlayScrollbarSizeRelevancy = OverlayScrollbarSizeRelevancy::IgnoreOverlayScrollbarSize, PaintPhase = PaintPhase::BlockBackground) const final;
     LayoutRect overflowClipRectForChildLayers(const LayoutPoint& location, OverlayScrollbarSizeRelevancy relevancy) const override { return RenderBox::overflowClipRect(location, relevancy); }

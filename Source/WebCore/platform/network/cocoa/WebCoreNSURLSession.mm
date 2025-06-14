@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -301,7 +301,7 @@ NS_ASSUME_NONNULL_END
     ASSERT(_corsResults == WebCoreNSURLSessionCORSAccessCheckResults::Unknown);
     ASSERT(!_invalidated);
 
-    _loader = &loader;
+    _loader = loader;
     _targetDispatcher = RefPtr { _loader }->targetDispatcher();
     self.delegate = inDelegate;
     _queue = inQueue ? inQueue : [NSOperationQueue mainQueue];
@@ -646,7 +646,7 @@ private:
     bool isWebCoreNSURLSessionDataTaskClient() const final { return true; }
 
     WeakObjCPtr<WebCoreNSURLSessionDataTask> m_task WTF_GUARDED_BY_CAPABILITY(m_targetDispatcher.get());
-    Ref<GuaranteedSerialFunctionDispatcher> m_targetDispatcher;
+    const Ref<GuaranteedSerialFunctionDispatcher> m_targetDispatcher;
 };
 
 } // namespace WebCore

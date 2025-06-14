@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2005-2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -76,7 +77,12 @@ public:
     Style::PaddingBox popupInternalPaddingBox(const RenderStyle&) const final;
     PopupMenuStyle::Size popupMenuSize(const RenderStyle&, IntRect&) const final;
 
+    std::optional<FontCascadeDescription> controlFont(StyleAppearance, const FontCascade&, float zoomFactor) const final;
     Style::PaddingBox controlPadding(StyleAppearance, const Style::PaddingBox&, float zoomFactor) const final;
+    Style::PreferredSizePair controlSize(StyleAppearance, const FontCascade&, const Style::PreferredSizePair&, float zoomFactor) const final;
+    Style::MinimumSizePair minimumControlSize(StyleAppearance, const FontCascade&, const Style::MinimumSizePair&, float zoomFactor) const final;
+    LengthBox controlBorder(StyleAppearance, const FontCascade&, const LengthBox&, float zoomFactor, const Element*) const final;
+    bool controlRequiresPreWhiteSpace(StyleAppearance) const final;
 
     bool popsMenuByArrowKeys() const final { return true; }
 

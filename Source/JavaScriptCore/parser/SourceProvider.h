@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -159,7 +159,7 @@ protected:
     }
 
 private:
-    Ref<StringImpl> m_source;
+    const Ref<StringImpl> m_source;
 };
 
     class SyntheticSourceProvider final : public SourceProvider {

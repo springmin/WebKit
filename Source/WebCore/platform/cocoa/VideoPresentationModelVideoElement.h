@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -138,11 +138,11 @@ private:
     // HTMLMediaElementClient
     void audioSessionCategoryChanged(AudioSessionCategory, AudioSessionMode, RouteSharingPolicy) final;
 
-    Ref<VideoListener> m_videoListener;
+    const Ref<VideoListener> m_videoListener;
     RefPtr<HTMLVideoElement> m_videoElement;
     RetainPtr<PlatformLayer> m_videoFullscreenLayer;
     bool m_isListening { false };
-    UncheckedKeyHashSet<CheckedPtr<VideoPresentationModelClient>> m_clients;
+    HashSet<CheckedPtr<VideoPresentationModelClient>> m_clients;
     bool m_hasVideo { false };
     bool m_documentIsVisible { true };
     bool m_isChildOfElementFullscreen { false };

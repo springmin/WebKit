@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -170,12 +170,12 @@ private:
     bool m_persistentStateAllowed { true };
     RetainPtr<NSURL> m_storageURL;
     Vector<WeakPtr<CDMInstanceSessionFairPlayStreamingAVFObjC>> m_sessions;
-    UncheckedKeyHashSet<RetainPtr<AVContentKeyRequest>> m_unexpectedKeyRequests;
+    HashSet<RetainPtr<AVContentKeyRequest>> m_unexpectedKeyRequests;
     WeakHashSet<KeyStatusesChangedObserver> m_keyStatusChangedObservers;
     String m_mediaKeysHashSalt;
 
 #if !RELEASE_LOG_DISABLED
-    Ref<const Logger> m_logger;
+    const Ref<const Logger> m_logger;
     uint64_t m_logIdentifier { 0 };
 #endif
 };
@@ -294,7 +294,7 @@ private:
     RemoveSessionDataCallback m_removeSessionDataCallback;
 
 #if !RELEASE_LOG_DISABLED
-    Ref<const Logger> m_logger;
+    const Ref<const Logger> m_logger;
     uint64_t m_logIdentifier { 0 };
 #endif
 };

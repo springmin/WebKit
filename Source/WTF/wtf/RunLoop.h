@@ -1,7 +1,7 @@
 /*
- * Copyright (C) 2010-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2025 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
- * Portions Copyright (c) 2010 Motorola Mobility, Inc.  All rights reserved.
+ * Portions Copyright (c) 2010 Motorola Mobility, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -178,7 +178,7 @@ public:
     private:
         WTF_EXPORT_PRIVATE void start(Seconds interval, bool repeat);
 
-        Ref<RunLoop> m_runLoop;
+        const Ref<RunLoop> m_runLoop;
 
 #if USE(WINDOWS_EVENT_LOOP)
         bool isActiveWithLock() const WTF_REQUIRES_LOCK(m_runLoop->m_loopLock);
@@ -205,7 +205,7 @@ public:
 
         class ScheduledTask;
 #if USE(GENERIC_EVENT_LOOP)
-        Ref<ScheduledTask> m_scheduledTask;
+        const Ref<ScheduledTask> m_scheduledTask;
 #endif
 #endif
 #if USE(BUN_EVENT_LOOP)

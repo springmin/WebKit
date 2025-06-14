@@ -911,7 +911,7 @@ Navigation::DispatchResult Navigation::innerDispatchNavigateEvent(NavigationNavi
         { false, canBeCanceled, false },
         navigationType,
         destination.ptr(),
-        abortController->protectedSignal(),
+        Ref { abortController->signal() },
         formData,
         downloadRequestFilename,
         info,

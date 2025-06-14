@@ -224,10 +224,6 @@ public:
     LayoutUnit logicalLeftSelectionOffset(RenderBlock& rootBlock, LayoutUnit position, const LogicalSelectionOffsetCaches&);
     LayoutUnit logicalRightSelectionOffset(RenderBlock& rootBlock, LayoutUnit position, const LogicalSelectionOffsetCaches&);
 
-#if ASSERT_ENABLED
-    void checkOutOfFlowBoxesNeedLayout();
-#endif
-
     void updateHitTestResult(HitTestResult&, const LayoutPoint&) const override;
 
     bool canHaveChildren() const override { return true; }
@@ -410,8 +406,6 @@ private:
     virtual VisiblePosition positionForPointWithInlineChildren(const LayoutPoint&, HitTestSource);
 
     RenderFragmentedFlow* updateCachedEnclosingFragmentedFlow(RenderFragmentedFlow*) const;
-
-    void removeOutOfFlowBoxesIfNeededOnStyleChange(const RenderStyle& oldStyle, const RenderStyle& newStyle);
 
     void absoluteQuadsIgnoringContinuation(const FloatRect&, Vector<FloatQuad>&, bool* wasFixed) const override;
 

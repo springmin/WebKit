@@ -95,6 +95,10 @@ private:
     int sliderTickOffsetFromTrackCenter() const final;
     void adjustListButtonStyle(RenderStyle&, const Element*) const final;
 
+    Style::PreferredSizePair controlSize(StyleAppearance, const FontCascade&, const Style::PreferredSizePair&, float) const final;
+    Style::MinimumSizePair minimumControlSize(StyleAppearance, const FontCascade&, const Style::MinimumSizePair&, float zoomFactor) const final;
+    LengthBox controlBorder(StyleAppearance, const FontCascade&, const LengthBox&, float, const Element*) const final;
+
 #if PLATFORM(GTK) || PLATFORM(WPE)
     std::optional<Seconds> caretBlinkInterval() const override;
 #endif

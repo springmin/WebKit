@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2005-2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -379,7 +380,22 @@ protected:
     virtual bool paintSwitchThumb(const RenderObject&, const PaintInfo&, const FloatRect&) { return true; }
     virtual bool paintSwitchTrack(const RenderObject&, const PaintInfo&, const FloatRect&) { return true; }
 
+    // The font description result should have a zoomed font size.
+    virtual std::optional<FontCascadeDescription> controlFont(StyleAppearance, const FontCascade&, float) const;
+
     virtual Style::PaddingBox controlPadding(StyleAppearance, const Style::PaddingBox&, float zoomFactor) const;
+
+    // The size here is in zoomed coordinates already. If a new size is returned, it also needs to be in zoomed coordinates.
+    virtual Style::PreferredSizePair controlSize(StyleAppearance, const FontCascade&, const Style::PreferredSizePair&, float zoomFactor) const;
+
+    // Returns the minimum size for a control in zoomed coordinates.
+    Style::MinimumSizePair minimumControlSize(StyleAppearance, const FontCascade&, const Style::MinimumSizePair&, const Style::PreferredSizePair&, float zoomFactor) const;
+
+    // Allows the theme to modify the existing border.
+    virtual LengthBox controlBorder(StyleAppearance, const FontCascade&, const LengthBox& zoomedBox, float zoomFactor, const Element*) const;
+
+    // Whether or not whitespace: pre should be forced on always.
+    virtual bool controlRequiresPreWhiteSpace(StyleAppearance) const { return false; }
 
 private:
     OptionSet<ControlStyle::State> extractControlStyleStatesForRendererInternal(const RenderObject&) const;
@@ -436,6 +452,8 @@ protected:
     virtual ColorCache& colorCache(OptionSet<StyleColorOptions>) const;
 
     virtual Color autocorrectionReplacementMarkerColor(const RenderText&) const;
+
+    virtual Style::MinimumSizePair minimumControlSize(StyleAppearance, const FontCascade&, const Style::MinimumSizePair&, float zoomFactor) const;
 
 private:
     StyleAppearance autoAppearanceForElement(RenderStyle&, const Element*) const;

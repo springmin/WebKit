@@ -199,7 +199,7 @@ void WebLocalFrameLoaderClient::detachedFromParent2()
         return;
 
     if (m_frameSpecificStorageAccessIdentifier) {
-        WebProcess::singleton().ensureNetworkProcessConnection().protectedConnection()->send(Messages::NetworkConnectionToWebProcess::RemoveStorageAccessForFrame(
+        WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::RemoveStorageAccessForFrame(
             m_frameSpecificStorageAccessIdentifier->frameID, m_frameSpecificStorageAccessIdentifier->pageID), 0);
         m_frameSpecificStorageAccessIdentifier = std::nullopt;
     }
@@ -464,7 +464,7 @@ void WebLocalFrameLoaderClient::dispatchWillChangeDocument(const URL& currentURL
         return;
 
     if (m_frameSpecificStorageAccessIdentifier && !WebCore::areRegistrableDomainsEqual(currentURL, newURL)) {
-        WebProcess::singleton().ensureNetworkProcessConnection().protectedConnection()->send(Messages::NetworkConnectionToWebProcess::RemoveStorageAccessForFrame(
+        WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::RemoveStorageAccessForFrame(
             m_frameSpecificStorageAccessIdentifier->frameID, m_frameSpecificStorageAccessIdentifier->pageID), 0);
         m_frameSpecificStorageAccessIdentifier = std::nullopt;
     }
@@ -523,7 +523,8 @@ void WebLocalFrameLoaderClient::didSameDocumentNavigationForFrameViaJS(SameDocum
         m_frame->info(),
         { }, /* navigationID */
         { }, /* originalRequest */
-        { } /* request */
+        { }, /* request */
+        { }, /* invalidURLString */
     };
 
     // Notify the UIProcess.
@@ -1029,7 +1030,8 @@ void WebLocalFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const Nav
         m_frame->info(),
         { }, /* navigationID */
         { }, /* originalRequest */
-        request
+        request,
+        request.url().isValid() ? String() : request.url().string(), /* invalidURLString */
     };
 
     webPage->sendWithAsyncReply(Messages::WebPageProxy::DecidePolicyForNewWindowAction(navigationActionData, frameName), [frame = m_frame, listenerID] (PolicyDecision&& policyDecision) {
@@ -1393,7 +1395,7 @@ void WebLocalFrameLoaderClient::loadStorageAccessQuirksIfNeeded()
     if (!WebProcess::singleton().haveStorageAccessQuirksForDomain(RegistrableDomain { documentURLWithoutFragmentOrQueries }))
         return;
 
-    WebProcess::singleton().ensureNetworkProcessConnection().protectedConnection()->sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::StorageAccessQuirkForTopFrameDomain(documentURLWithoutFragmentOrQueries), [weakDocument = WeakPtr { *document }](Vector<RegistrableDomain>&& domains) {
+    WebProcess::singleton().ensureNetworkProcessConnection().connection().sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::StorageAccessQuirkForTopFrameDomain(documentURLWithoutFragmentOrQueries), [weakDocument = WeakPtr { *document }](Vector<RegistrableDomain>&& domains) {
         if (!domains.size())
             return;
         if (!weakDocument)
@@ -1532,6 +1534,8 @@ void WebLocalFrameLoaderClient::transitionToCommittedFromCachedFrame(CachedFrame
 void WebLocalFrameLoaderClient::transitionToCommittedForNewPage(InitializingIframe initializingIframe)
 {
     RefPtr webPage = m_frame->page();
+    if (!webPage)
+        return;
 
     bool isMainFrame = m_frame->isMainFrame();
     bool shouldUseFixedLayout = isMainFrame && webPage->useFixedLayout();
@@ -1928,7 +1932,7 @@ void WebLocalFrameLoaderClient::sendH2Ping(const URL& url, CompletionHandler<voi
 #if ENABLE(APP_BOUND_DOMAINS)
     parameters.isNavigatingToAppBoundDomain = m_frame->isTopFrameNavigatingToAppBoundDomain();
 #endif
-    WebProcess::singleton().ensureNetworkProcessConnection().protectedConnection()->sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::SendH2Ping(WTFMove(parameters)), WTFMove(completionHandler));
+    WebProcess::singleton().ensureNetworkProcessConnection().connection().sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::SendH2Ping(WTFMove(parameters)), WTFMove(completionHandler));
 }
 
 void WebLocalFrameLoaderClient::didRestoreScrollPosition()
@@ -2078,7 +2082,7 @@ void WebLocalFrameLoaderClient::didExceedNetworkUsageThreshold()
     if (document->shouldSkipResourceMonitorThrottling())
         action(true);
     else
-        WebProcess::singleton().ensureNetworkProcessConnection().protectedConnection()->sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::ShouldOffloadIFrameForHost(url.host().toStringWithoutCopying()), WTFMove(action), 0);
+        WebProcess::singleton().ensureNetworkProcessConnection().connection().sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::ShouldOffloadIFrameForHost(url.host().toStringWithoutCopying()), WTFMove(action), 0);
 }
 
 #endif

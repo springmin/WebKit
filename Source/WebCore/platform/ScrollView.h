@@ -103,7 +103,7 @@ public:
     virtual IntRect windowClipRect() const = 0;
 
     // Functions for child manipulation and inspection.
-    const UncheckedKeyHashSet<Ref<Widget>>& children() const { return m_children; }
+    const HashSet<Ref<Widget>>& children() const { return m_children; }
     WEBCORE_EXPORT virtual void addChild(Widget&);
     WEBCORE_EXPORT virtual void removeChild(Widget&);
 
@@ -166,13 +166,13 @@ public:
         WTF_MAKE_TZONE_ALLOCATED(ProhibitScrollingWhenChangingContentSizeForScope);
     public:
         ProhibitScrollingWhenChangingContentSizeForScope(ScrollView&);
-        ~ProhibitScrollingWhenChangingContentSizeForScope();
+        WEBCORE_EXPORT ~ProhibitScrollingWhenChangingContentSizeForScope();
 
     private:
         SingleThreadWeakPtr<ScrollView> m_scrollView;
     };
 
-    std::unique_ptr<ProhibitScrollingWhenChangingContentSizeForScope> prohibitScrollingWhenChangingContentSizeForScope();
+    WEBCORE_EXPORT std::unique_ptr<ProhibitScrollingWhenChangingContentSizeForScope> prohibitScrollingWhenChangingContentSizeForScope();
 
     // Whether or not a scroll view will blit visible contents when it is scrolled. Blitting is disabled in situations
     // where it would cause rendering glitches (such as with fixed backgrounds or when the view is partially transparent).
@@ -522,7 +522,7 @@ private:
             didFinishProhibitingScrollingWhenChangingContentSize();
     }
 
-    UncheckedKeyHashSet<Ref<Widget>> m_children;
+    HashSet<Ref<Widget>> m_children;
 
     RefPtr<Scrollbar> m_horizontalScrollbar;
     RefPtr<Scrollbar> m_verticalScrollbar;

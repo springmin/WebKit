@@ -882,7 +882,7 @@ bool CachedResourceLoader::canRequestInContentDispositionAttachmentSandbox(Cache
     switch (type) {
     case CachedResource::Type::MainResource:
         if (RefPtr ownerElement = frame() ? frame()->ownerElement() : nullptr) {
-            document = &ownerElement->document();
+            document = ownerElement->document();
             break;
         }
         return true;
@@ -1193,7 +1193,7 @@ ResourceErrorOr<CachedResourceHandle<CachedResource>> CachedResourceLoader::requ
             bool blockedLoad = results.summary.blockedLoad;
             madeHTTPS = results.summary.madeHTTPS;
             request.applyResults(WTFMove(results), page.ptr());
-            if (blockedLoad) {
+            if (blockedLoad && !results.summary.redirectedPriorToBlock) {
                 CACHEDRESOURCELOADER_RELEASE_LOG_WITH_FRAME("requestResource: Resource blocked by content blocker", frame.get());
                 if (type == CachedResource::Type::MainResource) {
                     auto resource = createResource(type, WTFMove(request), page->sessionID(), page->protectedCookieJar().ptr(), page->settings(), document.get());

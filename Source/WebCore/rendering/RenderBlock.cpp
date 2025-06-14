@@ -329,42 +329,12 @@ RenderBlock::~RenderBlock()
     // Do not add any more code here. Add it to willBeDestroyed() instead.
 }
 
-void RenderBlock::removeOutOfFlowBoxesIfNeededOnStyleChange(const RenderStyle& oldStyle, const RenderStyle& newStyle)
-{
-    auto wasContainingBlockForFixedContent = canContainFixedPositionObjects(&oldStyle);
-    auto wasContainingBlockForAbsoluteContent = canContainAbsolutelyPositionedObjects(&oldStyle);
-    auto isContainingBlockForFixedContent = canContainFixedPositionObjects(&newStyle);
-    auto isContainingBlockForAbsoluteContent = canContainAbsolutelyPositionedObjects(&newStyle);
-
-    if ((wasContainingBlockForFixedContent && !isContainingBlockForFixedContent) || (wasContainingBlockForAbsoluteContent && !isContainingBlockForAbsoluteContent)) {
-        // We are no longer the containing block for out-of-flow descendants.
-        removeOutOfFlowBoxes({ }, ContainingBlockState::NewContainingBlock);
-    }
-
-    if ((!wasContainingBlockForFixedContent && isContainingBlockForFixedContent) || (!wasContainingBlockForAbsoluteContent && isContainingBlockForAbsoluteContent)) {
-        // We are a new containing block.
-        // Remove our absolutely positioned descendants from their current containing block.
-        // They will be inserted into our positioned objects list during layout.
-        auto* containingBlock = parent();
-        while (containingBlock && !is<RenderView>(*containingBlock)
-            && (containingBlock->style().position() == PositionType::Static || (containingBlock->isInline() && !containingBlock->isReplacedOrAtomicInline()))) {
-            if (containingBlock->style().position() == PositionType::Relative && containingBlock->isInline() && !containingBlock->isReplacedOrAtomicInline()) {
-                containingBlock = containingBlock->containingBlock();
-                break;
-            }
-            containingBlock = containingBlock->parent();
-        }
-        if (CheckedPtr renderBlock = dynamicDowncast<RenderBlock>(containingBlock))
-            renderBlock->removeOutOfFlowBoxes(this, ContainingBlockState::NewContainingBlock);
-    }
-}
-
 void RenderBlock::styleWillChange(StyleDifference diff, const RenderStyle& newStyle)
 {
     const RenderStyle* oldStyle = hasInitializedStyle() ? &style() : nullptr;
     setReplacedOrAtomicInline(newStyle.isDisplayInlineType());
     if (oldStyle) {
-        removeOutOfFlowBoxesIfNeededOnStyleChange(*oldStyle, newStyle);
+        removeOutOfFlowBoxesIfNeededOnStyleChange(*this, *oldStyle, newStyle);
         if (isLegend() && !oldStyle->isFloating() && newStyle.isFloating())
             setIsExcludedFromNormalLayout(false);
     }
@@ -2326,12 +2296,12 @@ void RenderBlock::computePreferredLogicalWidths()
     m_minPreferredLogicalWidth = 0;
     m_maxPreferredLogicalWidth = 0;
 
-    const RenderStyle& styleToUse = style();
-    auto lengthToUse = overridingLogicalWidthForFlexBasisComputation().value_or(styleToUse.logicalWidth());
-    if (!isRenderTableCell() && lengthToUse.isFixed() && lengthToUse.value() >= 0 && !(isDeprecatedFlexItem() && !lengthToUse.intValue())) {
-        m_minPreferredLogicalWidth = adjustContentBoxLogicalWidthForBoxSizing(lengthToUse);
+    auto& styleToUse = style();
+    auto logicalWidth = overridingLogicalWidthForFlexBasisComputation().value_or(styleToUse.logicalWidth());
+    if (auto fixedLogicalWidth = logicalWidth.tryFixed(); !isRenderTableCell() && fixedLogicalWidth && fixedLogicalWidth->value >= 0 && !(isDeprecatedFlexItem() && !static_cast<int>(fixedLogicalWidth->value))) {
+        m_minPreferredLogicalWidth = adjustContentBoxLogicalWidthForBoxSizing(*fixedLogicalWidth);
         m_maxPreferredLogicalWidth = m_minPreferredLogicalWidth;
-    } else if (lengthToUse.isMaxContent()) {
+    } else if (logicalWidth.isMaxContent()) {
         computeIntrinsicLogicalWidths(m_minPreferredLogicalWidth, m_maxPreferredLogicalWidth);
         m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth;
     } else if (shouldComputeLogicalWidthFromAspectRatio()) {
@@ -2464,14 +2434,16 @@ void RenderBlock::computeChildPreferredLogicalWidths(RenderBox& childBox, Layout
             return;
         }
         auto& childBoxStyle = childBox.style();
-        if (childBox.shouldComputeLogicalHeightFromAspectRatio() && childBoxStyle.logicalWidth().isFixed()) {
-            auto aspectRatioSize = blockSizeFromAspectRatio(childBox.horizontalBorderAndPaddingExtent()
-                , childBox.verticalBorderAndPaddingExtent()
-                , LayoutUnit { childBoxStyle.logicalAspectRatio() }
-                , childBoxStyle.boxSizingForAspectRatio()
-                , LayoutUnit { childBoxStyle.logicalWidth().value() }
-                , style().aspectRatioType()
-                , isRenderReplaced());
+        if (auto fixedChildBoxStyleLogicalWidth = childBoxStyle.logicalWidth().tryFixed(); childBox.shouldComputeLogicalHeightFromAspectRatio() && fixedChildBoxStyleLogicalWidth) {
+            auto aspectRatioSize = blockSizeFromAspectRatio(
+                childBox.horizontalBorderAndPaddingExtent(),
+                childBox.verticalBorderAndPaddingExtent(),
+                LayoutUnit { childBoxStyle.logicalAspectRatio() },
+                childBoxStyle.boxSizingForAspectRatio(),
+                LayoutUnit { fixedChildBoxStyleLogicalWidth->value },
+                style().aspectRatioType(),
+                isRenderReplaced()
+            );
             minPreferredLogicalWidth = aspectRatioSize;
             maxPreferredLogicalWidth = aspectRatioSize;
             return;
@@ -3241,18 +3213,6 @@ TextRun RenderBlock::constructTextRun(std::span<const UChar> characters, const R
     return constructTextRun(StringView { characters }, style, expansion);
 }
 
-#if ASSERT_ENABLED
-void RenderBlock::checkOutOfFlowBoxesNeedLayout()
-{
-    auto* outOfFlowDescendants = outOfFlowBoxes();
-    if (!outOfFlowDescendants)
-        return;
-
-    for (auto& renderer : *outOfFlowDescendants)
-        ASSERT(!renderer.needsLayout());
-}
-#endif // ASSERT_ENABLED
-
 bool RenderBlock::hasDefiniteLogicalHeight() const
 {
     return (bool)availableLogicalHeightForPercentageComputation();
@@ -3273,8 +3233,8 @@ std::optional<LayoutUnit> RenderBlock::availableLogicalHeightForPercentageComput
             return contentBoxLogicalHeight(*overridingLogicalHeightForGrid);
 
         auto& style = this->style();
-        if (style.logicalHeight().isFixed()) {
-            auto contentBoxHeight = adjustContentBoxLogicalHeightForBoxSizing(LayoutUnit { style.logicalHeight().value() });
+        if (auto fixedLogicalHeight = style.logicalHeight().tryFixed()) {
+            auto contentBoxHeight = adjustContentBoxLogicalHeightForBoxSizing(LayoutUnit { fixedLogicalHeight->value });
             return std::max(0_lu, constrainContentBoxLogicalHeightByMinMax(contentBoxHeight - scrollbarLogicalHeight(), { }));
         }
 
@@ -3297,7 +3257,7 @@ std::optional<LayoutUnit> RenderBlock::availableLogicalHeightForPercentageComput
 
         if (style.logicalHeight().isPercentOrCalculated()) {
             if (auto heightWithScrollbar = computePercentageLogicalHeight(style.logicalHeight())) {
-                auto contentBoxHeightWithScrollbar = adjustContentBoxLogicalHeightForBoxSizing(heightWithScrollbar.value());
+                auto contentBoxHeightWithScrollbar = adjustContentBoxLogicalHeightForBoxSizing(*heightWithScrollbar);
                 // We need to adjust for min/max height because this method does not handle the min/max of the current block, its caller does.
                 // So the return value from the recursive call will not have been adjusted yet.
                 return std::max(0_lu, constrainContentBoxLogicalHeightByMinMax(contentBoxHeightWithScrollbar - scrollbarLogicalHeight(), { }));

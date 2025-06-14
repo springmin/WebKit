@@ -520,7 +520,7 @@ private:
     {
     }
 
-    Ref<MediaControlsContextMenuProvider> m_contextMenuProvider;
+    const Ref<MediaControlsContextMenuProvider> m_contextMenuProvider;
 };
 
 #endif // ENABLE(CONTEXT_MENUS) && USE(ACCESSIBILITY_CONTEXT_MENUS)
@@ -866,12 +866,12 @@ void MediaControlsHost::savePreviouslySelectedTextTrackIfNecessary()
 
     switch (page->group().ensureCaptionPreferences().captionDisplayMode()) {
     case CaptionUserPreferences::CaptionDisplayMode::Automatic:
-        m_previouslySelectedTextTrack = &TextTrack::captionMenuAutomaticItem();
+        m_previouslySelectedTextTrack = TextTrack::captionMenuAutomaticItem();
         return;
     case CaptionUserPreferences::CaptionDisplayMode::ForcedOnly:
     case CaptionUserPreferences::CaptionDisplayMode::Manual:
     case CaptionUserPreferences::CaptionDisplayMode::AlwaysOn:
-        m_previouslySelectedTextTrack = &TextTrack::captionMenuOffItem();
+        m_previouslySelectedTextTrack = TextTrack::captionMenuOffItem();
         return;
     }
 }

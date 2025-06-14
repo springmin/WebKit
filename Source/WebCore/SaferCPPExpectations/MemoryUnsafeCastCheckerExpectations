@@ -87,7 +87,6 @@ domjit/JSNodeDOMJIT.cpp
 editing/TypingCommand.cpp
 html/InputType.cpp
 html/NavigatorUserActivation.cpp
-html/canvas/WebGL2RenderingContext.cpp
 html/track/TextTrackCueGeneric.cpp
 inspector/CommandLineAPIModule.cpp
 inspector/agents/InspectorCSSAgent.cpp
@@ -141,4 +140,3 @@ workers/WorkerGlobalScope.cpp
 workers/WorkerMessagingProxy.cpp
 workers/WorkerThread.cpp
 workers/service/background-fetch/ServiceWorkerRegistrationBackgroundFetchAPI.cpp
-xml/XPathStep.cpp

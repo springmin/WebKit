@@ -360,6 +360,10 @@ static void* keyValueObservingContext = &keyValueObservingContext;
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidChangeScreen:) name:NSWindowDidChangeScreenNotification object:window];
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidChangeOcclusionState:) name:NSWindowDidChangeOcclusionStateNotification object:window];
     [defaultNotificationCenter addObserver:self selector:@selector(_windowWillClose:) name:NSWindowWillCloseNotification object:window];
+    [defaultNotificationCenter addObserver:self selector:@selector(_windowWillEnterOrExitFullScreen:) name:NSWindowWillEnterFullScreenNotification object:window];
+    [defaultNotificationCenter addObserver:self selector:@selector(_windowDidEnterOrExitFullScreen:) name:NSWindowDidEnterFullScreenNotification object:window];
+    [defaultNotificationCenter addObserver:self selector:@selector(_windowWillEnterOrExitFullScreen:) name:NSWindowWillExitFullScreenNotification object:window];
+    [defaultNotificationCenter addObserver:self selector:@selector(_windowDidEnterOrExitFullScreen:) name:NSWindowDidExitFullScreenNotification object:window];
 
     [defaultNotificationCenter addObserver:self selector:@selector(_screenDidChangeColorSpace:) name:NSScreenColorSpaceDidChangeNotification object:nil];
     [defaultNotificationCenter addObserver:self selector:@selector(_applicationShouldBeginSuppressingHDR:) name:@"NSApplicationShouldBeginSuppressingHighDynamicRangeContentNotification" object:NSApp];
@@ -409,6 +413,10 @@ static void* keyValueObservingContext = &keyValueObservingContext;
     [defaultNotificationCenter removeObserver:self name:_NSWindowDidChangeContentsHostedInLayerSurfaceNotification object:window.get()];
     [defaultNotificationCenter removeObserver:self name:NSWindowDidChangeOcclusionStateNotification object:window.get()];
     [defaultNotificationCenter removeObserver:self name:NSWindowWillCloseNotification object:window.get()];
+    [defaultNotificationCenter removeObserver:self name:NSWindowWillEnterFullScreenNotification object:window.get()];
+    [defaultNotificationCenter removeObserver:self name:NSWindowDidEnterFullScreenNotification object:window.get()];
+    [defaultNotificationCenter removeObserver:self name:NSWindowWillExitFullScreenNotification object:window.get()];
+    [defaultNotificationCenter removeObserver:self name:NSWindowDidExitFullScreenNotification object:window.get()];
 
     [defaultNotificationCenter removeObserver:self name:NSScreenColorSpaceDidChangeNotification object:nil];
 
@@ -572,6 +580,18 @@ static void* keyValueObservingContext = &keyValueObservingContext;
         _impl->clearTextIndicatorWithAnimation(WebCore::TextIndicatorDismissalAnimation::None);
 }
 #endif
+
+- (void)_windowDidEnterOrExitFullScreen:(NSNotification *)notification
+{
+    if (_impl)
+        _impl->windowDidEnterOrExitFullScreen();
+}
+
+- (void)_windowWillEnterOrExitFullScreen:(NSNotification *)notification
+{
+    if (_impl)
+        _impl->windowWillEnterOrExitFullScreen();
+}
 
 - (void)_activeSpaceDidChange:(NSNotification *)notification
 {
@@ -2069,6 +2089,20 @@ float WebViewImpl::intrinsicDeviceScaleFactor() const
     return [NSScreen mainScreen].backingScaleFactor;
 }
 
+void WebViewImpl::windowWillEnterOrExitFullScreen()
+{
+    m_windowIsEnteringOrExitingFullScreen = true;
+}
+
+void WebViewImpl::windowDidEnterOrExitFullScreen()
+{
+    m_windowIsEnteringOrExitingFullScreen = false;
+
+#if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
+    updateScrollPocket();
+#endif
+}
+
 void WebViewImpl::windowDidOrderOffScreen()
 {
     LOG(ActivityState, "WebViewImpl %p (page %llu) windowDidOrderOffScreen", this, m_page->identifier().toUInt64());
@@ -2265,6 +2299,8 @@ void WebViewImpl::viewWillMoveToWindowImpl(NSWindow *window)
         [currentWindow unregisterScrollViewSeparatorTrackingAdapter:(NSObject<NSScrollViewSeparatorTrackingAdapter> *)m_view.get().get()];
         m_isRegisteredScrollViewSeparatorTrackingAdapter = false;
     }
+
+    m_windowIsEnteringOrExitingFullScreen = false;
 }
 
 void WebViewImpl::viewWillMoveToWindow(NSWindow *window)
@@ -2364,8 +2400,8 @@ void WebViewImpl::pageDidScroll(const IntPoint& scrollPosition)
     m_pageIsScrolledToTop = pageIsScrolledToTop;
 
 #if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
-    updateTopContentInsetFillDueToScrolling();
-    updateTopContentInsetFillCaptureColor();
+    updateScrollPocketVisibilityWhenScrolledToTop();
+    updateTopScrollPocketCaptureColor();
 #endif
 
     [m_view didChangeValueForKey:@"hasScrolledContentsUnderTitlebar"];
@@ -2373,22 +2409,26 @@ void WebViewImpl::pageDidScroll(const IntPoint& scrollPosition)
 
 #if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
 
-void WebViewImpl::updateTopContentInsetFillDueToScrolling()
+void WebViewImpl::updateScrollPocketVisibilityWhenScrolledToTop()
 {
     RetainPtr view = m_view.get();
     if ([view _usesAutomaticContentInsetBackgroundFill] && m_pageIsScrolledToTop)
-        [view _addReasonToHideTopContentInsetFill:HideContentInsetFillReason::ScrolledToTop];
+        [view _addReasonToHideTopScrollPocket:HideScrollPocketReason::ScrolledToTop];
     else
-        [view _removeReasonToHideTopContentInsetFill:HideContentInsetFillReason::ScrolledToTop];
+        [view _removeReasonToHideTopScrollPocket:HideScrollPocketReason::ScrolledToTop];
 }
 
-void WebViewImpl::updateTopContentInsetFillCaptureColor()
+void WebViewImpl::updateTopScrollPocketCaptureColor()
 {
     RetainPtr view = m_view.get();
     RetainPtr captureColor = [view _sampledTopFixedPositionContentColor];
-    if (!captureColor && (m_pageIsScrolledToTop || [view _hasVisibleColorExtensionView:BoxSide::Top]))
-        captureColor = cocoaColor(m_page->underPageBackgroundColor());
-    [m_topContentInsetFillView setCaptureColor:captureColor.get()];
+    if (!captureColor && (m_pageIsScrolledToTop || [view _hasVisibleColorExtensionView:BoxSide::Top])) {
+        if (auto backgroundColor = m_page->underPageBackgroundColorIgnoringPlatformColor(); backgroundColor.isValid())
+            captureColor = cocoaColor(backgroundColor);
+        else
+            captureColor = NSColor.controlBackgroundColor;
+    }
+    [m_topScrollPocket setCaptureColor:captureColor.get()];
 }
 
 #endif // ENABLE(CONTENT_INSET_BACKGROUND_FILL)
@@ -3969,7 +4009,7 @@ void WebViewImpl::setAcceleratedCompositingRootLayer(CALayer *rootLayer)
     [CATransaction commit];
 
 #if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
-    updateContentInsetFillViews();
+    updateScrollPocket();
 #endif
 }
 
@@ -4486,7 +4526,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (customDataBuffer)
         [pasteboard setData:customDataBuffer.get() forType:@(WebCore::PasteboardCustomData::cocoaType().characters())];
 
-    m_promisedImage = &image;
+    m_promisedImage = image;
 }
 
 void WebViewImpl::clearPromisedDragImage()
@@ -6926,10 +6966,98 @@ void WebViewImpl::fulfillDeferredImageAnalysisOverlayViewHierarchyTask()
 
 #endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 
+#if ENABLE(CONTENT_INSET_BACKGROUND_FILL)
+
+void WebViewImpl::updateScrollPocket()
+{
+    if (m_windowIsEnteringOrExitingFullScreen)
+        return;
+
+    RetainPtr view = m_view.get();
+    CGFloat topContentInset = obscuredContentInsets().top();
+    bool needsTopView = m_page->preferences().contentInsetBackgroundFillEnabled() && view && topContentInset > 0;
+
+    if (!needsTopView) {
+        if (RetainPtr scrollPocket = std::exchange(m_topScrollPocket, nil)) {
+            [[scrollPocket captureView] removeFromSuperview];
+            [scrollPocket removeFromSuperview];
+        }
+        return;
+    }
+
+    RetainPtr<NSView> captureView;
+    if (!m_topScrollPocket) {
+        m_topScrollPocket = adoptNS([NSScrollPocket new]);
+        updateTopScrollPocketStyle();
+        [m_topScrollPocket setEdge:NSScrollPocketEdgeTop];
+        [m_topScrollPocket layout];
+        captureView = [m_topScrollPocket captureView];
+        [m_layerHostingView addSubview:captureView.get() positioned:NSWindowBelow relativeTo:nil];
+        [captureView layer].zPosition = -CGFLOAT_MAX;
+        [view addSubview:m_topScrollPocket.get()];
+        for (NSView *pocketContainer in m_viewsAboveScrollPocket.get())
+            [m_topScrollPocket addElementContainer:pocketContainer];
+        updateScrollPocketVisibilityWhenScrolledToTop();
+    } else
+        captureView = [m_topScrollPocket captureView];
+
+    auto bounds = [view bounds];
+    auto topInsetFrame = NSMakeRect(NSMinX(bounds), NSMinY(bounds), NSWidth(bounds), std::min<CGFloat>(topContentInset, NSHeight(bounds)));
+
+    if ([m_view _usesAutomaticContentInsetBackgroundFill]) {
+        for (NSView *pocketContainer in m_viewsAboveScrollPocket.get())
+            topInsetFrame = NSUnionRect(topInsetFrame, [view convertRect:pocketContainer.bounds fromView:pocketContainer]);
+    }
+
+    topInsetFrame = [m_topScrollPocket frameForAlignmentRect:topInsetFrame];
+
+    if (!NSEqualRects([m_topScrollPocket frame], topInsetFrame)) {
+        [m_topScrollPocket setFrame:topInsetFrame];
+        [captureView setFrame:topInsetFrame];
+    }
+
+    updateTopScrollPocketCaptureColor();
+}
+
+void WebViewImpl::updateTopScrollPocketStyle()
+{
+    [m_topScrollPocket setStyle:[m_view _usesAutomaticContentInsetBackgroundFill] ? NSScrollPocketStyleAutomatic : NSScrollPocketStyleHard];
+}
+
+void WebViewImpl::registerViewAboveScrollPocket(NSView *containerView)
+{
+    if (!containerView) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    if ([m_viewsAboveScrollPocket containsObject:containerView])
+        return;
+
+    if (!m_viewsAboveScrollPocket)
+        m_viewsAboveScrollPocket = [NSHashTable<NSView *> weakObjectsHashTable];
+
+    [m_viewsAboveScrollPocket addObject:containerView];
+    [m_topScrollPocket addElementContainer:containerView];
+}
+
+void WebViewImpl::unregisterViewAboveScrollPocket(NSView *containerView)
+{
+    if (!containerView) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    if (![m_viewsAboveScrollPocket containsObject:containerView])
+        return;
+
+    [m_viewsAboveScrollPocket removeObject:containerView];
+    [m_topScrollPocket removeElementContainer:containerView];
+}
+
+#endif // ENABLE(CONTENT_INSET_BACKGROUND_FILL)
+
 } // namespace WebKit
 
-#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WebViewImplAdditions.mm>)
-#import <WebKitAdditions/WebViewImplAdditions.mm>
-#endif
 
 #endif // PLATFORM(MAC)
