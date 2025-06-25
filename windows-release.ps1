@@ -127,7 +127,9 @@ if (!(Test-Path -Path $ICU_STATIC_ROOT)) {
         # When building for ARM64, we need to cross-compile since Cygwin runs as x64
         if ($Arch -eq "arm64") {
             # Set environment variables for cross-compilation
-            $env:CL = "/arch:ARM64"
+            # clang-cl uses -target instead of /arch
+            $env:CC = "clang-cl -target aarch64-pc-windows-msvc"
+            $env:CXX = "clang-cl -target aarch64-pc-windows-msvc"
             $env:LINK = "/MACHINE:ARM64"
         }
         
