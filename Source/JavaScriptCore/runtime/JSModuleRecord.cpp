@@ -148,12 +148,16 @@ void JSModuleRecord::instantiateDeclarations(JSGlobalObject* globalObject, Modul
 #if USE(BUN_JSC_ADDITIONS)
                 if(m_isTypeScript) break;
 #endif
-                throwSyntaxError(globalObject, scope, makeString("export '"_s, StringView(exportEntry.exportName.impl()), "' not found in '"_s, StringView(exportEntry.moduleName.impl()), "'"_s));
+                String message = makeString("export '"_s, StringView(exportEntry.exportName.impl()), "' not found in '"_s, StringView(exportEntry.moduleName.impl()), "'"_s);
+                RETURN_IF_EXCEPTION(scope, void());
+                throwSyntaxError(globalObject, scope, message);
                 return;
             }
 
             case Resolution::Type::Ambiguous: {
-                throwSyntaxError(globalObject, scope, makeString("Cannot export '"_s, StringView(exportEntry.exportName.impl()), "' multiple times in '"_s, StringView(exportEntry.moduleName.impl()), "'"_s));
+                String message = makeString("Cannot export '"_s, StringView(exportEntry.exportName.impl()), "' multiple times in '"_s, StringView(exportEntry.moduleName.impl()), "'"_s);
+                RETURN_IF_EXCEPTION(scope, void());
+                throwSyntaxError(globalObject, scope, message);
                 return;
             }
 
@@ -182,7 +186,9 @@ void JSModuleRecord::instantiateDeclarations(JSGlobalObject* globalObject, Modul
             RELEASE_ASSERT(vm.exceptionForInspection(), vm.traps().maybeNeedHandling(), vm.exceptionForInspection(), importedModule);
             RELEASE_ASSERT(vm.traps().maybeNeedHandling(), vm.traps().maybeNeedHandling(), vm.exceptionForInspection(), importedModule);
             if (!vm.exceptionForInspection() || !vm.traps().maybeNeedHandling()) {
-                throwSyntaxError(globalObject, scope, makeString("Importing module '"_s, String(importEntry.moduleRequest.impl()), "' is not found."_s));
+                String message = makeString("Importing module '"_s, String(importEntry.moduleRequest.impl()), "' is not found."_s);
+                RETURN_IF_EXCEPTION(scope, void());
+                throwSyntaxError(globalObject, scope, message);
                 return;
             }
         }
@@ -215,27 +221,38 @@ void JSModuleRecord::instantiateDeclarations(JSGlobalObject* globalObject, Modul
                 if (!(importEntry.localName.isNull() || importEntry.localName.isPrivateName() || importEntry.localName.isSymbol())) {
                     Resolution otherResolution = importedModule->resolveExport(globalObject, vm.propertyNames->defaultKeyword);
                     if (otherResolution.type == Resolution::Type::Resolved && otherResolution.localName == importEntry.localName) {
-                        throwSyntaxError(globalObject, scope, makeString("Export named '"_s, importEntry.importName.string(), "' not found in module '"_s, importedModule->moduleKey().string(), "'. Did you mean to import default?"_s));
+                        String message = makeString("Export named '"_s, importEntry.importName.string(), "' not found in module '"_s, importedModule->moduleKey().string(), "'. Did you mean to import default?"_s);
+                        RETURN_IF_EXCEPTION(scope, void());
+                        throwSyntaxError(globalObject, scope, message);
                         return;
                     }
                 }
-                throwSyntaxError(globalObject, scope, makeString("Export named '"_s, importEntry.importName.string(), "' not found in module '"_s, importedModule->moduleKey().string(), "'."_s));
+                String message = makeString("Export named '"_s, importEntry.importName.string(), "' not found in module '"_s, importedModule->moduleKey().string(), "'."_s);
+                RETURN_IF_EXCEPTION(scope, void());
+                throwSyntaxError(globalObject, scope, message);
                 return;
             }
 
-            case Resolution::Type::Ambiguous:
-                throwSyntaxError(globalObject, scope, makeString("Export named '"_s, importEntry.importName.string(), "' cannot be resolved due to ambiguous multiple bindings in module '"_s, importedModule->moduleKey().string(), "'."_s));
+            case Resolution::Type::Ambiguous: {
+                String message = makeString("Export named '"_s, importEntry.importName.string(), "' cannot be resolved due to ambiguous multiple bindings in module '"_s, importedModule->moduleKey().string(), "'."_s);
+                RETURN_IF_EXCEPTION(scope, void());
+                throwSyntaxError(globalObject, scope, message);
                 return;
+            }
 
             case Resolution::Type::Error: {
                 if (!(importEntry.localName.isNull() || importEntry.localName.isPrivateName() || importEntry.localName.isSymbol())) {
                     Resolution otherResolution = importedModule->resolveExport(globalObject, importEntry.localName);
                     if (otherResolution.type == Resolution::Type::Resolved) {
-                        throwSyntaxError(globalObject, scope, makeString("module '"_s, importedModule->moduleKey().string(), "' does not have an export named 'default'. Did you mean '"_s, String(importEntry.localName.impl()), "'?"_s));
+                        String message = makeString("module '"_s, importedModule->moduleKey().string(), "' does not have an export named 'default'. Did you mean '"_s, String(importEntry.localName.impl()), "'?"_s);
+                        RETURN_IF_EXCEPTION(scope, void());
+                        throwSyntaxError(globalObject, scope, message);
                         return;
                     }
                 }
-                throwSyntaxError(globalObject, scope, makeString("Missing 'default' export in module '"_s, importedModule->moduleKey().string(), "'."_s));
+                String message = makeString("Missing 'default' export in module '"_s, importedModule->moduleKey().string(), "'."_s);
+                RETURN_IF_EXCEPTION(scope, void());
+                throwSyntaxError(globalObject, scope, message);
                 return;
             }
 
