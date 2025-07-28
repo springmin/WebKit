@@ -41,21 +41,21 @@ StreamClientConnection::DedicatedConnectionClient::DedicatedConnectionClient(Str
 
 void StreamClientConnection::DedicatedConnectionClient::didReceiveMessage(Connection& connection, Decoder& decoder)
 {
-    m_receiver.didReceiveMessage(connection, decoder);
+    m_receiver->didReceiveMessage(connection, decoder);
 }
 
 bool StreamClientConnection::DedicatedConnectionClient::didReceiveSyncMessage(Connection& connection, Decoder& decoder, UniqueRef<Encoder>& replyEncoder)
 {
-    return m_receiver.didReceiveSyncMessage(connection, decoder, replyEncoder);
+    return m_receiver->didReceiveSyncMessage(connection, decoder, replyEncoder);
 }
 
 void StreamClientConnection::DedicatedConnectionClient::didClose(Connection& connection)
 {
     // Client is expected to listen to Connection::didClose() from the connection it sent to the dedicated connection to.
-    m_receiver.didClose(connection);
+    m_receiver->didClose(connection);
 }
 
-void StreamClientConnection::DedicatedConnectionClient::didReceiveInvalidMessage(Connection&, MessageName, int32_t)
+void StreamClientConnection::DedicatedConnectionClient::didReceiveInvalidMessage(Connection&, MessageName, const Vector<uint32_t>&)
 {
     ASSERT_NOT_REACHED(); // The sender is expected to be trusted, so all invalid messages are programming errors.
 }
@@ -114,7 +114,7 @@ void StreamClientConnection::setMaxBatchSize(unsigned size)
 void StreamClientConnection::open(Connection::Client& receiver, SerialFunctionDispatcher& dispatcher)
 {
     m_dedicatedConnectionClient.emplace(*this, receiver);
-    m_connection->open(*m_dedicatedConnectionClient, dispatcher);
+    m_connection->open(Ref { *m_dedicatedConnectionClient }.get(), dispatcher);
 }
 
 Error StreamClientConnection::flushSentMessages()

@@ -37,7 +37,7 @@
 #include "CloseWatcherManager.h"
 #include "ComposedTreeAncestorIterator.h"
 #include "ComposedTreeIterator.h"
-#include "CursorList.h"
+#include "ContainerNodeInlines.h"
 #include "DocumentFullscreen.h"
 #include "DocumentInlines.h"
 #include "DocumentMarkerController.h"
@@ -404,7 +404,7 @@ EventHandler::EventHandler(LocalFrame& frame)
 #if ENABLE(IMAGE_ANALYSIS)
     , m_textRecognitionHoverTimer(*this, &EventHandler::textRecognitionHoverTimerFired, 250_ms)
 #endif
-    , m_autoscrollController(makeUnique<AutoscrollController>())
+    , m_autoscrollController(makeUniqueRef<AutoscrollController>())
 #if !ENABLE(IOS_TOUCH_EVENTS)
     , m_fakeMouseMoveEventTimer(*this, &EventHandler::fakeMouseMoveEventTimerFired)
 #endif
@@ -1676,18 +1676,16 @@ std::optional<Cursor> EventHandler::selectCursor(const HitTestResult& result, bo
         }
     }
 
-    if (style && style->cursors()) {
-        const CursorList* cursors = style->cursors();
-        for (unsigned i = 0; i < cursors->size(); ++i) {
-            StyleImage* styleImage = (*cursors)[i].image();
-            if (!styleImage)
-                continue;
+    auto styleCursor = style ? style->cursor() : Style::Cursor { CSS::Keyword::Auto { } };
+    if (styleCursor.images) {
+        for (auto& styleCursorImage : *styleCursor.images) {
+            Ref styleImage = styleCursorImage.image;
             CachedImage* cachedImage = styleImage->cachedImage();
             if (!cachedImage)
                 continue;
             float scale = styleImage->imageScaleFactor();
             // Get hotspot and convert from logical pixels to physical pixels.
-            IntPoint hotSpot = (*cursors)[i].hotSpot();
+            auto hotSpot = styleCursorImage.hotSpot;
             FloatSize size = cachedImage->imageForRenderer(renderer)->size();
             if (cachedImage->errorOccurred())
                 continue;
@@ -1720,7 +1718,7 @@ std::optional<Cursor> EventHandler::selectCursor(const HitTestResult& result, bo
         }
     }
 
-    switch (style ? style->cursor() : CursorType::Auto) {
+    switch (styleCursor.predefined) {
     case CursorType::Auto: {
         if (ImageOverlay::isOverlayText(node.get())) {
             if (renderer && renderer->style().usedUserSelect() != UserSelect::None)
@@ -2446,14 +2444,18 @@ HandleUserInputEventResult EventHandler::handleMouseReleaseEvent(const PlatformM
 
     frame->selection().setCaretBlinkingSuspended(false);
 
+    RefPtr page = frame->page();
+    if (!page)
+        return false;
+
 #if ENABLE(POINTER_LOCK)
-    if (frame->page()->pointerLockController().isLocked()) {
-        frame->protectedPage()->pointerLockController().dispatchLockedMouseEvent(platformMouseEvent, eventNames().mouseupEvent);
+    if (auto& pointerLockController = page->pointerLockController(); pointerLockController.isLocked()) {
+        pointerLockController.dispatchLockedMouseEvent(platformMouseEvent, eventNames().mouseupEvent);
         return true;
     }
 #endif
 
-    if (frame->protectedPage()->pageOverlayController().handleMouseEvent(platformMouseEvent))
+    if (page->pageOverlayController().handleMouseEvent(platformMouseEvent))
         return true;
 
 #if ENABLE(TOUCH_EVENTS)
@@ -2570,7 +2572,7 @@ bool EventHandler::handlePasteGlobalSelection()
 {
     if (!m_frame->page())
         return false;
-    RefPtr focusFrame = m_frame->page()->checkedFocusController()->focusedOrMainFrame();
+    RefPtr focusFrame = m_frame->page()->focusController().focusedOrMainFrame();
     // Do not paste here if the focus was moved somewhere else.
     if (m_frame.ptr() == focusFrame.get() && m_frame->editor().client()->supportsGlobalSelection())
         return protectedFrame()->editor().command("PasteGlobalSelection"_s).execute();
@@ -3146,7 +3148,7 @@ bool EventHandler::dispatchMouseEvent(const AtomString& eventType, Node* targetN
 
     // If focus shift is blocked, we eat the event.
     RefPtr page = frame->page();
-    if (page && !page->checkedFocusController()->setFocusedElement(element.get(), protectedFrame(), { { }, { }, { }, FocusTrigger::Click, { } }))
+    if (page && !page->focusController().setFocusedElement(element.get(), protectedFrame(), { { }, { }, { }, FocusTrigger::Click, { } }))
         return false;
 
     if (element && m_mouseDownDelegatedFocus)
@@ -3884,7 +3886,7 @@ bool EventHandler::isKeyEventAllowedInFullScreen(const PlatformKeyboardEvent& ke
     if (keyEvent.type() == PlatformKeyboardEvent::Type::Char) {
         if (keyEvent.text().length() != 1)
             return false;
-        UChar character = keyEvent.text()[0];
+        char16_t character = keyEvent.text()[0];
         return character == ' ';
     }
 
@@ -4039,7 +4041,7 @@ bool EventHandler::internalKeyEvent(const PlatformKeyboardEvent& initialKeyEvent
     if (initialKeyEvent.type() == PlatformEvent::Type::RawKeyDown) {
         element->dispatchEvent(keydown);
         // If frame changed as a result of keydown dispatch, then return true to avoid sending a subsequent keypress message to the new frame.
-        bool changedFocusedFrame = frame->page() && frame.ptr() != frame->page()->checkedFocusController()->focusedOrMainFrame();
+        bool changedFocusedFrame = frame->page() && frame.ptr() != frame->page()->focusController().focusedOrMainFrame();
         return keydown->defaultHandled() || keydown->defaultPrevented() || changedFocusedFrame;
     }
 
@@ -4073,7 +4075,7 @@ bool EventHandler::internalKeyEvent(const PlatformKeyboardEvent& initialKeyEvent
     }
 
     // If frame changed as a result of keydown dispatch, then return early to avoid sending a subsequent keypress message to the new frame.
-    bool changedFocusedFrame = frame->page() && frame.ptr() != frame->page()->checkedFocusController()->focusedOrMainFrame();
+    bool changedFocusedFrame = frame->page() && frame.ptr() != frame->page()->focusController().focusedOrMainFrame();
     bool keydownResult = keydown->defaultHandled() || keydown->defaultPrevented() || changedFocusedFrame;
     if (keydownResult && !backwardCompatibilityMode)
         return keydownResult;
@@ -4093,6 +4095,10 @@ bool EventHandler::internalKeyEvent(const PlatformKeyboardEvent& initialKeyEvent
         return keydownResult;
     auto keypress = KeyboardEvent::create(keyPressEvent, &frame->windowProxy());
     keypress->setTarget(element.copyRef());
+    if (keypress->isComposing()) {
+        frame->editor().handleKeyboardEvent(keypress);
+        return keydownResult;
+    }
     if (keydownResult)
         keypress->preventDefault();
 #if PLATFORM(COCOA)
@@ -4625,25 +4631,30 @@ bool EventHandler::handleTextInputEvent(const String& text, Event* underlyingEve
     return event->defaultHandled();
 }
     
-bool EventHandler::isKeyboardOptionTab(KeyboardEvent& event)
+bool EventHandler::isKeyboardOptionTab(const FocusEventData& focusEventData)
 {
     auto& eventNames = WebCore::eventNames();
-    return (event.type() == eventNames.keydownEvent || event.type() == eventNames.keypressEvent)
-        && event.altKey()
-        && event.keyIdentifier() == "U+0009"_s;
+    return (focusEventData.type == eventNames.keydownEvent || focusEventData.type == eventNames.keypressEvent)
+        && focusEventData.altKey
+        && focusEventData.keyIdentifier == "U+0009"_s;
 }
 
-bool EventHandler::eventInvertsTabsToLinksClientCallResult(KeyboardEvent& event)
+bool EventHandler::eventInvertsTabsToLinksClientCallResult(const FocusEventData& focusEventData)
 {
 #if PLATFORM(COCOA)
-    return isKeyboardOptionTab(event);
+    return isKeyboardOptionTab(focusEventData);
 #else
-    UNUSED_PARAM(event);
+    UNUSED_PARAM(focusEventData);
     return false;
 #endif
 }
 
 bool EventHandler::tabsToLinks(KeyboardEvent* event) const
+{
+    return event ? tabsToLinks(event->focusEventData()) : false;
+}
+
+bool EventHandler::tabsToLinks(const FocusEventData& focusEventData) const
 {
     // FIXME: This function needs a better name. It can be called for keypresses other than Tab when spatial navigation is enabled.
 
@@ -4652,10 +4663,15 @@ bool EventHandler::tabsToLinks(KeyboardEvent* event) const
         return false;
 
     bool tabsToLinksClientCallResult = page->chrome().client().keyboardUIMode() & KeyboardAccessTabsToLinks;
-    return (event && eventInvertsTabsToLinksClientCallResult(*event)) ? !tabsToLinksClientCallResult : tabsToLinksClientCallResult;
+    return eventInvertsTabsToLinksClientCallResult(focusEventData) ? !tabsToLinksClientCallResult : tabsToLinksClientCallResult;
 }
 
 bool EventHandler::tabsToAllFormControls(KeyboardEvent* event) const
+{
+    return event ? tabsToAllFormControls(event->focusEventData()) : false;
+}
+
+bool EventHandler::tabsToAllFormControls(const FocusEventData& focusEventData) const
 {
 #if PLATFORM(COCOA)
     RefPtr page = m_frame->page();
@@ -4663,7 +4679,7 @@ bool EventHandler::tabsToAllFormControls(KeyboardEvent* event) const
         return false;
 
     KeyboardUIMode keyboardUIMode = page->chrome().client().keyboardUIMode();
-    bool handlingOptionTab = event && isKeyboardOptionTab(*event);
+    bool handlingOptionTab = isKeyboardOptionTab(focusEventData);
 
     // If tab-to-links is off, option-tab always highlights all controls
     if (!(keyboardUIMode & KeyboardAccessTabsToLinks) && handlingOptionTab)
@@ -4679,7 +4695,7 @@ bool EventHandler::tabsToAllFormControls(KeyboardEvent* event) const
 
     return handlingOptionTab;
 #else
-    UNUSED_PARAM(event);
+    UNUSED_PARAM(focusEventData);
     // We always allow tabs to all controls
     return true;
 #endif
@@ -5003,7 +5019,7 @@ void EventHandler::defaultArrowEventHandler(FocusDirection focusDirection, Keybo
     if (m_frame->document()->inDesignMode())
         return;
 
-    if (page->checkedFocusController()->advanceFocus(focusDirection, &event))
+    if (page->focusController().advanceFocus(focusDirection, &event))
         event.setDefaultHandled();
 }
 
@@ -5028,7 +5044,7 @@ void EventHandler::defaultTabEventHandler(KeyboardEvent& event)
     if (!page->tabKeyCyclesThroughElements())
         return;
 
-    if (page->checkedFocusController()->advanceFocus(event.shiftKey() ? FocusDirection::Backward : FocusDirection::Forward, &event))
+    if (page->focusController().advanceFocus(event.shiftKey() ? FocusDirection::Backward : FocusDirection::Forward, &event))
         event.setDefaultHandled();
 }
 
@@ -5435,7 +5451,7 @@ bool EventHandler::passMouseDownEventToWidget(Widget*)
 void EventHandler::focusDocumentView()
 {
     if (RefPtr page = m_frame->page())
-        page->checkedFocusController()->setFocusedFrame(protectedFrame().ptr());
+        page->focusController().setFocusedFrame(protectedFrame().ptr());
 }
 #endif // !PLATFORM(COCOA)
 

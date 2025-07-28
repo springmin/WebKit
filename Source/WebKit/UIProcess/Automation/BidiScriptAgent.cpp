@@ -50,7 +50,7 @@ BidiScriptAgent::BidiScriptAgent(WebAutomationSession& session, BackendDispatche
 
 BidiScriptAgent::~BidiScriptAgent() = default;
 
-void BidiScriptAgent::callFunction(const String& functionDeclaration, bool awaitPromise, Ref<JSON::Object>&& target, RefPtr<JSON::Array>&& arguments, std::optional<Protocol::BidiScript::ResultOwnership>&&, RefPtr<JSON::Object>&& optionalSerializationOptions, RefPtr<JSON::Object>&& optionalThis, std::optional<bool>&& optionalUserActivation, CommandCallbackOf<Protocol::BidiScript::EvaluateResultType, String, RefPtr<Protocol::BidiScript::RemoteValue>, RefPtr<Protocol::BidiScript::ExceptionDetails>>&& callback)
+void BidiScriptAgent::callFunction(const String& functionDeclaration, bool awaitPromise, Ref<JSON::Object>&& target, RefPtr<JSON::Array>&& arguments, std::optional<Inspector::Protocol::BidiScript::ResultOwnership>&&, RefPtr<JSON::Object>&& optionalSerializationOptions, RefPtr<JSON::Object>&& optionalThis, std::optional<bool>&& optionalUserActivation, CommandCallbackOf<Inspector::Protocol::BidiScript::EvaluateResultType, String, RefPtr<Inspector::Protocol::BidiScript::RemoteValue>, RefPtr<Inspector::Protocol::BidiScript::ExceptionDetails>>&& callback)
 {
     RefPtr session = m_session.get();
     ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(!session, InternalError);
@@ -68,22 +68,22 @@ void BidiScriptAgent::callFunction(const String& functionDeclaration, bool await
 
     Ref<JSON::Array> argumentsArray = arguments ? arguments.releaseNonNull() : JSON::Array::create();
 
-    session->evaluateJavaScriptFunction(*browsingContext, emptyString(), functionDeclaration, WTFMove(argumentsArray), false, optionalUserActivation.value_or(false), std::nullopt, [callback = WTFMove(callback)](Inspector::CommandResult<String>&& result) {
-        auto evaluateResultType = result.has_value() ? Inspector::Protocol::BidiScript::EvaluateResultType::Success : Inspector::Protocol::BidiScript::EvaluateResultType::Exception;
+    session->evaluateJavaScriptFunction(*browsingContext, emptyString(), functionDeclaration, WTFMove(argumentsArray), false, optionalUserActivation.value_or(false), std::nullopt, [callback = WTFMove(callback)](Inspector::CommandResult<String>&& stringResult) {
+        auto evaluateResultType = stringResult.has_value() ? Inspector::Protocol::BidiScript::EvaluateResultType::Success : Inspector::Protocol::BidiScript::EvaluateResultType::Exception;
         auto resultObject = Inspector::Protocol::BidiScript::RemoteValue::create()
             .setType(Inspector::Protocol::BidiScript::RemoteValueType::Object)
             .release();
 
-        // FIXME: handle serializing different RemoteValue types as JSON.
-        if (result)
-            resultObject->setValue(JSON::Value::create(WTFMove(result.value())));
+        auto resultValue = JSON::Value::parseJSON(stringResult.value());
+        ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(!resultValue, InternalError);
+        resultObject->setValue(resultValue.releaseNonNull());
 
         // FIXME: keep track of realm IDs that we hand out.
         callback({ { evaluateResultType, "placeholder_realm"_s, WTFMove(resultObject), nullptr } });
     });
 }
 
-void BidiScriptAgent::evaluate(const String& expression, bool awaitPromise, Ref<JSON::Object>&& target, std::optional<Protocol::BidiScript::ResultOwnership>&&, RefPtr<JSON::Object>&& optionalSerializationOptions, std::optional<bool>&& optionalUserActivation, CommandCallbackOf<Protocol::BidiScript::EvaluateResultType, String, RefPtr<Protocol::BidiScript::RemoteValue>, RefPtr<Protocol::BidiScript::ExceptionDetails>>&& callback)
+void BidiScriptAgent::evaluate(const String& expression, bool awaitPromise, Ref<JSON::Object>&& target, std::optional<Inspector::Protocol::BidiScript::ResultOwnership>&&, RefPtr<JSON::Object>&& optionalSerializationOptions, std::optional<bool>&& optionalUserActivation, CommandCallbackOf<Inspector::Protocol::BidiScript::EvaluateResultType, String, RefPtr<Inspector::Protocol::BidiScript::RemoteValue>, RefPtr<Inspector::Protocol::BidiScript::ExceptionDetails>>&& callback)
 {
     RefPtr session = m_session.get();
     ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(!session, InternalError);

@@ -26,8 +26,12 @@
 #pragma once
 
 #include "LengthPoint.h"
+#include "StyleAppearance.h"
+#include "StyleAspectRatio.h"
 #include "StyleBoxShadow.h"
+#include "StyleContent.h"
 #include "StyleContentAlignmentData.h"
+#include "StyleObjectPosition.h"
 #include "StyleSelfAlignmentData.h"
 #include <memory>
 #include <wtf/DataRef.h>
@@ -43,7 +47,6 @@ class TextStream;
 namespace WebCore {
 
 class AnimationList;
-class ContentData;
 class FillLayer;
 class StyleDeprecatedFlexibleBoxData;
 class StyleFilterData;
@@ -52,11 +55,9 @@ class StyleMultiColData;
 class StyleTransformData;
 class StyleVisitedLinkColorData;
 
-constexpr int appearanceBitWidth = 7;
-
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(StyleMiscNonInheritedData);
 class StyleMiscNonInheritedData : public RefCounted<StyleMiscNonInheritedData> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleMiscNonInheritedData);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleMiscNonInheritedData, StyleMiscNonInheritedData);
 public:
     static Ref<StyleMiscNonInheritedData> create() { return adoptRef(*new StyleMiscNonInheritedData); }
     Ref<StyleMiscNonInheritedData> copy() const;
@@ -71,7 +72,6 @@ public:
     bool hasOpacity() const { return opacity < 1; }
     bool hasZeroOpacity() const { return !opacity; }
     bool hasFilters() const;
-    bool contentDataEquivalent(const StyleMiscNonInheritedData&) const;
 
     // This is here to pack in with m_refCount.
     float opacity;
@@ -86,35 +86,32 @@ public:
 
     RefPtr<AnimationList> animations;
     RefPtr<AnimationList> transitions;
-    std::unique_ptr<ContentData> content;
-    FixedVector<Style::BoxShadow> boxShadow;
-    String altText;
-    double aspectRatioWidth;
-    double aspectRatioHeight;
+    Style::Content content;
+    Style::BoxShadows boxShadow;
+    Style::AspectRatio aspectRatio;
     StyleContentAlignmentData alignContent;
     StyleContentAlignmentData justifyContent;
     StyleSelfAlignmentData alignItems;
     StyleSelfAlignmentData alignSelf;
     StyleSelfAlignmentData justifyItems;
     StyleSelfAlignmentData justifySelf;
-    LengthPoint objectPosition;
+    Style::ObjectPosition objectPosition;
     int order;
 
-    unsigned hasAttrContent : 1 { false };
-    unsigned hasDisplayAffectedByAnimations : 1 { false };
+    PREFERRED_TYPE(bool) unsigned hasAttrContent : 1 { false };
+    PREFERRED_TYPE(bool) unsigned hasDisplayAffectedByAnimations : 1 { false };
 #if ENABLE(DARK_MODE_CSS)
-    unsigned hasExplicitlySetColorScheme : 1 { false };
+    PREFERRED_TYPE(bool) unsigned hasExplicitlySetColorScheme : 1 { false };
 #endif
-    unsigned hasExplicitlySetDirection : 1 { false };
-    unsigned hasExplicitlySetWritingMode : 1 { false };
-    unsigned tableLayout : 1; // TableLayoutType
-    unsigned aspectRatioType : 2; // AspectRatioType
-    unsigned appearance : appearanceBitWidth; // StyleAppearance
-    unsigned usedAppearance : appearanceBitWidth; // StyleAppearance
-    unsigned textOverflow : 1; // Whether or not lines that spill out should be truncated with "..."
-    unsigned userDrag : 2; // UserDrag
-    unsigned objectFit : 3; // ObjectFit
-    unsigned resize : 3; // Resize
+    PREFERRED_TYPE(bool) unsigned hasExplicitlySetDirection : 1 { false };
+    PREFERRED_TYPE(bool) unsigned hasExplicitlySetWritingMode : 1 { false };
+    PREFERRED_TYPE(TableLayoutType) unsigned tableLayout : 1;
+    PREFERRED_TYPE(StyleAppearance) unsigned appearance : appearanceBitWidth;
+    PREFERRED_TYPE(StyleAppearance) unsigned usedAppearance : appearanceBitWidth;
+    PREFERRED_TYPE(bool) unsigned textOverflow : 1; // Whether or not lines that spill out should be truncated with "..."
+    PREFERRED_TYPE(UserDrag) unsigned userDrag : 2;
+    PREFERRED_TYPE(ObjectFit) unsigned objectFit : 3;
+    PREFERRED_TYPE(Resize) unsigned resize : 3;
 
 private:
     StyleMiscNonInheritedData();

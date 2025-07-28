@@ -27,6 +27,7 @@
 
 #include "Event.h"
 #include "QuirksData.h"
+#include "RegistrableDomain.h"
 #include <optional>
 #include <wtf/Forward.h>
 #include <wtf/TZoneMalloc.h>
@@ -45,7 +46,6 @@ class LayoutUnit;
 class LocalFrame;
 class Node;
 class PlatformMouseEvent;
-class RegistrableDomain;
 class ResourceRequest;
 class RenderStyle;
 class SecurityOriginData;
@@ -80,6 +80,7 @@ public:
 #endif
     bool shouldDisablePointerEventsQuirk() const;
     bool needsDeferKeyDownAndKeyPressTimersUntilNextEditingCommand() const;
+    WEBCORE_EXPORT bool inputMethodUsesCorrectKeyEventOrder() const;
     bool shouldExposeShowModalDialog() const;
     bool shouldNavigatorPluginsBeEmpty() const;
     bool returnNullPictureInPictureElementDuringFullscreenChange() const;
@@ -243,6 +244,7 @@ public:
     WEBCORE_EXPORT bool shouldSynthesizeTouchEventsAfterNonSyntheticClick(const Element&) const;
     WEBCORE_EXPORT bool needsPointerTouchCompatibility(const Element&) const;
     bool shouldTreatAddingMouseOutEventListenerAsContentChange() const;
+    WEBCORE_EXPORT bool shouldHideSoftTopScrollEdgeEffectDuringFocus(const Element&) const;
 #endif
 
     bool needsMozillaFileTypeForDataTransfer() const;
@@ -264,10 +266,13 @@ public:
     bool shouldSupportHoverMediaQueries() const;
 
     bool shouldRewriteMediaRangeRequestForURL(const URL&) const;
+    bool shouldDelayReloadWhenRegisteringServiceWorker() const;
 
     bool shouldPreventKeyframeEffectAcceleration(const KeyframeEffect&) const;
 
     bool shouldEnterNativeFullscreenWhenCallingElementRequestFullscreenQuirk() const;
+
+    bool shouldDisableDOMAudioSessionQuirk() const;
 
 private:
     bool needsQuirks() const;

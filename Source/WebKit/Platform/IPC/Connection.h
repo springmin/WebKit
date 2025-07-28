@@ -34,8 +34,14 @@
 #include "ReceiverMatcher.h"
 #include "SyncRequestID.h"
 #include "Timeout.h"
+#include <atomic>
+#include <bmalloc/TZoneHeap.h>
+#include <bmalloc/bmalloc.h>
+#include <new>
+#include <tuple>
 #include <wtf/Assertions.h>
 #include <wtf/CheckedPtr.h>
+#include <wtf/CheckedRef.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Condition.h>
 #include <wtf/Deque.h>
@@ -51,6 +57,8 @@
 #include <wtf/Noncopyable.h>
 #include <wtf/ObjectIdentifier.h>
 #include <wtf/OptionSet.h>
+#include <wtf/Ref.h>
+#include <wtf/RefPtr.h>
 #include <wtf/RunLoop.h>
 #include <wtf/ThreadAssertions.h>
 #include <wtf/ThreadSafeWeakPtr.h>
@@ -65,7 +73,10 @@
 #include <mach/mach_port.h>
 #include <wtf/OSObjectPtr.h>
 #include <wtf/spi/darwin/XPCSPI.h>
+#if HAVE(XPC_API)
+#include <xpc/xpc.h>
 #endif
+#endif // OS(DARWIN)
 
 #if USE(GLIB)
 #include <wtf/glib/GSocketMonitor.h>
@@ -243,6 +254,7 @@ private:
         UniqueRef<Decoder> decoder; // Owns the memory for reply.
         typename T::ReplyArguments reply;
     };
+
     Expected<ReplyData, Error> value;
 };
 
@@ -257,11 +269,11 @@ public:
     using AsyncReplyID = IPC::AsyncReplyID;
 
     class Client : public MessageReceiver, public CanMakeThreadSafeCheckedPtr<Client> {
-        WTF_MAKE_FAST_ALLOCATED;
+        WTF_DEPRECATED_MAKE_FAST_ALLOCATED(Client);
         WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(Client);
     public:
         virtual void didClose(Connection&) = 0;
-        virtual void didReceiveInvalidMessage(Connection&, MessageName, int32_t indexOfObjectFailingDecoding) = 0;
+        virtual void didReceiveInvalidMessage(Connection&, MessageName, const Vector<uint32_t>& indicesOfObjectsFailingDecoding) = 0;
         virtual void requestRemoteProcessTermination() { }
 
     protected:
@@ -337,6 +349,7 @@ public:
     ~Connection();
 
     Client* client() const { return m_client.get(); }
+    RefPtr<Client> protectedClient() const { return m_client.get(); }
 
     enum UniqueIDType { };
     using UniqueID = AtomicObjectIdentifier<UniqueIDType>;
@@ -509,7 +522,7 @@ public:
 
     template<typename MessageReceiverType> void dispatchMessageReceiverMessage(MessageReceiverType&, UniqueRef<Decoder>&&);
     // Can be called from any thread.
-    void dispatchDidReceiveInvalidMessage(MessageName, int32_t indexOfObjectFailingDecoding);
+    void dispatchDidReceiveInvalidMessage(MessageName, const Vector<uint32_t>& indicesOfObjectsFailingDecoding);
     void dispatchDidCloseAndInvalidate();
 
     size_t pendingMessageCountForTesting() const;
@@ -611,6 +624,7 @@ private:
     struct SyncMessageStateRelease {
         void operator()(SyncMessageState*) const;
     };
+
     void addAsyncReplyHandler(AsyncReplyHandler&&);
     void addAsyncReplyHandlerWithDispatcher(AsyncReplyHandlerWithDispatcher&&);
     void cancelAsyncReplyHandlers();
@@ -662,7 +676,21 @@ private:
     Condition m_waitForMessageCondition;
     Lock m_waitForMessageLock;
 
-    struct WaitForMessageState;
+    struct WaitForMessageState {
+        WaitForMessageState(MessageName messageName, uint64_t destinationID, OptionSet<WaitForOption> waitForOptions)
+            : messageName(messageName)
+            , destinationID(destinationID)
+            , waitForOptions(waitForOptions)
+        {
+        }
+
+        MessageName messageName;
+        uint64_t destinationID;
+        OptionSet<WaitForOption> waitForOptions;
+        bool messageWaitingInterrupted = false;
+        std::unique_ptr<Decoder> decoder;
+    };
+
     WaitForMessageState* m_waitingForMessage WTF_GUARDED_BY_LOCK(m_waitForMessageLock) { nullptr }; // NOLINT
 
     Lock m_syncReplyStateLock;
@@ -842,7 +870,7 @@ template<typename T> Connection::SendSyncResult<T> Connection::sendSync(T&& mess
     if (decoder->messageName() == MessageName::CancelSyncMessageReply)
         return { Error::SyncMessageCancelled };
     std::optional<typename T::ReplyArguments> replyArguments;
-    *decoder >> replyArguments;
+    decoder.get() >> replyArguments;
     if (!replyArguments)
         return { Error::FailedToDecodeReplyArguments };
     return SendSyncResult<T> { WTFMove(decoder), WTFMove(*replyArguments) };
@@ -867,7 +895,7 @@ template<typename T> Error Connection::waitForAndDispatchImmediately(uint64_t de
         return Error::InvalidConnection;
 
     ASSERT(decoderOrError.value()->destinationID() == destinationID);
-    m_client->didReceiveMessage(*this, decoderOrError.value());
+    protectedClient()->didReceiveMessage(*this, decoderOrError.value());
     return Error::NoError;
 }
 

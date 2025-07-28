@@ -626,14 +626,12 @@ public:
 #endif
 
 #if PLATFORM(COCOA)
-    void registerUserInstalledFonts(WebProcessProxy&);
     void registerAssetFonts(WebProcessProxy&);
+    void registerFontsForGPUProcessIfNeeded();
 #endif
 
-    void markHasReceivedAXRequestInUIProcess() { m_hasReceivedAXRequestInUIProcess = true; }
-    bool hasReceivedAXRequestInUIProcess() const { return m_hasReceivedAXRequestInUIProcess; }
-
 #if PLATFORM(MAC)
+    void registerUserInstalledFonts(WebProcessProxy&);
     void registerAdditionalFonts(NSArray *fontNames);
 #endif
 
@@ -641,6 +639,10 @@ public:
     void didRefreshDisplay();
 #endif
     void suppressEDR(bool);
+
+#if ENABLE(INITIALIZE_ACCESSIBILITY_ON_DEMAND)
+    void initializeAccessibilityIfNecessary();
+#endif
 
 private:
     enum class NeedsGlobalStaticInitialization : bool { No, Yes };

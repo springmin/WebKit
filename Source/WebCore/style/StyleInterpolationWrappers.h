@@ -37,7 +37,6 @@
 #include "AnimationMalloc.h"
 #include "StyleInterpolationFunctions.h"
 #include "StyleInterpolationWrapperBase.h"
-#include "StylePrimitiveNumericTypes+Blending.h"
 #include "StylePrimitiveNumericTypes+Logging.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/TextStream.h>
@@ -48,7 +47,7 @@ namespace WebCore::Style::Interpolation {
 
 template<typename T, typename GetterType = T>
 class WrapperWithGetter : public WrapperBase {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(WrapperWithGetter, Animation);
 public:
     WrapperWithGetter(CSSPropertyID property, GetterType (RenderStyle::*getter)() const)
         : WrapperBase(property)
@@ -81,7 +80,7 @@ private:
 
 template<typename T, typename GetterType = T, typename SetterType = T>
 class Wrapper : public WrapperWithGetter<T, GetterType> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Wrapper, Animation);
 public:
     Wrapper(CSSPropertyID property, GetterType (RenderStyle::*getter)() const, void (RenderStyle::*setter)(SetterType))
         : WrapperWithGetter<T, GetterType>(property, getter)
@@ -108,7 +107,7 @@ Wrapper(CSSPropertyID, const T& (RenderStyle::*getter)() const, void (RenderStyl
 
 template<typename T>
 class RefCountedWrapper : public WrapperWithGetter<T*> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(RefCountedWrapper, Animation);
 public:
     RefCountedWrapper(CSSPropertyID property, T* (RenderStyle::*getter)() const, void (RenderStyle::*setter)(RefPtr<T>&&))
         : WrapperWithGetter<T*>(property, getter)
@@ -127,11 +126,11 @@ private:
 
 // MARK: - Typed Wrappers
 
-template<typename StyleType>
+template<typename T, typename GetterType = T, typename SetterType = T>
 class StyleTypeWrapper : public WrapperBase {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleTypeWrapper, Animation);
 public:
-    StyleTypeWrapper(CSSPropertyID property, const StyleType& (RenderStyle::*getter)() const, void (RenderStyle::*setter)(StyleType&&))
+    StyleTypeWrapper(CSSPropertyID property, GetterType (RenderStyle::*getter)() const, void (RenderStyle::*setter)(SetterType))
         : WrapperBase(property)
         , m_getter(getter)
         , m_setter(setter)
@@ -168,22 +167,34 @@ public:
 #endif
 
 private:
-    const StyleType& value(const RenderStyle& style) const
+    GetterType value(const RenderStyle& style) const
     {
         return (style.*m_getter)();
     }
 
-    const StyleType& (RenderStyle::*m_getter)() const;
-    void (RenderStyle::*m_setter)(StyleType&&);
+    GetterType (RenderStyle::*m_getter)() const;
+    void (RenderStyle::*m_setter)(SetterType);
 };
 
+// Deduction guide for getter/setters that return and take values.
+template<typename T>
+StyleTypeWrapper(CSSPropertyID, T (RenderStyle::*getter)() const, void (RenderStyle::*setter)(T)) -> StyleTypeWrapper<T, T, T>;
+
+// Deduction guide for getter/setters that return const references and take r-value references.
+template<typename T>
+StyleTypeWrapper(CSSPropertyID, const T& (RenderStyle::*getter)() const, void (RenderStyle::*setter)(T&&)) -> StyleTypeWrapper<T, const T&, T&&>;
+
+// Deduction guide for getter/setters that return values and take r-value references.
+template<typename T>
+StyleTypeWrapper(CSSPropertyID, T (RenderStyle::*getter)() const, void (RenderStyle::*setter)(T&&)) -> StyleTypeWrapper<T, T, T&&>;
+
 template<typename T> class VisitedAffectedStyleTypeWrapper : public WrapperBase {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(VisitedAffectedStyleTypeWrapper, Animation);
 public:
     VisitedAffectedStyleTypeWrapper(CSSPropertyID property, const T& (RenderStyle::*getter)() const, void (RenderStyle::*setter)(T&&), const T& (RenderStyle::*visitedGetter)() const, void (RenderStyle::*visitedSetter)(T&&))
         : WrapperBase(property)
-        , m_wrapper(StyleTypeWrapper<T>(property, getter, setter))
-        , m_visitedWrapper(StyleTypeWrapper<T>(property, visitedGetter, visitedSetter))
+        , m_wrapper(StyleTypeWrapper<T, const T&, T&&>(property, getter, setter))
+        , m_visitedWrapper(StyleTypeWrapper<T, const T&, T&&>(property, visitedGetter, visitedSetter))
     {
     }
 
@@ -211,13 +222,13 @@ public:
     }
 #endif
 
-    StyleTypeWrapper<T> m_wrapper;
-    StyleTypeWrapper<T> m_visitedWrapper;
+    StyleTypeWrapper<T, const T&, T&&> m_wrapper;
+    StyleTypeWrapper<T, const T&, T&&> m_visitedWrapper;
 };
 
 template<typename T>
 class AutoWrapper final : public Wrapper<T> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(AutoWrapper, Animation);
 public:
     AutoWrapper(CSSPropertyID property, T (RenderStyle::*getter)() const, void (RenderStyle::*setter)(T), bool (RenderStyle::*autoGetter)() const, void (RenderStyle::*autoSetter)(), std::optional<T> minValue = std::nullopt)
         : Wrapper<T>(property, getter, setter)
@@ -259,7 +270,7 @@ private:
 };
 
 class FloatWrapper : public Wrapper<float> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FloatWrapper, Animation);
 public:
     enum class ValueRange : uint8_t {
         All,
@@ -288,7 +299,7 @@ private:
 
 template<typename T>
 class PositiveWrapper final : public Wrapper<T> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(PositiveWrapper, Animation);
 public:
     PositiveWrapper(CSSPropertyID property, T (RenderStyle::*getter)() const, void (RenderStyle::*setter)(T))
         : Wrapper<T>(property, getter, setter)
@@ -303,7 +314,7 @@ public:
 };
 
 class LengthWrapper : public WrapperWithGetter<const WebCore::Length&> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(LengthWrapper, Animation);
 public:
     enum class Flags {
         IsLengthPercentage          = 1 << 0,
@@ -337,35 +348,9 @@ private:
     OptionSet<Flags> m_flags;
 };
 
-class LengthPointWrapper : public WrapperWithGetter<const LengthPoint&> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
-public:
-    LengthPointWrapper(CSSPropertyID property, const LengthPoint& (RenderStyle::*getter)() const, void (RenderStyle::*setter)(LengthPoint))
-        : WrapperWithGetter(property, getter)
-        , m_setter(setter)
-    {
-    }
-
-    bool requiresInterpolationForAccumulativeIteration(const RenderStyle& from, const RenderStyle& to) const final
-    {
-        auto fromLengthPoint = value(from);
-        auto toLengthPoint = value(to);
-        return lengthsRequireInterpolationForAccumulativeIteration(fromLengthPoint.x, toLengthPoint.x)
-            || lengthsRequireInterpolationForAccumulativeIteration(fromLengthPoint.y, toLengthPoint.y);
-    }
-
-    void interpolate(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const Context& context) const final
-    {
-        (destination.*m_setter)(blendFunc(value(from), value(to), context));
-    }
-
-private:
-    void (RenderStyle::*m_setter)(LengthPoint);
-};
-
 template<typename T>
 class LengthVariantWrapper final : public WrapperWithGetter<const T&> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(LengthVariantWrapper, Animation);
 public:
     LengthVariantWrapper(CSSPropertyID property, const T& (RenderStyle::*getter)() const, void (RenderStyle::*setter)(T&&))
         : WrapperWithGetter<const T&>(property, getter)
@@ -392,50 +377,10 @@ private:
     void (RenderStyle::*m_setter)(T&&);
 };
 
-class OptionalLengthWrapper : public WrapperWithGetter<std::optional<WebCore::Length>> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
-public:
-    enum class Flags {
-        IsLengthPercentage = 1 << 0,
-        NegativeLengthsAreInvalid = 1 << 1,
-    };
-    OptionalLengthWrapper(CSSPropertyID property, std::optional<WebCore::Length> (RenderStyle::*getter)() const, void (RenderStyle::*setter)(std::optional<WebCore::Length>), OptionSet<Flags> flags = { })
-        : WrapperWithGetter<std::optional<WebCore::Length>>(property, getter)
-        , m_setter(setter)
-        , m_flags(flags)
-    {
-    }
-
-    bool canInterpolate(const RenderStyle& from, const RenderStyle& to, CompositeOperation) const override
-    {
-        if (!this->value(from) || !this->value(to))
-            return false;
-
-        bool isLengthPercentage = m_flags.contains(Flags::IsLengthPercentage);
-        return canInterpolateLengths(*this->value(from), *this->value(to), isLengthPercentage);
-    }
-
-    void interpolate(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const Context& context) const override
-    {
-        if (context.isDiscrete) {
-            ASSERT(!context.progress || context.progress == 1);
-            (destination.*m_setter)(context.progress ? this->value(to) : this->value(from));
-            return;
-        }
-
-        auto valueRange = m_flags.contains(Flags::NegativeLengthsAreInvalid) ? ValueRange::NonNegative : ValueRange::All;
-        (destination.*m_setter)(blendFunc(*this->value(from), *this->value(to), context, valueRange));
-    }
-
-private:
-    void (RenderStyle::*m_setter)(std::optional<WebCore::Length>);
-    OptionSet<Flags> m_flags;
-};
-
 // MARK: - Discrete Wrappers
 
 template<typename T, typename GetterType = T, typename SetterType = T> class DiscreteWrapper : public WrapperWithGetter<T, GetterType> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(DiscreteWrapper, Animation);
 public:
     DiscreteWrapper(CSSPropertyID property, GetterType (RenderStyle::*getter)() const, void (RenderStyle::*setter)(SetterType))
         : WrapperWithGetter<T, GetterType>(property, getter)
@@ -466,8 +411,12 @@ DiscreteWrapper(CSSPropertyID, T (RenderStyle::*getter)() const, void (RenderSty
 template<typename T>
 DiscreteWrapper(CSSPropertyID, const T& (RenderStyle::*getter)() const, void (RenderStyle::*setter)(T&&)) -> DiscreteWrapper<T, const T&, T&&>;
 
+// Deduction guide for getter/setters that return values and take r-value references.
+template<typename T>
+DiscreteWrapper(CSSPropertyID, T (RenderStyle::*getter)() const, void (RenderStyle::*setter)(T&&)) -> DiscreteWrapper<T, T, T&&>;
+
 class FontSizeWrapper final : public Wrapper<float> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FontSizeWrapper, Animation);
 public:
     FontSizeWrapper()
         : Wrapper<float>(CSSPropertyID::CSSPropertyFontSize, &RenderStyle::computedFontSize, &RenderStyle::setFontSize)
@@ -481,7 +430,7 @@ public:
 };
 
 class DiscreteFontDescriptionWrapper : public WrapperBase {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(DiscreteFontDescriptionWrapper, Animation);
 public:
     DiscreteFontDescriptionWrapper(CSSPropertyID property)
         : WrapperBase(property)
@@ -520,7 +469,7 @@ protected:
 
 template<typename T>
 class DiscreteFontDescriptionTypedWrapper final : public DiscreteFontDescriptionWrapper {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(DiscreteFontDescriptionTypedWrapper, Animation);
 public:
     DiscreteFontDescriptionTypedWrapper(CSSPropertyID property, T (FontCascadeDescription::*getter)() const, void (FontCascadeDescription::*setter)(T))
         : DiscreteFontDescriptionWrapper(property)
@@ -551,7 +500,7 @@ private:
 
 template<typename T>
 class NonNormalizedDiscreteWrapper final : public Wrapper<T> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(NonNormalizedDiscreteWrapper, Animation);
 public:
     NonNormalizedDiscreteWrapper(CSSPropertyID property, T (RenderStyle::*getter)() const, void (RenderStyle::*setter)(T))
         : Wrapper<T>(property, getter, setter)
@@ -564,50 +513,8 @@ public:
     }
 };
 
-class ContentWrapper final : public WrapperBase {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
-public:
-    ContentWrapper()
-        : WrapperBase(CSSPropertyContent)
-    {
-    }
-
-    bool equals(const RenderStyle& a, const RenderStyle& b) const final
-    {
-        if (!a.hasContent() && !b.hasContent())
-            return true;
-        if (a.hasContent() && b.hasContent())
-            return *a.contentData() == *b.contentData();
-        return false;
-    }
-
-    bool canInterpolate(const RenderStyle&, const RenderStyle&, CompositeOperation) const final
-    {
-        return false;
-    }
-
-    void interpolate(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const Context& context) const final
-    {
-        ASSERT(context.isDiscrete);
-        ASSERT(!context.progress || context.progress == 1);
-
-        auto& style = context.progress ? to : from;
-        if (auto* content = style.contentData())
-            destination.setContent(content->clone(), false);
-        else
-            destination.clearContent();
-    }
-
-#if !LOG_DISABLED
-    void log(const RenderStyle&, const RenderStyle&, const RenderStyle&, double progress) const final
-    {
-        LOG_WITH_STREAM(Animations, stream << " blending content at " << TextStream::FormatNumberRespectingIntegers(progress) << ".");
-    }
-#endif
-};
-
 class FontFeatureSettingsWrapper final : public DiscreteFontDescriptionWrapper {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FontFeatureSettingsWrapper, Animation);
 public:
     FontFeatureSettingsWrapper()
         : DiscreteFontDescriptionWrapper(CSSPropertyFontFeatureSettings)
@@ -627,7 +534,7 @@ private:
 };
 
 class FontVariantEastAsianWrapper final : public DiscreteFontDescriptionWrapper {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FontVariantEastAsianWrapper, Animation);
 public:
     FontVariantEastAsianWrapper()
         : DiscreteFontDescriptionWrapper(CSSPropertyFontVariantEastAsian)
@@ -651,7 +558,7 @@ private:
 };
 
 class FontVariantLigaturesWrapper final : public DiscreteFontDescriptionWrapper {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FontVariantLigaturesWrapper, Animation);
 public:
     FontVariantLigaturesWrapper()
         : DiscreteFontDescriptionWrapper(CSSPropertyFontVariantLigatures)
@@ -677,7 +584,7 @@ private:
 };
 
 class FontFamilyWrapper final : public DiscreteFontDescriptionWrapper {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FontFamilyWrapper, Animation);
 public:
     FontFamilyWrapper()
         : DiscreteFontDescriptionWrapper(CSSPropertyFontFamily)
@@ -697,7 +604,7 @@ private:
 };
 
 class FontVariantNumericWrapper final : public DiscreteFontDescriptionWrapper {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FontVariantNumericWrapper, Animation);
 public:
     FontVariantNumericWrapper()
         : DiscreteFontDescriptionWrapper(CSSPropertyFontVariantNumeric)
@@ -724,44 +631,10 @@ private:
     }
 };
 
-class TextEmphasisStyleWrapper final : public DiscreteWrapper<TextEmphasisMark> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
-public:
-    TextEmphasisStyleWrapper()
-        : DiscreteWrapper(CSSPropertyTextEmphasisStyle, &RenderStyle::textEmphasisMark, &RenderStyle::setTextEmphasisMark)
-    {
-    }
-
-    void interpolate(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const Context& context) const final
-    {
-        destination.setTextEmphasisFill((context.progress > 0.5 ? to : from).textEmphasisFill());
-        DiscreteWrapper::interpolate(destination, from, to, context);
-    }
-};
-
 // MARK: - Customized Wrappers
 
-class GridTemplateWrapper final : public Wrapper<const GridTrackList&> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
-public:
-    GridTemplateWrapper(CSSPropertyID property, const GridTrackList& (RenderStyle::*getter)() const, void (RenderStyle::*setter)(const GridTrackList&))
-        : Wrapper(property, getter, setter)
-    {
-    }
-
-    void interpolate(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const Context& context) const final
-    {
-        (destination.*m_setter)(blendFunc(this->value(from), this->value(to), context));
-    }
-
-    bool canInterpolate(const RenderStyle& from, const RenderStyle& to, CompositeOperation) const final
-    {
-        return WebCore::Style::Interpolation::canInterpolate(this->value(from), this->value(to));
-    }
-};
-
 class NinePieceImageRepeatWrapper final : public WrapperBase {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(NinePieceImageRepeatWrapper, Animation);
 public:
     NinePieceImageRepeatWrapper(CSSPropertyID property, NinePieceImageRule (RenderStyle::*horizontalGetter)() const, void (RenderStyle::*horizontalSetter)(NinePieceImageRule), NinePieceImageRule (RenderStyle::*verticalGetter)() const, void (RenderStyle::*verticalSetter)(NinePieceImageRule))
         : WrapperBase(property)
@@ -798,38 +671,8 @@ public:
     DiscreteWrapper<NinePieceImageRule> m_verticalWrapper;
 };
 
-class ContainIntrinsicLengthWrapper final : public OptionalLengthWrapper {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
-public:
-    ContainIntrinsicLengthWrapper(CSSPropertyID property, std::optional<WebCore::Length> (RenderStyle::*getter)() const, void (RenderStyle::*setter)(std::optional<WebCore::Length>), ContainIntrinsicSizeType (RenderStyle::*typeGetter)() const, void (RenderStyle::*typeSetter)(ContainIntrinsicSizeType))
-        : OptionalLengthWrapper(property, getter, setter, { Flags::NegativeLengthsAreInvalid })
-        , m_containIntrinsicSizeTypeGetter(typeGetter)
-        , m_containIntrinsicSizeTypeSetter(typeSetter)
-    {
-    }
-
-    bool canInterpolate(const RenderStyle& from, const RenderStyle& to, CompositeOperation operation) const final
-    {
-        if ((from.*m_containIntrinsicSizeTypeGetter)() != (to.*m_containIntrinsicSizeTypeGetter)())
-            return false;
-        return OptionalLengthWrapper::canInterpolate(from, to, operation);
-    }
-
-    void interpolate(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const Context& context) const final
-    {
-        auto type = context.progress < 0.5 ? (from.*m_containIntrinsicSizeTypeGetter)() : (to.*m_containIntrinsicSizeTypeGetter)();
-        (destination.*m_containIntrinsicSizeTypeSetter)(type);
-
-        OptionalLengthWrapper::interpolate(destination, from, to, context);
-    }
-
-private:
-    ContainIntrinsicSizeType (RenderStyle::*m_containIntrinsicSizeTypeGetter)() const;
-    void (RenderStyle::*m_containIntrinsicSizeTypeSetter)(ContainIntrinsicSizeType);
-};
-
 class LengthBoxWrapper : public WrapperWithGetter<const LengthBox&> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(LengthBoxWrapper, Animation);
 public:
     enum class Flags : uint8_t {
         IsLengthPercentage      = 1 << 0,
@@ -908,30 +751,10 @@ private:
     OptionSet<Flags> m_flags;
 };
 
-class ClipWrapper final : public LengthBoxWrapper {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
-public:
-    ClipWrapper()
-        : LengthBoxWrapper(CSSPropertyClip, &RenderStyle::clip, &RenderStyle::setClip, { LengthBoxWrapper::Flags::AllowsNegativeValues })
-    {
-    }
-
-    bool canInterpolate(const RenderStyle& from, const RenderStyle& to, CompositeOperation compositeOperation) const final
-    {
-        return from.hasClip() && to.hasClip() && LengthBoxWrapper::canInterpolate(from, to, compositeOperation);
-    }
-
-    void interpolate(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const Context& context) const final
-    {
-        LengthBoxWrapper::interpolate(destination, from, to, context);
-        destination.setHasClip(true);
-    }
-};
-
 #if ENABLE(VARIATION_FONTS)
 
 class FontVariationSettingsWrapper final : public Wrapper<FontVariationSettings> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FontVariationSettingsWrapper, Animation);
 public:
     FontVariationSettingsWrapper()
         : Wrapper(CSSPropertyFontVariationSettings, &RenderStyle::fontVariationSettings, &RenderStyle::setFontVariationSettings)
@@ -967,7 +790,7 @@ public:
 #endif
 
 class ShapeWrapper final : public RefCountedWrapper<ShapeValue> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(ShapeWrapper, Animation);
 public:
     ShapeWrapper(CSSPropertyID property, ShapeValue* (RenderStyle::*getter)() const, void (RenderStyle::*setter)(RefPtr<ShapeValue>&&))
         : RefCountedWrapper(property, getter, setter)
@@ -998,7 +821,7 @@ public:
 };
 
 class StyleImageWrapper final : public RefCountedWrapper<StyleImage> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(StyleImageWrapper, Animation);
 public:
     StyleImageWrapper(CSSPropertyID property, StyleImage* (RenderStyle::*getter)() const, void (RenderStyle::*setter)(RefPtr<StyleImage>&&))
         : RefCountedWrapper(property, getter, setter)
@@ -1022,7 +845,7 @@ public:
 };
 
 class TransformOperationsWrapper final : public WrapperWithGetter<const TransformOperations&> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(TransformOperationsWrapper, Animation);
 public:
     TransformOperationsWrapper()
         : WrapperWithGetter<const TransformOperations&>(CSSPropertyTransform, &RenderStyle::transform)
@@ -1048,7 +871,7 @@ public:
 };
 
 class FilterWrapper final : public WrapperWithGetter<const FilterOperations&> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FilterWrapper, Animation);
 public:
     FilterWrapper(CSSPropertyID property, const FilterOperations& (RenderStyle::*getter)() const, void (RenderStyle::*setter)(FilterOperations&&))
         : WrapperWithGetter<const FilterOperations&>(property, getter)
@@ -1135,11 +958,13 @@ inline const TextShadow& shadowForInterpolation(const TextShadow&)
     return defaultShadowData.get();
 }
 
-template<typename ShadowType> class ShadowWrapper final : public WrapperWithGetter<const FixedVector<ShadowType>&> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+template<typename ShadowListType> class ShadowWrapper final : public WrapperWithGetter<const ShadowListType&> {
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(ShadowWrapper, Animation);
 public:
-    ShadowWrapper(CSSPropertyID property, const FixedVector<ShadowType>& (RenderStyle::*getter)() const, void (RenderStyle::*setter)(FixedVector<ShadowType>&&))
-        : WrapperWithGetter<const FixedVector<ShadowType>&>(property, getter)
+    using ShadowType = typename ShadowListType::value_type;
+
+    ShadowWrapper(CSSPropertyID property, const ShadowListType& (RenderStyle::*getter)() const, void (RenderStyle::*setter)(ShadowListType&&))
+        : WrapperWithGetter<const ShadowListType&>(property, getter)
         , m_setter(setter)
     {
     }
@@ -1188,7 +1013,7 @@ public:
 
         if (context.isDiscrete) {
             ASSERT(!context.progress || context.progress == 1.0);
-            (destination.*m_setter)(FixedVector<ShadowType> { context.progress ? toShadowList : fromShadowList });
+            (destination.*m_setter)(ShadowListType { context.progress ? toShadowList : fromShadowList });
             return;
         }
 
@@ -1196,41 +1021,41 @@ public:
         auto toLength = toShadowList.size();
 
         if (!fromLength && !toLength)
-            (destination.*m_setter)({ });
+            (destination.*m_setter)(CSS::Keyword::None { });
         else if (fromLength == toLength)
             (destination.*m_setter)(blendMatchedShadowLists(fromShadowList, toShadowList, fromLength, fromStyle, toStyle, context));
         else
             (destination.*m_setter)(blendMismatchedShadowLists(fromShadowList, toShadowList, fromLength, toLength, fromStyle, toStyle, context));
     }
 
-    FixedVector<ShadowType> addShadowLists(const FixedVector<ShadowType>& fromShadowList, const FixedVector<ShadowType>& toShadowList, size_t fromLength, size_t toLength) const
+    ShadowListType addShadowLists(const ShadowListType& fromShadowList, const ShadowListType& toShadowList, size_t fromLength, size_t toLength) const
     {
         auto combinedSize = fromLength + toLength;
-        return FixedVector<ShadowType>::createWithSizeFromGenerator(combinedSize, [&](auto index) -> ShadowType {
+        return { FixedVector<ShadowType>::createWithSizeFromGenerator(combinedSize, [&](auto index) -> ShadowType {
             if (index < toLength)
                 return toShadowList[index];
             return fromShadowList[index - toLength];
-        });
+        }) };
     }
 
-    FixedVector<ShadowType> blendMatchedShadowLists(const FixedVector<ShadowType>& fromShadowList, const FixedVector<ShadowType>& toShadowList, size_t length, const RenderStyle& fromStyle, const RenderStyle& toStyle, const Context& context) const
+    ShadowListType blendMatchedShadowLists(const ShadowListType& fromShadowList, const ShadowListType& toShadowList, size_t length, const RenderStyle& fromStyle, const RenderStyle& toStyle, const Context& context) const
     {
         // from or to might be empty in which case we don't want to do additivity, but do replace instead.
-        if (!fromShadowList.isEmpty() && !toShadowList.isEmpty() && context.compositeOperation == CompositeOperation::Add)
+        if (!fromShadowList.isNone() && !toShadowList.isNone() && context.compositeOperation == CompositeOperation::Add)
             return addShadowLists(fromShadowList, toShadowList, length, length);
 
-        return FixedVector<ShadowType>::createWithSizeFromGenerator(length, [&](auto index) -> ShadowType {
+        return { FixedVector<ShadowType>::createWithSizeFromGenerator(length, [&](auto index) -> ShadowType {
             return Style::blend(fromShadowList[index], toShadowList[index], fromStyle, toStyle, context);
-        });
+        }) };
     }
 
-    FixedVector<ShadowType> blendMismatchedShadowLists(const FixedVector<ShadowType>& fromShadowList, const FixedVector<ShadowType>& toShadowList, size_t fromLength, size_t toLength, const RenderStyle& fromStyle, const RenderStyle& toStyle, const Context& context) const
+    ShadowListType blendMismatchedShadowLists(const ShadowListType& fromShadowList, const ShadowListType& toShadowList, size_t fromLength, size_t toLength, const RenderStyle& fromStyle, const RenderStyle& toStyle, const Context& context) const
     {
-        if (!fromShadowList.isEmpty() && !toShadowList.isEmpty() && context.compositeOperation != CompositeOperation::Replace)
+        if (!fromShadowList.isNone() && !toShadowList.isNone() && context.compositeOperation != CompositeOperation::Replace)
             return addShadowLists(fromShadowList, toShadowList, fromLength, toLength);
 
         auto maxLength = std::max(fromLength, toLength);
-        return FixedVector<ShadowType>::createWithSizeFromGenerator(maxLength, [&](auto index) -> ShadowType {
+        return { FixedVector<ShadowType>::createWithSizeFromGenerator(maxLength, [&](auto index) -> ShadowType {
             auto indexFromEnd = maxLength - index - 1;
             bool hasFrom = indexFromEnd < fromLength;
             bool hasTo = indexFromEnd < toLength;
@@ -1250,15 +1075,15 @@ public:
             }
 
             RELEASE_ASSERT_NOT_REACHED();
-        });
+        }) };
     }
 
 private:
-    void (RenderStyle::*m_setter)(FixedVector<ShadowType>&&);
+    void (RenderStyle::*m_setter)(ShadowListType&&);
 };
 
 class ColorWrapper final : public WrapperWithGetter<const WebCore::Color&> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(ColorWrapper, Animation);
 public:
     ColorWrapper(CSSPropertyID property, const WebCore::Color& (RenderStyle::*getter)() const, void (RenderStyle::*setter)(WebCore::Color&&))
         : WrapperWithGetter<const WebCore::Color&>(property, getter)
@@ -1275,61 +1100,8 @@ private:
     void (RenderStyle::*m_setter)(WebCore::Color&&);
 };
 
-class ScrollbarColorWrapper final : public WrapperBase {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
-public:
-    ScrollbarColorWrapper()
-        : WrapperBase(CSSPropertyScrollbarColor)
-        , m_thumbWrapper(StyleTypeWrapper<Color>(CSSPropertyScrollbarColor, &RenderStyle::scrollbarThumbColor, &RenderStyle::setScrollbarThumbColor))
-        , m_trackWrapper(StyleTypeWrapper<Color>(CSSPropertyScrollbarColor, &RenderStyle::scrollbarTrackColor, &RenderStyle::setScrollbarTrackColor))
-    {
-    }
-
-    bool equals(const RenderStyle& a, const RenderStyle& b) const final
-    {
-        bool aAuto = !a.scrollbarColor().has_value();
-        bool bAuto = !b.scrollbarColor().has_value();
-
-        if (aAuto || bAuto)
-            return aAuto == bAuto;
-
-        return m_thumbWrapper.equals(a, b) && m_trackWrapper.equals(a, b);
-    }
-
-    bool canInterpolate(const RenderStyle& from, const RenderStyle& to, CompositeOperation) const final
-    {
-        return from.scrollbarColor().has_value() && to.scrollbarColor().has_value();
-    }
-
-    void interpolate(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const Context& context) const final
-    {
-        if (canInterpolate(from, to, context.compositeOperation)) {
-            destination.setScrollbarColor(from.scrollbarColor().value());
-            m_thumbWrapper.interpolate(destination, from, to, context);
-            m_trackWrapper.interpolate(destination, from, to, context);
-            return;
-        }
-
-        ASSERT(!context.progress || context.progress == 1.0);
-        auto& blendingRenderStyle = context.progress ? to : from;
-        destination.setScrollbarColor(blendingRenderStyle.scrollbarColor());
-    }
-
-#if !LOG_DISABLED
-    void log(const RenderStyle& from, const RenderStyle& to, const RenderStyle& destination, double progress) const final
-    {
-        m_thumbWrapper.log(from, to, destination, progress);
-        m_trackWrapper.log(from, to, destination, progress);
-    }
-#endif
-
-private:
-    StyleTypeWrapper<Color> m_thumbWrapper;
-    StyleTypeWrapper<Color> m_trackWrapper;
-};
-
 class VisitedAffectedColorWrapper final : public WrapperBase {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(VisitedAffectedColorWrapper, Animation);
 public:
     VisitedAffectedColorWrapper(CSSPropertyID property, const WebCore::Color& (RenderStyle::*getter)() const, void (RenderStyle::*setter)(WebCore::Color&&), const WebCore::Color& (RenderStyle::*visitedGetter)() const, void (RenderStyle::*visitedSetter)(WebCore::Color&&))
         : WrapperBase(property)
@@ -1366,18 +1138,18 @@ public:
     ColorWrapper m_visitedWrapper;
 };
 
-class AccentColorWrapper final : public StyleTypeWrapper<Color> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+class AccentColorWrapper final : public StyleTypeWrapper<Color, const Color&, Color&&> {
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(AccentColorWrapper, Animation);
 public:
     AccentColorWrapper()
-        : StyleTypeWrapper<Color>(CSSPropertyAccentColor, &RenderStyle::accentColor, &RenderStyle::setAccentColor)
+        : StyleTypeWrapper(CSSPropertyAccentColor, &RenderStyle::accentColor, &RenderStyle::setAccentColor)
     {
     }
 
     bool equals(const RenderStyle& a, const RenderStyle& b) const final
     {
         return a.hasAutoAccentColor() == b.hasAutoAccentColor()
-            && StyleTypeWrapper<Color>::equals(a, b);
+            && StyleTypeWrapper::equals(a, b);
     }
 
     bool canInterpolate(const RenderStyle& from, const RenderStyle& to, CompositeOperation) const final
@@ -1388,7 +1160,7 @@ public:
     void interpolate(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const Context& context) const final
     {
         if (canInterpolate(from, to, context.compositeOperation)) {
-            StyleTypeWrapper<Color>::interpolate(destination, from, to, context);
+            StyleTypeWrapper::interpolate(destination, from, to, context);
             return;
         }
 
@@ -1402,7 +1174,7 @@ public:
 };
 
 class CaretColorWrapper final : public VisitedAffectedStyleTypeWrapper<Color> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(CaretColorWrapper, Animation);
 public:
     CaretColorWrapper()
         : VisitedAffectedStyleTypeWrapper<Color>(CSSPropertyCaretColor, &RenderStyle::caretColor, &RenderStyle::setCaretColor, &RenderStyle::visitedLinkCaretColor, &RenderStyle::setVisitedLinkCaretColor)
@@ -1454,7 +1226,7 @@ private:
 };
 
 class FontWeightWrapper final : public Wrapper<FontSelectionValue> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FontWeightWrapper, Animation);
 public:
     FontWeightWrapper()
         : Wrapper(CSSPropertyFontWeight, &RenderStyle::fontWeight, &RenderStyle::setFontWeight)
@@ -1468,7 +1240,7 @@ public:
 };
 
 class FontStyleWrapper final : public Wrapper<std::optional<FontSelectionValue>> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FontStyleWrapper, Animation);
 public:
     FontStyleWrapper()
         : Wrapper(CSSPropertyFontStyle, &RenderStyle::fontItalic, &RenderStyle::setFontItalic)
@@ -1500,7 +1272,7 @@ public:
 };
 
 class FontSizeAdjustWrapper final : public WrapperWithGetter<FontSizeAdjust> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FontSizeAdjustWrapper, Animation);
 public:
     FontSizeAdjustWrapper()
         : WrapperWithGetter(CSSPropertyFontSizeAdjust, &RenderStyle::fontSizeAdjust)
@@ -1532,95 +1304,8 @@ public:
     }
 };
 
-class BaselineShiftWrapper final : public WrapperWithGetter<const WebCore::Length&> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
-public:
-    BaselineShiftWrapper()
-        : WrapperWithGetter(CSSPropertyBaselineShift, &RenderStyle::baselineShiftValue)
-    {
-    }
-
-    bool equals(const RenderStyle& a, const RenderStyle& b) const final
-    {
-        if (&a == &b)
-            return true;
-        if (a.svgStyle().baselineShift() != b.svgStyle().baselineShift())
-            return false;
-        if (a.svgStyle().baselineShift() != BaselineShift::Length)
-            return true;
-        return value(a) == value(b);
-    }
-
-    bool canInterpolate(const RenderStyle& from, const RenderStyle& to, CompositeOperation) const final
-    {
-        if (from.svgStyle().baselineShift() != to.svgStyle().baselineShift())
-            return false;
-        if (from.svgStyle().baselineShift() != BaselineShift::Length)
-            return true;
-        return canInterpolateLengths(value(from), value(to), true);
-    }
-
-    bool requiresInterpolationForAccumulativeIteration(const RenderStyle& from, const RenderStyle& to) const final
-    {
-        if (from.svgStyle().baselineShift() != to.svgStyle().baselineShift() || from.svgStyle().baselineShift() != BaselineShift::Length)
-            return false;
-        return lengthsRequireInterpolationForAccumulativeIteration(value(from), value(to));
-    }
-
-    void interpolate(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const Context& context) const final
-    {
-        auto& srcSVGStyle = !context.progress ? from.svgStyle() : to.svgStyle();
-        destination.accessSVGStyle().setBaselineShift(srcSVGStyle.baselineShift());
-
-        if (srcSVGStyle.baselineShift() != BaselineShift::Length)
-            return;
-
-        destination.accessSVGStyle().setBaselineShiftValue(blendFunc(value(from), value(to), context, ValueRange::All));
-    }
-};
-
-class TextDecorationThicknessWrapper final : public WrapperWithGetter<TextDecorationThickness> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
-public:
-    TextDecorationThicknessWrapper()
-        : WrapperWithGetter(CSSPropertyTextDecorationThickness, &RenderStyle::textDecorationThickness)
-    {
-    }
-
-    bool canInterpolate(const RenderStyle& from, const RenderStyle& to, CompositeOperation) const final
-    {
-        auto fromTextDecorationThickness = from.textDecorationThickness();
-        auto toTextDecorationThickness = to.textDecorationThickness();
-        if (fromTextDecorationThickness.isAuto() || toTextDecorationThickness.isAuto())
-            return false;
-
-        auto fromValue = fromTextDecorationThickness.resolve(from.computedFontSize(), from.metricsOfPrimaryFont());
-        auto toValue = toTextDecorationThickness.resolve(to.computedFontSize(), to.metricsOfPrimaryFont());
-        return fromValue != toValue;
-    }
-
-    void interpolate(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const Context& context) const final
-    {
-        auto blendedTextDecorationThickness = [&]() -> TextDecorationThickness {
-            if (context.isDiscrete)
-                return (!context.progress ? from : to).textDecorationThickness();
-
-            auto fromTextDecorationThickness = from.textDecorationThickness();
-            auto toTextDecorationThickness = to.textDecorationThickness();
-
-            auto fromValue = fromTextDecorationThickness.resolve(from.computedFontSize(), from.metricsOfPrimaryFont());
-            auto toValue = toTextDecorationThickness.resolve(to.computedFontSize(), to.metricsOfPrimaryFont());
-
-            auto blendedValue = blendFunc(fromValue, toValue, context);
-            return TextDecorationThickness::createWithLength(WebCore::Length(clampTo<float>(blendedValue, minValueForCssLength, maxValueForCssLength), LengthType::Fixed));
-        };
-
-        destination.setTextDecorationThickness(blendedTextDecorationThickness());
-    }
-};
-
 class LineHeightWrapper final : public LengthWrapper {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(LineHeightWrapper, Animation);
 public:
     LineHeightWrapper()
         : LengthWrapper(CSSPropertyLineHeight, &RenderStyle::specifiedLineHeight, &RenderStyle::setLineHeight)
@@ -1646,64 +1331,8 @@ public:
     }
 };
 
-class VerticalAlignWrapper final : public LengthWrapper {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
-public:
-    VerticalAlignWrapper()
-        : LengthWrapper(CSSPropertyVerticalAlign, &RenderStyle::verticalAlignLength, &RenderStyle::setVerticalAlignLength, LengthWrapper::Flags::IsLengthPercentage)
-    {
-    }
-
-    bool canInterpolate(const RenderStyle& from, const RenderStyle& to, CompositeOperation compositeOperation) const final
-    {
-        return from.verticalAlign() == VerticalAlign::Length && to.verticalAlign() == VerticalAlign::Length && LengthWrapper::canInterpolate(from, to, compositeOperation);
-    }
-
-    void interpolate(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const Context& context) const final
-    {
-        LengthWrapper::interpolate(destination, from, to, context);
-        auto& blendingStyle = context.isDiscrete && context.progress ? to : from;
-        destination.setVerticalAlign(blendingStyle.verticalAlign());
-    }
-};
-
-class TextIndentWrapper final : public LengthWrapper {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
-public:
-    TextIndentWrapper()
-        : LengthWrapper(CSSPropertyTextIndent, &RenderStyle::textIndent, &RenderStyle::setTextIndent, LengthWrapper::Flags::IsLengthPercentage)
-    {
-    }
-
-    bool equals(const RenderStyle& a, const RenderStyle& b) const final
-    {
-        if (a.textIndentLine() != b.textIndentLine())
-            return false;
-        if (a.textIndentType() != b.textIndentType())
-            return false;
-        return LengthWrapper::equals(a, b);
-    }
-
-    bool canInterpolate(const RenderStyle& from, const RenderStyle& to, CompositeOperation compositeOperation) const final
-    {
-        if (from.textIndentLine() != to.textIndentLine())
-            return false;
-        if (from.textIndentType() != to.textIndentType())
-            return false;
-        return LengthWrapper::canInterpolate(from, to, compositeOperation);
-    }
-
-    void interpolate(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const Context& context) const final
-    {
-        auto& blendingStyle = context.isDiscrete && context.progress ? to : from;
-        destination.setTextIndentLine(blendingStyle.textIndentLine());
-        destination.setTextIndentType(blendingStyle.textIndentType());
-        LengthWrapper::interpolate(destination, from, to, context);
-    }
-};
-
 class TabSizeWrapper final : public Wrapper<const TabSize&> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(TabSizeWrapper, Animation);
 public:
     TabSizeWrapper()
         : Wrapper(CSSPropertyTabSize, &RenderStyle::tabSize, &RenderStyle::setTabSize)
@@ -1724,52 +1353,8 @@ public:
     }
 };
 
-class AspectRatioWrapper final : public WrapperBase {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
-public:
-    AspectRatioWrapper()
-        : WrapperBase(CSSPropertyAspectRatio)
-    {
-    }
-
-    bool equals(const RenderStyle& a, const RenderStyle& b) const final
-    {
-        if (&a == &b)
-            return true;
-
-        return a.aspectRatioType() == b.aspectRatioType() && a.aspectRatioWidth() == b.aspectRatioWidth() && a.aspectRatioHeight() == b.aspectRatioHeight();
-    }
-
-    bool canInterpolate(const RenderStyle& from, const RenderStyle& to, CompositeOperation) const final
-    {
-        return (from.aspectRatioType() == AspectRatioType::Ratio && to.aspectRatioType() == AspectRatioType::Ratio) || (from.aspectRatioType() == AspectRatioType::AutoAndRatio && to.aspectRatioType() == AspectRatioType::AutoAndRatio);
-    }
-
-    void interpolate(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const Context& context) const final
-    {
-        destination.setAspectRatioType(context.progress < 0.5 ? from.aspectRatioType() : to.aspectRatioType());
-        if (!context.isDiscrete) {
-            auto aspectRatioDst = WebCore::blend(std::log(from.logicalAspectRatio()), std::log(to.logicalAspectRatio()), context);
-            destination.setAspectRatio(std::exp(aspectRatioDst), 1);
-            return;
-        }
-        // For auto/auto-zero aspect-ratio we use discrete values, we can't use general
-        // logic since logicalAspectRatio asserts on aspect-ratio type.
-        ASSERT(!context.progress || context.progress == 1);
-        auto& applicableStyle = context.progress ? to : from;
-        destination.setAspectRatio(applicableStyle.aspectRatioWidth(), applicableStyle.aspectRatioHeight());
-    }
-
-#if !LOG_DISABLED
-    void log(const RenderStyle& from, const RenderStyle& to, const RenderStyle& destination, double progress) const final
-    {
-        LOG_WITH_STREAM(Animations, stream << "  blending " << property() << " from " << from.logicalAspectRatio() << " to " << to.logicalAspectRatio() << " at " << TextStream::FormatNumberRespectingIntegers(progress) << " -> " << destination.logicalAspectRatio());
-    }
-#endif
-};
-
 class CounterWrapper final : public WrapperBase {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(CounterWrapper, Animation);
 public:
     CounterWrapper(CSSPropertyID property)
         : WrapperBase(property)
@@ -1843,82 +1428,8 @@ public:
 #endif
 };
 
-class GridTemplateAreasWrapper final : public WrapperBase {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
-public:
-    GridTemplateAreasWrapper()
-        : WrapperBase(CSSPropertyGridTemplateAreas)
-    {
-    }
-
-    bool equals(const RenderStyle& a, const RenderStyle& b) const final
-    {
-        return a.implicitNamedGridColumnLines().map == b.implicitNamedGridColumnLines().map
-            && a.implicitNamedGridRowLines().map == b.implicitNamedGridRowLines().map
-            && a.namedGridArea().map == b.namedGridArea().map
-            && a.namedGridAreaRowCount() == b.namedGridAreaRowCount()
-            && a.namedGridAreaColumnCount() == b.namedGridAreaColumnCount();
-    }
-
-    bool canInterpolate(const RenderStyle&, const RenderStyle&, CompositeOperation) const final
-    {
-        return false;
-    }
-
-    void interpolate(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const Context& context) const final
-    {
-        ASSERT(context.isDiscrete);
-        ASSERT(!context.progress || context.progress == 1);
-
-        auto& source = context.progress ? to : from;
-        destination.setImplicitNamedGridColumnLines(source.implicitNamedGridColumnLines());
-        destination.setImplicitNamedGridRowLines(source.implicitNamedGridRowLines());
-        destination.setNamedGridArea(source.namedGridArea());
-        destination.setNamedGridAreaRowCount(source.namedGridAreaRowCount());
-        destination.setNamedGridAreaColumnCount(source.namedGridAreaColumnCount());
-    }
-
-#if !LOG_DISABLED
-    void log(const RenderStyle&, const RenderStyle&, const RenderStyle&, double progress) const final
-    {
-        LOG_WITH_STREAM(Animations, stream << " blending " << property() << " at " << TextStream::FormatNumberRespectingIntegers(progress) << ".");
-    }
-#endif
-};
-
-class QuotesWrapper final : public WrapperBase {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
-public:
-    QuotesWrapper()
-        : WrapperBase(CSSPropertyQuotes)
-    {
-    }
-
-    bool equals(const RenderStyle& a, const RenderStyle& b) const override
-    {
-        return a.quotes() == b.quotes();
-    }
-
-    bool canInterpolate(const RenderStyle&, const RenderStyle&, CompositeOperation) const override
-    {
-        return false;
-    }
-
-    void interpolate(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const Context& context) const override
-    {
-        ASSERT(!context.progress || context.progress == 1.0);
-        destination.setQuotes((context.progress ? to : from).quotes());
-    }
-
-#if !LOG_DISABLED
-    void log(const RenderStyle&, const RenderStyle&, const RenderStyle&, double) const override
-    {
-    }
-#endif
-};
-
 class VisibilityWrapper final : public Wrapper<Visibility> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(VisibilityWrapper, Animation);
 public:
     VisibilityWrapper()
         : Wrapper(CSSPropertyVisibility, &RenderStyle::visibility, &RenderStyle::setVisibility)
@@ -1935,7 +1446,7 @@ public:
 
 template<typename T, typename GetterType = T, typename SetterType = T>
 class DiscreteSVGWrapper final : public WrapperBase {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(DiscreteSVGWrapper, Animation);
 public:
     DiscreteSVGWrapper(CSSPropertyID property, GetterType (SVGRenderStyle::*getter)() const, void (SVGRenderStyle::*setter)(SetterType))
         : WrapperBase(property)
@@ -1985,7 +1496,7 @@ template<typename T>
 DiscreteSVGWrapper(CSSPropertyID, const T& (SVGRenderStyle::*getter)() const, void (SVGRenderStyle::*setter)(T&&)) -> DiscreteSVGWrapper<T, const T&, T&&>;
 
 class DWrapper final : public RefCountedWrapper<StylePathData> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(DWrapper, Animation);
 public:
     DWrapper()
         : RefCountedWrapper(CSSPropertyD, &RenderStyle::d, &RenderStyle::setD)
@@ -2004,7 +1515,7 @@ public:
 
 // Wrapper base class for an animatable property in a FillLayer
 class FillLayerWrapperBase {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FillLayerWrapperBase, Animation);
 public:
     FillLayerWrapperBase(CSSPropertyID property)
         : m_property(property)
@@ -2027,7 +1538,7 @@ private:
 
 template<typename T>
 class FillLayerWrapperWithGetter : public FillLayerWrapperBase {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FillLayerWrapperWithGetter, Animation);
     WTF_MAKE_NONCOPYABLE(FillLayerWrapperWithGetter);
 public:
     FillLayerWrapperWithGetter(CSSPropertyID property, T (FillLayer::*getter)() const)
@@ -2064,7 +1575,7 @@ private:
 
 template<typename T>
 class FillLayerWrapper final : public FillLayerWrapperWithGetter<const T&> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FillLayerWrapper, Animation);
 public:
     FillLayerWrapper(CSSPropertyID property, const T& (FillLayer::*getter)() const, void (FillLayer::*setter)(T))
         : FillLayerWrapperWithGetter<const T&>(property, getter)
@@ -2096,45 +1607,56 @@ private:
     void (FillLayer::*m_setter)(T);
 };
 
-class FillLayerPositionWrapper final : public FillLayerWrapperWithGetter<const WebCore::Length&> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+template<typename StyleType>
+class FillLayerStyleTypeWrapper final : public FillLayerWrapperBase {
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FillLayerStyleTypeWrapper, Animation);
 public:
-    FillLayerPositionWrapper(CSSPropertyID property, const WebCore::Length& (FillLayer::*lengthGetter)() const, void (FillLayer::*lengthSetter)(WebCore::Length))
-        : FillLayerWrapperWithGetter(property, lengthGetter)
-        , m_lengthSetter(lengthSetter)
+    FillLayerStyleTypeWrapper(CSSPropertyID property, const StyleType& (FillLayer::*getter)() const, void (FillLayer::*setter)(StyleType&&))
+        : FillLayerWrapperBase(property)
+        , m_getter(getter)
+        , m_setter(setter)
     {
     }
 
-private:
-    bool equals(const FillLayer* a, const FillLayer* b) const final
+    bool equals(const FillLayer* from, const FillLayer* to) const override
     {
-        if (a == b)
+        if (from == to)
             return true;
-        if (!a || !b)
+        if (!from || !to)
             return false;
-        return value(a) == value(b);
+        return Style::equalsForBlending(value(from), value(to));
     }
 
-    void interpolate(FillLayer* destination, const FillLayer* from, const FillLayer* to, const Context& context) const final
+    bool canInterpolate(const FillLayer* from, const FillLayer* to) const override final
     {
-        auto fromLength = value(from);
-        auto toLength = value(to);
-        (destination->*m_lengthSetter)(blendFunc(fromLength, toLength, context));
+        return Style::canBlend(value(from), value(to));
+    }
+
+    void interpolate(FillLayer* destination, const FillLayer* from, const FillLayer* to, const Context& context) const override final
+    {
+        (destination->*m_setter)(Style::blend(value(from), value(to), context));
     }
 
 #if !LOG_DISABLED
-    void log(const FillLayer* destination, const FillLayer* from, const FillLayer* to, double progress) const final
+    void log(const FillLayer* destination, const FillLayer* from, const FillLayer* to, double progress) const override final
     {
         LOG_WITH_STREAM(Animations, stream << "  blending " << property() << " from " << value(from) << " to " << value(to) << " at " << TextStream::FormatNumberRespectingIntegers(progress) << " -> " << value(destination));
     }
 #endif
 
-    void (FillLayer::*m_lengthSetter)(WebCore::Length);
+private:
+    const StyleType& value(const FillLayer* layer) const
+    {
+        return (layer->*m_getter)();
+    }
+
+    const StyleType& (FillLayer::*m_getter)() const;
+    void (FillLayer::*m_setter)(StyleType&&);
 };
 
 template<typename T>
 class FillLayerRefCountedWrapper : public FillLayerWrapperWithGetter<T*> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FillLayerRefCountedWrapper, Animation);
 public:
     FillLayerRefCountedWrapper(CSSPropertyID property, T* (FillLayer::*getter)() const, void (FillLayer::*setter)(RefPtr<T>&&))
         : FillLayerWrapperWithGetter<T*>(property, getter)
@@ -2162,7 +1684,7 @@ private:
 };
 
 class FillLayerStyleImageWrapper final : public FillLayerRefCountedWrapper<StyleImage> {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FillLayerStyleImageWrapper, Animation);
 public:
     FillLayerStyleImageWrapper(CSSPropertyID property, StyleImage* (FillLayer::*getter)() const, void (FillLayer::*setter)(RefPtr<StyleImage>&&))
         : FillLayerRefCountedWrapper(property, getter, setter)
@@ -2196,7 +1718,7 @@ private:
 
 template<typename T>
 class DiscreteFillLayerWrapper final : public FillLayerWrapperBase {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(DiscreteFillLayerWrapper, Animation);
 public:
     DiscreteFillLayerWrapper(CSSPropertyID property, T (FillLayer::*getter)() const, void (FillLayer::*setter)(T))
         : FillLayerWrapperBase(property)
@@ -2234,7 +1756,7 @@ private:
 };
 
 class FillLayersWrapper final : public WrapperBase {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(FillLayersWrapper, Animation);
 public:
     typedef const FillLayer& (RenderStyle::*LayersGetter)() const;
     typedef FillLayer& (RenderStyle::*LayersAccessor)();
@@ -2247,11 +1769,11 @@ public:
         switch (property) {
         case CSSPropertyBackgroundPositionX:
         case CSSPropertyWebkitMaskPositionX:
-            m_fillLayerWrapper = makeUnique<FillLayerPositionWrapper>(property, &FillLayer::xPosition, &FillLayer::setXPosition);
+            m_fillLayerWrapper = makeUnique<FillLayerStyleTypeWrapper<FillPositionX>>(property, &FillLayer::xPosition, &FillLayer::setXPosition);
             break;
         case CSSPropertyBackgroundPositionY:
         case CSSPropertyWebkitMaskPositionY:
-            m_fillLayerWrapper = makeUnique<FillLayerPositionWrapper>(property, &FillLayer::yPosition, &FillLayer::setYPosition);
+            m_fillLayerWrapper = makeUnique<FillLayerStyleTypeWrapper<FillPositionY>>(property, &FillLayer::yPosition, &FillLayer::setYPosition);
             break;
         case CSSPropertyBackgroundSize:
         case CSSPropertyWebkitBackgroundSize:
@@ -2379,7 +1901,7 @@ private:
 // MARK: - Shorthand Wrapper
 
 class ShorthandWrapper final : public WrapperBase {
-    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Animation);
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(ShorthandWrapper, Animation);
 public:
     ShorthandWrapper(CSSPropertyID property, Vector<WrapperBase*> longhandWrappers)
         : WrapperBase(property)

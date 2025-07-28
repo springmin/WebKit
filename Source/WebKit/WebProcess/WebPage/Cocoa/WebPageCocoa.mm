@@ -53,6 +53,7 @@
 #import <WebCore/DocumentMarkerController.h>
 #import <WebCore/DragImage.h>
 #import <WebCore/Editing.h>
+#import <WebCore/EditingHTMLConverter.h>
 #import <WebCore/Editor.h>
 #import <WebCore/EventHandler.h>
 #import <WebCore/EventNames.h>
@@ -62,7 +63,6 @@
 #import <WebCore/FrameView.h>
 #import <WebCore/GraphicsContextCG.h>
 #import <WebCore/HTMLBodyElement.h>
-#import <WebCore/HTMLConverter.h>
 #import <WebCore/HTMLImageElement.h>
 #import <WebCore/HTMLOListElement.h>
 #import <WebCore/HTMLTextFormControlElement.h>
@@ -75,6 +75,7 @@
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/MutableStyleProperties.h>
 #import <WebCore/NetworkExtensionContentFilter.h>
+#import <WebCore/NodeHTMLConverter.h>
 #import <WebCore/NodeRenderStyle.h>
 #import <WebCore/NotImplemented.h>
 #import <WebCore/NowPlayingInfo.h>
@@ -122,8 +123,13 @@ using namespace WebCore;
 
 void WebPage::platformInitialize(const WebPageCreationParameters& parameters)
 {
-    bool shouldInitializeNSAccessibility = parameters.hasReceivedAXRequestInUIProcess || !parameters.store.getBoolValueForKey(WebPreferencesKey::enableAccessibilityOnDemandKey());
-    platformInitializeAccessibility(shouldInitializeNSAccessibility ? ShouldInitializeNSAccessibility::Yes : ShouldInitializeNSAccessibility::No);
+#if ENABLE(INITIALIZE_ACCESSIBILITY_ON_DEMAND)
+    bool shouldInitializeAccessibility = WebProcess::singleton().shouldInitializeAccessibility() || !parameters.store.getBoolValueForKey(WebPreferencesKey::enableAccessibilityOnDemandKey());
+#else
+    bool shouldInitializeAccessibility = false;
+#endif
+
+    platformInitializeAccessibility(shouldInitializeAccessibility ? ShouldInitializeNSAccessibility::Yes : ShouldInitializeNSAccessibility::No);
 
 #if ENABLE(MEDIA_STREAM)
     if (RefPtr captureManager = WebProcess::singleton().supplement<UserMediaCaptureManager>()) {
@@ -187,9 +193,9 @@ void WebPage::platformDidReceiveLoadParameters(const LoadParameters& parameters)
 
 void WebPage::requestActiveNowPlayingSessionInfo(CompletionHandler<void(bool, WebCore::NowPlayingInfo&&)>&& completionHandler)
 {
-    if (RefPtr sharedManager = WebCore::PlatformMediaSessionManager::singletonIfExists()) {
-        if (auto nowPlayingInfo = sharedManager->nowPlayingInfo()) {
-            bool registeredAsNowPlayingApplication = sharedManager->registeredAsNowPlayingApplication();
+    if (RefPtr manager = mediaSessionManagerIfExists()) {
+        if (auto nowPlayingInfo = manager->nowPlayingInfo()) {
+            bool registeredAsNowPlayingApplication = manager->registeredAsNowPlayingApplication();
             completionHandler(registeredAsNowPlayingApplication, WTFMove(*nowPlayingInfo));
             return;
         }
@@ -236,7 +242,7 @@ void WebPage::performDictionaryLookupAtLocation(const FloatPoint& floatPoint)
     constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::DisallowUserAgentShadowContent, HitTestRequest::Type::AllowChildFrameContent };
     auto result = localMainFrame->eventHandler().hitTestResultAtPoint(localMainFrame->protectedView()->windowToContents(roundedIntPoint(floatPoint)), hitType);
 
-    RefPtr frame = result.innerNonSharedNode() ? result.innerNonSharedNode()->document().frame() : protectedCorePage()->checkedFocusController()->focusedOrMainFrame();
+    RefPtr frame = result.innerNonSharedNode() ? result.innerNonSharedNode()->document().frame() : corePage()->focusController().focusedOrMainFrame();
     if (!frame)
         return;
 
@@ -336,7 +342,7 @@ DictionaryPopupInfo WebPage::dictionaryPopupInfoForRange(LocalFrame& frame, cons
 
 void WebPage::insertDictatedTextAsync(const String& text, const EditingRange& replacementEditingRange, const Vector<WebCore::DictationAlternative>& dictationAlternativeLocations, InsertTextOptions&& options)
 {
-    RefPtr frame = protectedCorePage()->checkedFocusController()->focusedOrMainFrame();
+    RefPtr frame = corePage()->focusController().focusedOrMainFrame();
     if (!frame)
         return;
 
@@ -366,7 +372,7 @@ void WebPage::insertDictatedTextAsync(const String& text, const EditingRange& re
 
 void WebPage::addDictationAlternative(const String& text, DictationContext context, CompletionHandler<void(bool)>&& completion)
 {
-    RefPtr frame = protectedCorePage()->checkedFocusController()->focusedOrMainFrame();
+    RefPtr frame = corePage()->focusController().focusedOrMainFrame();
     if (!frame)
         return;
 
@@ -405,7 +411,7 @@ void WebPage::addDictationAlternative(const String& text, DictationContext conte
 
 void WebPage::dictationAlternativesAtSelection(CompletionHandler<void(Vector<DictationContext>&&)>&& completion)
 {
-    RefPtr frame = protectedCorePage()->checkedFocusController()->focusedOrMainFrame();
+    RefPtr frame = corePage()->focusController().focusedOrMainFrame();
     if (!frame)
         return;
 
@@ -433,7 +439,7 @@ void WebPage::dictationAlternativesAtSelection(CompletionHandler<void(Vector<Dic
 
 void WebPage::clearDictationAlternatives(Vector<DictationContext>&& contexts)
 {
-    RefPtr frame = protectedCorePage()->checkedFocusController()->focusedOrMainFrame();
+    RefPtr frame = corePage()->focusController().focusedOrMainFrame();
     if (!frame)
         return;
 
@@ -519,6 +525,39 @@ void WebPage::resolveAccessibilityHitTestForTesting(WebCore::FrameIdentifier fra
     UNUSED_PARAM(point);
     completionHandler("NULL"_s);
 }
+
+#if PLATFORM(MAC)
+void WebPage::getAccessibilityWebProcessDebugInfo(CompletionHandler<void(WebCore::AXDebugInfo)>&& completionHandler)
+{
+    if (!AXObjectCache::isAppleInternalInstall()) {
+        completionHandler({ });
+        return;
+    }
+
+    if (auto treeData = protectedCorePage()->accessibilityTreeData(IncludeDOMInfo::No)) {
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+        completionHandler({ WebCore::AXObjectCache::accessibilityEnabled(), WebCore::AXObjectCache::isAXThreadInitialized(), treeData->liveTree, treeData->isolatedTree, [m_mockAccessibilityElement remoteTokenHash], [accessibilityRemoteTokenData() hash] });
+#else
+        completionHandler({ WebCore::AXObjectCache::accessibilityEnabled(), false, treeData->liveTree, treeData->isolatedTree, [m_mockAccessibilityElement remoteTokenHash], [accessibilityRemoteTokenData() hash] });
+#endif
+        return;
+    }
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    completionHandler({ WebCore::AXObjectCache::accessibilityEnabled(), WebCore::AXObjectCache::isAXThreadInitialized(), { }, { }, 0, 0 });
+#else
+    completionHandler({ WebCore::AXObjectCache::accessibilityEnabled(), false, { }, { }, 0, 0 });
+#endif
+}
+
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+void WebPage::clearAccessibilityIsolatedTree()
+{
+    if (RefPtr page = m_page)
+        page->clearAccessibilityIsolatedTree();
+}
+#endif
+
+#endif // PLATFORM(MAC)
 
 #if ENABLE(APPLE_PAY)
 WebPaymentCoordinator* WebPage::paymentCoordinator()
@@ -786,7 +825,7 @@ private:
 
 void WebPage::replaceImageForRemoveBackground(const ElementContext& elementContext, const Vector<String>& types, std::span<const uint8_t> data)
 {
-    RefPtr frame = protectedCorePage()->checkedFocusController()->focusedOrMainFrame();
+    RefPtr frame = corePage()->focusController().focusedOrMainFrame();
     if (!frame)
         return;
 
@@ -1149,7 +1188,7 @@ static std::optional<bool> elementHasHiddenVisibility(StyledElement* styledEleme
 
 void WebPage::createTextIndicatorForElementWithID(const String& elementID, CompletionHandler<void(std::optional<WebCore::TextIndicatorData>&&)>&& completionHandler)
 {
-    RefPtr frame = protectedCorePage()->checkedFocusController()->focusedOrMainFrame();
+    RefPtr frame = corePage()->focusController().focusedOrMainFrame();
     if (!frame) {
         ASSERT_NOT_REACHED();
         completionHandler(std::nullopt);
@@ -1403,6 +1442,18 @@ void WebPage::getWebArchives(CompletionHandler<void(HashMap<WebCore::FrameIdenti
             result.add(localFrame->frameID(), archive.releaseNonNull());
     }
     completionHandler(WTFMove(result));
+}
+
+void WebPage::processSystemWillSleep() const
+{
+    if (RefPtr manager = mediaSessionManagerIfExists())
+        manager->processSystemWillSleep();
+}
+
+void WebPage::processSystemDidWake() const
+{
+    if (RefPtr manager = mediaSessionManagerIfExists())
+        manager->processSystemDidWake();
 }
 
 } // namespace WebKit

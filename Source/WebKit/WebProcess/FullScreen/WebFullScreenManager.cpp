@@ -71,12 +71,25 @@ static WebCore::IntRect screenRectOfContents(WebCore::Element& element)
     if (!renderer)
         return { };
 
-    LayoutRect topLevelRect;
-    IntRect paintingRect = snappedIntRect(element.renderer()->paintingRootRect(topLevelRect));
-    if (paintingRect.isEmpty())
+    IntRect contentsRect = renderer->absoluteBoundingBoxRect();
+    if (contentsRect.isEmpty()) {
+        // A zero-height element may contain visible overflow contents. If the element
+        // itself is empty, traverse its children to find its visual content area.
+        LayoutRect topLevelRect;
+        contentsRect = snappedIntRect(renderer->paintingRootRect(topLevelRect));
+    }
+
+    if (contentsRect.isEmpty())
         return { };
 
-    return element.document().view()->contentsToScreen(paintingRect);
+    Ref frameView = renderer->view().frameView();
+
+    // The element may have contents which are far outside the viewport of the page.
+    // Clip the contents rect by the current viewport.
+    auto viewportRect = snappedIntRect(frameView->layoutViewportRect());
+    contentsRect.intersect(viewportRect);
+
+    return frameView->contentsToScreen(contentsRect);
 }
 
 Ref<WebFullScreenManager> WebFullScreenManager::create(WebPage& page)
@@ -88,7 +101,7 @@ WebFullScreenManager::WebFullScreenManager(WebPage& page)
     : WebCore::EventListener(WebCore::EventListener::CPPEventListenerType)
     , m_page(page)
 #if ENABLE(VIDEO) && ENABLE(IMAGE_ANALYSIS)
-    , m_mainVideoElementTextRecognitionTimer(RunLoop::main(), this, &WebFullScreenManager::mainVideoElementTextRecognitionTimerFired)
+    , m_mainVideoElementTextRecognitionTimer(RunLoop::mainSingleton(), "WebFullScreenManager::MainVideoElementTextRecognitionTimer"_s, this, &WebFullScreenManager::mainVideoElementTextRecognitionTimerFired)
 #endif
 #if !RELEASE_LOG_DISABLED
     , m_logger(page.logger())
@@ -312,16 +325,15 @@ void WebFullScreenManager::enterFullScreenForElement(Element& element, HTMLMedia
 
     m_page->prepareToEnterElementFullScreen();
 
+    if (RefPtr page = m_page->corePage()) {
+        if (RefPtr view = page->mainFrame().virtualView())
+            m_scrollPosition = view->scrollPosition();
+    }
+
     if (mode == HTMLMediaElementEnums::VideoFullscreenModeInWindow) {
         willEnterFullScreen(element, WTFMove(willEnterFullScreenCallback), WTFMove(didEnterFullScreenCallback), mode);
         m_inWindowFullScreenMode = true;
     } else {
-
-        if (RefPtr page = m_page->corePage()) {
-            if (RefPtr view = page->mainFrame().virtualView())
-                m_scrollPosition = view->scrollPosition();
-        }
-
         m_page->sendWithAsyncReply(Messages::WebFullScreenManagerProxy::EnterFullScreen(frameID, m_element->document().quirks().blocksReturnToFullscreenFromPictureInPictureQuirk(), WTFMove(mediaDetails)), [
             this,
             protectedThis = Ref { *this },
@@ -455,7 +467,7 @@ void WebFullScreenManager::updateMainVideoElement()
                 continue;
 
             mainVideoBounds = bounds;
-            mainVideo = video.ptr();
+            mainVideo = WTFMove(video);
         }
         return mainVideo;
     }());

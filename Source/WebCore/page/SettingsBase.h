@@ -132,6 +132,9 @@ public:
 
     WEBCORE_EXPORT void resetToConsistentState();
 
+    WEBCORE_EXPORT RefPtr<Page> protectedPage() const;
+    WeakPtr<Page> page() const { return m_page; }
+
 protected:
     explicit SettingsBase(Page*);
     virtual ~SettingsBase();
@@ -167,7 +170,7 @@ protected:
 #endif
     void useSystemAppearanceChanged();
     void fontFallbackPrefersPictographsChanged();
-    RefPtr<Page> protectedPage() const;
+    void updateDisplayEDRHeadroom();
 
     WeakPtr<Page> m_page;
 

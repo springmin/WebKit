@@ -58,11 +58,12 @@ DOMCacheStorage::~DOMCacheStorage() = default;
 
 std::optional<ClientOrigin> DOMCacheStorage::origin() const
 {
-    RefPtr origin = scriptExecutionContext() ? scriptExecutionContext()->securityOrigin() : nullptr;
+    RefPtr scriptExecutionContext = this->scriptExecutionContext();
+    RefPtr origin = scriptExecutionContext ? scriptExecutionContext->securityOrigin() : nullptr;
     if (!origin)
         return std::nullopt;
 
-    return ClientOrigin { scriptExecutionContext()->topOrigin().data(), origin->data() };
+    return ClientOrigin { scriptExecutionContext->topOrigin().data(), origin->data() };
 }
 
 static void doSequentialMatch(size_t index, Vector<Ref<DOMCache>>&& caches, DOMCache::RequestInfo&& info, CacheQueryOptions&& options, DOMCache::MatchCallback&& completionHandler)
@@ -72,8 +73,8 @@ static void doSequentialMatch(size_t index, Vector<Ref<DOMCache>>&& caches, DOMC
         return;
     }
 
-    auto& cache = caches[index].get();
-    cache.doMatch(WTFMove(info), WTFMove(options), [caches = WTFMove(caches), info, options, completionHandler = WTFMove(completionHandler), index](auto&& result) mutable {
+    Ref cache = caches[index];
+    cache->doMatch(WTFMove(info), WTFMove(options), [caches = WTFMove(caches), info, options, completionHandler = WTFMove(completionHandler), index](auto&& result) mutable {
         if (result.hasException()) {
             completionHandler(result.releaseException());
             return;
@@ -115,14 +116,16 @@ void DOMCacheStorage::match(DOMCache::RequestInfo&& info, MultiCacheQueryOptions
 {
     retrieveCaches([this, info = WTFMove(info), options = WTFMove(options), promise = WTFMove(promise)](std::optional<Exception>&& exception) mutable {
         if (exception) {
-            promise->reject(WTFMove(*exception));
+            queueTaskKeepingObjectAlive(*this, TaskSource::DOMManipulation, [promise = WTFMove(promise), exception = WTFMove(exception.value())](auto&) mutable {
+                promise->reject(WTFMove(exception));
+            });
             return;
         }
 
         if (!options.cacheName.isNull()) {
             auto position = m_caches.findIf([&](auto& item) { return item->name() == options.cacheName; });
             if (position != notFound) {
-                m_caches[position]->match(WTFMove(info), WTFMove(options), WTFMove(promise));
+                Ref { m_caches[position] }->match(WTFMove(info), WTFMove(options), WTFMove(promise));
                 return;
             }
             promise->resolve();
@@ -137,7 +140,9 @@ void DOMCacheStorage::has(const String& name, DOMPromiseDeferred<IDLBoolean>&& p
 {
     retrieveCaches([this, name, promise = WTFMove(promise)](std::optional<Exception>&& exception) mutable {
         if (exception) {
-            promise.reject(WTFMove(exception.value()));
+            queueTaskKeepingObjectAlive(*this, TaskSource::DOMManipulation, [promise = WTFMove(promise), exception = WTFMove(exception.value())](auto&) mutable {
+                promise.reject(WTFMove(exception));
+            });
             return;
         }
         promise.resolve(m_caches.findIf([&](auto& item) { return item->name() == name; }) != notFound);
@@ -177,18 +182,18 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(ConnectionStorageLock);
 
 void DOMCacheStorage::retrieveCaches(CompletionHandler<void(std::optional<Exception>&&)>&& callback)
 {
+    RefPtr scriptExecutionContext = this->scriptExecutionContext();
     auto origin = this->origin();
     if (!origin) {
-        callback(convertToExceptionAndLog(scriptExecutionContext(), DOMCacheEngine::Error::Stopped));
+        callback(convertToExceptionAndLog(scriptExecutionContext.get(), DOMCacheEngine::Error::Stopped));
         return;
     }
     auto retrieveCachesPromise = m_connection->retrieveCaches(*origin, m_updateCounter);
-    scriptExecutionContext()->enqueueTaskWhenSettled(WTFMove(retrieveCachesPromise), TaskSource::DOMManipulation, [this, callback = WTFMove(callback), pendingActivity = makePendingActivity(*this), connectionStorageLock = makeUnique<ConnectionStorageLock>(m_connection.copyRef(), *origin)] (auto&& result) mutable {
+    scriptExecutionContext->enqueueTaskWhenSettled(WTFMove(retrieveCachesPromise), TaskSource::DOMManipulation, [this, callback = WTFMove(callback), pendingActivity = makePendingActivity(*this), connectionStorageLock = makeUnique<ConnectionStorageLock>(m_connection.copyRef(), *origin), context = WTFMove(scriptExecutionContext)] (auto&& result) mutable {
         if (m_isStopped) {
             callback(DOMCacheEngine::convertToException(DOMCacheEngine::Error::Stopped));
             return;
         }
-        RefPtr context = scriptExecutionContext();
         if (!result) {
             callback(DOMCacheEngine::convertToExceptionAndLog(context.get(), result.error()));
             return;
@@ -225,7 +230,9 @@ void DOMCacheStorage::open(const String& name, DOMPromiseDeferred<IDLInterface<D
 {
     retrieveCaches([this, name, promise = WTFMove(promise)](std::optional<Exception>&& exception) mutable {
         if (exception) {
-            promise.reject(WTFMove(*exception));
+            queueTaskKeepingObjectAlive(*this, TaskSource::DOMManipulation, [promise = WTFMove(promise), exception = WTFMove(exception.value())](auto&) mutable {
+                promise.reject(WTFMove(exception));
+            });
             return;
         }
         doOpen(name, WTFMove(promise));
@@ -269,7 +276,9 @@ void DOMCacheStorage::remove(const String& name, DOMPromiseDeferred<IDLBoolean>&
 {
     retrieveCaches([this, name, promise = WTFMove(promise)](std::optional<Exception>&& exception) mutable {
         if (exception) {
-            promise.reject(WTFMove(*exception));
+            queueTaskKeepingObjectAlive(*this, TaskSource::DOMManipulation, [promise = WTFMove(promise), exception = WTFMove(exception.value())](auto&) mutable {
+                promise.reject(WTFMove(exception));
+            });
             return;
         }
         doRemove(name, WTFMove(promise));
@@ -284,9 +293,9 @@ void DOMCacheStorage::doRemove(const String& name, DOMPromiseDeferred<IDLBoolean
         return;
     }
 
-    scriptExecutionContext()->enqueueTaskWhenSettled(m_connection->remove(m_caches[position]->identifier()), TaskSource::DOMManipulation, [this, promise = WTFMove(promise), pendingActivity = makePendingActivity(*this)](const auto& result) mutable {
+    protectedScriptExecutionContext()->enqueueTaskWhenSettled(m_connection->remove(m_caches[position]->identifier()), TaskSource::DOMManipulation, [this, promise = WTFMove(promise), pendingActivity = makePendingActivity(*this)](const auto& result) mutable {
         if (!result)
-            promise.reject(DOMCacheEngine::convertToExceptionAndLog(scriptExecutionContext(), result.error()));
+            promise.reject(DOMCacheEngine::convertToExceptionAndLog(protectedScriptExecutionContext().get(), result.error()));
         else
             promise.resolve(result.value());
     });
@@ -296,7 +305,9 @@ void DOMCacheStorage::keys(KeysPromise&& promise)
 {
     retrieveCaches([this, promise = WTFMove(promise)](std::optional<Exception>&& exception) mutable {
         if (exception) {
-            promise.reject(WTFMove(exception.value()));
+            queueTaskKeepingObjectAlive(*this, TaskSource::DOMManipulation, [promise = WTFMove(promise), exception = WTFMove(exception.value())](auto&) mutable {
+                promise.reject(WTFMove(exception));
+            });
             return;
         }
 

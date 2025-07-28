@@ -64,9 +64,8 @@ webrtc::DataChannelInit LibWebRTCDataChannelHandler::fromRTCDataChannelInit(cons
 }
 
 LibWebRTCDataChannelHandler::LibWebRTCDataChannelHandler(webrtc::scoped_refptr<webrtc::DataChannelInterface>&& channel)
-    : m_channel(WTFMove(channel))
+    : m_channel(toRef(WTFMove(channel)))
 {
-    ASSERT(m_channel);
     checkState();
     m_channel->RegisterObserver(this);
 }
@@ -222,7 +221,7 @@ void LibWebRTCDataChannelHandler::OnBufferedAmountChange(uint64_t amount)
 
     postTask([client = m_client, amount] {
         if (client)
-            client->bufferedAmountIsDecreasing(static_cast<size_t>(amount));
+            client->bufferedAmountIsDecreasing(static_cast<uint64_t>(amount));
     });
 }
 

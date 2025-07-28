@@ -432,7 +432,7 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
         ftlThunks = makeUnique<FTL::Thunks>();
 #endif // ENABLE(FTL_JIT)
         m_sharedJITStubs = makeUnique<SharedJITStubSet>();
-        getBoundFunction(/* isJSFunction */ true);
+        getBoundFunction(/* isJSFunction */ true, SourceTaintedOrigin::Untainted);
     }
 #endif // ENABLE(JIT)
 
@@ -773,13 +773,15 @@ NativeExecutable* VM::getHostFunction(NativeFunction function, ImplementationVis
     return NativeExecutable::create(*this, jitCodeForCallTrampoline(intrinsic), toTagged(function), jitCodeForConstructTrampoline(), toTagged(constructor), implementationVisibility, name);
 }
 
-NativeExecutable* VM::getBoundFunction(bool isJSFunction)
+NativeExecutable* VM::getBoundFunction(bool isJSFunction, SourceTaintedOrigin taintedness)
 {
     bool slowCase = !isJSFunction;
 
     auto getOrCreate = [&](WriteBarrier<NativeExecutable>& slot) -> NativeExecutable* {
-        if (auto* cached = slot.get())
-            return cached;
+        if (taintedness < SourceTaintedOrigin::IndirectlyTainted) {
+            if (auto* cached = slot.get())
+                return cached;
+        }
         NativeExecutable* result = getHostFunction(
             slowCase ? boundFunctionCall : boundThisNoArgsFunctionCall,
             ImplementationVisibility::Private, // Bound function's visibility is private on the stack.
@@ -822,12 +824,12 @@ CodePtr<JSEntryPtrTag> VM::getCTIInternalFunctionTrampolineFor(CodeSpecializatio
 {
 #if ENABLE(JIT)
     if (Options::useJIT()) {
-        if (kind == CodeForCall)
+        if (kind == CodeSpecializationKind::CodeForCall)
             return jitStubs->ctiInternalFunctionCall(*this).retagged<JSEntryPtrTag>();
         return jitStubs->ctiInternalFunctionConstruct(*this).retagged<JSEntryPtrTag>();
     }
 #endif
-    if (kind == CodeForCall)
+    if (kind == CodeSpecializationKind::CodeForCall)
         return LLInt::getCodePtr<JSEntryPtrTag>(llint_internal_function_call_trampoline);
     return LLInt::getCodePtr<JSEntryPtrTag>(llint_internal_function_construct_trampoline);
 }
@@ -1741,7 +1743,6 @@ void VM::performOpportunisticallyScheduledTasks(MonotonicTime deadline, OptionSe
             if (estimatedGCDuration + extraDurationToAvoidExceedingDeadlineDuringFullGC < remainingTime) {
                 dataLogLnIf(verbose, "[OPPORTUNISTIC TASK] FULL", " signpost:(", JSC::activeJSGlobalObjectSignpostIntervalCount.load(), ")");
                 heap.collectSync(CollectionScope::Full);
-                heap.m_shouldDoOpportunisticFullCollection = false;
                 return;
             }
         }
@@ -1752,7 +1753,6 @@ void VM::performOpportunisticallyScheduledTasks(MonotonicTime deadline, OptionSe
             if (estimatedGCDuration + extraDurationToAvoidExceedingDeadlineDuringEdenGC < remainingTime) {
                 dataLogLnIf(verbose, "[OPPORTUNISTIC TASK] EDEN: ", timeSinceFinishingLastFullGC, " ", timeSinceLastGC, " ", heap.m_shouldDoOpportunisticFullCollection, " ", heap.m_totalBytesVisitedAfterLastFullCollect, " ", heap.totalBytesAllocatedThisCycle(), " ", heap.m_bytesAllocatedBeforeLastEdenCollect, " ", heap.m_lastGCEndTime, " ", heap.m_currentGCStartTime, " ", (heap.lastFullGCLength() * heap.m_totalBytesVisited) / heap.m_totalBytesVisitedAfterLastFullCollect, " ", remainingTime, " ", (heap.lastEdenGCLength() * heap.totalBytesAllocatedThisCycle()) / heap.m_bytesAllocatedBeforeLastEdenCollect, " signpost:(", JSC::activeJSGlobalObjectSignpostIntervalCount.load(), ")");
                 heap.collectSync(CollectionScope::Eden);
-                heap.m_shouldDoOpportunisticFullCollection = false;
                 return;
             }
         }

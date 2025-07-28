@@ -52,6 +52,7 @@
 #include <WebCore/Site.h>
 #include <WebCore/UserGestureTokenIdentifier.h>
 #include <pal/SessionID.h>
+#include <wtf/Expected.h>
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
@@ -208,7 +209,8 @@ public:
 #endif
     void waitForSharedPreferencesForWebProcessToSync(uint64_t sharedPreferencesVersion, CompletionHandler<void(bool success)>&&);
 
-    const std::optional<WebCore::Site>& site() const { return m_site; }
+    enum class SiteState : uint8_t { NotYetSpecified, MultipleSites, SharedProcess };
+    const Expected<WebCore::Site, SiteState>& site() const { return m_site; }
 
     enum class WillShutDown : bool { No, Yes };
     void setIsInProcessCache(bool, WillShutDown = WillShutDown::No);
@@ -346,7 +348,7 @@ public:
     void didExceedCPULimit();
     void didExceedActiveMemoryLimit();
     void didExceedInactiveMemoryLimit();
-    void didExceedMemoryFootprintThreshold(size_t);
+    void didExceedMemoryFootprintThreshold(uint64_t);
 
     void didCommitProvisionalLoad() { m_hasCommittedAnyProvisionalLoads = true; }
     bool hasCommittedAnyProvisionalLoads() const { return m_hasCommittedAnyProvisionalLoads; }
@@ -389,7 +391,7 @@ public:
     ShutdownPreventingScopeCounter::Token shutdownPreventingScope() { return m_shutdownPreventingScopeCounter.count(); }
 
     void didStartProvisionalLoadForMainFrame(const URL&);
-    void didStartUsingProcessForSiteIsolation(const WebCore::Site&);
+    void didStartUsingProcessForSiteIsolation(const std::optional<WebCore::Site>&);
 
     // ProcessThrottlerClient
     void sendPrepareToSuspend(IsSuspensionImminent, double remainingRunTime, CompletionHandler<void()>&&) final;
@@ -445,10 +447,6 @@ public:
     void startServiceWorkerBackgroundProcessing();
     void endServiceWorkerBackgroundProcessing();
     void setThrottleStateForTesting(ProcessThrottleState);
-
-#if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
-    UserMediaCaptureManagerProxy& userMediaCaptureManagerProxy() { return m_userMediaCaptureManagerProxy.get(); }
-#endif
 
 #if ENABLE(GPU_PROCESS)
     void gpuProcessDidFinishLaunching();
@@ -635,7 +633,7 @@ private:
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
     bool didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&) override;
     void didClose(IPC::Connection&) final;
-    void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, int32_t indexOfObjectFailingDecoding) override;
+    void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, const Vector<uint32_t>& indicesOfObjectsFailingDecoding) override;
     bool dispatchMessage(IPC::Connection&, IPC::Decoder&);
     bool dispatchSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&);
 
@@ -758,7 +756,7 @@ private:
 
     HashMap<String, uint64_t> m_pageURLRetainCountMap;
 
-    std::optional<WebCore::Site> m_site;
+    Expected<WebCore::Site, SiteState> m_site { Unexpected<SiteState> { SiteState::NotYetSpecified } };
     bool m_isInProcessCache { false };
 
     enum class NoOrMaybe { No, Maybe } m_isResponsive;
@@ -768,10 +766,6 @@ private:
     RefPtr<WebsiteDataStore> m_websiteDataStore;
 
     SystemMemoryPressureStatus m_memoryPressureStatus { SystemMemoryPressureStatus::Normal };
-
-#if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
-    const Ref<UserMediaCaptureManagerProxy> m_userMediaCaptureManagerProxy;
-#endif
 
     bool m_hasCommittedAnyProvisionalLoads { false };
     bool m_hasCommittedAnyMeaningfulProvisionalLoads { false }; // True if the process has committed a provisional load to a URL that was not about:*.

@@ -4,6 +4,7 @@
  * Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2009 Jeff Schiller <codedread@gmail.com>
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
+ * Copyright (C) 2025 Samuel Weinig <sam@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,13 +40,15 @@
 #include "FontSizeAdjust.h"
 #include "GraphicsTypes.h"
 #include "Length.h"
-#include "ListStyleType.h"
 #include "PositionTryFallback.h"
 #include "RenderStyleConstants.h"
 #include "SVGRenderStyleDefs.h"
 #include "ScrollAxis.h"
 #include "ScrollTypes.h"
 #include "StyleBuilderState.h"
+#include "StyleScrollBehavior.h"
+#include "StyleWebKitOverflowScrolling.h"
+#include "StyleWebKitTouchCallout.h"
 #include "TextFlags.h"
 #include "ThemeTypes.h"
 #include "TouchAction.h"
@@ -228,10 +231,14 @@ constexpr CSSValueID toCSSValueID(BorderStyle e)
 
 template<> constexpr BorderStyle fromCSSValueID(CSSValueID valueID)
 {
-    if (valueID == CSSValueAuto) // Valid for CSS outline-style
-        return BorderStyle::Dotted;
     return static_cast<BorderStyle>(valueID - CSSValueNone);
 }
+
+#define TYPE OutlineStyle
+#define FOR_EACH(CASE) CASE(Auto) CASE(None) CASE(Inset) CASE(Groove) CASE(Ridge) CASE(Outset) CASE(Dotted) CASE(Dashed) CASE(Solid) CASE(Double)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
 
 constexpr CSSValueID toCSSValueID(CompositeOperator e, CSSPropertyID propertyID)
 {
@@ -895,28 +902,6 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
 
-constexpr CSSValueID toCSSValueID(ListStyleType::Type style)
-{
-    switch (style) {
-    case ListStyleType::Type::None:
-        return CSSValueNone;
-    default:
-        ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-        return CSSValueInvalid;
-    }
-}
-
-template<> constexpr ListStyleType::Type fromCSSValueID(CSSValueID valueID)
-{
-    switch (valueID) {
-    case CSSValueNone:
-        return ListStyleType::Type::None;
-    default:
-        ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-        return ListStyleType::Type::None;
-    }
-}
-
 #define TYPE MarqueeBehavior
 #define FOR_EACH(CASE) CASE(None) CASE(Scroll) CASE(Slide) CASE(Alternate)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
@@ -1356,62 +1341,6 @@ template<> constexpr UserSelect fromCSSValueID(CSSValueID valueID)
     return UserSelect::Text;
 }
 
-constexpr CSSValueID toCSSValueID(VerticalAlign a)
-{
-    switch (a) {
-    case VerticalAlign::Top:
-        return CSSValueTop;
-    case VerticalAlign::Bottom:
-        return CSSValueBottom;
-    case VerticalAlign::Middle:
-        return CSSValueMiddle;
-    case VerticalAlign::Baseline:
-        return CSSValueBaseline;
-    case VerticalAlign::TextBottom:
-        return CSSValueTextBottom;
-    case VerticalAlign::TextTop:
-        return CSSValueTextTop;
-    case VerticalAlign::Sub:
-        return CSSValueSub;
-    case VerticalAlign::Super:
-        return CSSValueSuper;
-    case VerticalAlign::BaselineMiddle:
-        return CSSValueWebkitBaselineMiddle;
-    case VerticalAlign::Length:
-        return CSSValueInvalid;
-    }
-    ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-    return CSSValueInvalid;
-}
-
-template<> constexpr VerticalAlign fromCSSValueID(CSSValueID valueID)
-{
-    switch (valueID) {
-    case CSSValueTop:
-        return VerticalAlign::Top;
-    case CSSValueBottom:
-        return VerticalAlign::Bottom;
-    case CSSValueMiddle:
-        return VerticalAlign::Middle;
-    case CSSValueBaseline:
-        return VerticalAlign::Baseline;
-    case CSSValueTextBottom:
-        return VerticalAlign::TextBottom;
-    case CSSValueTextTop:
-        return VerticalAlign::TextTop;
-    case CSSValueSub:
-        return VerticalAlign::Sub;
-    case CSSValueSuper:
-        return VerticalAlign::Super;
-    case CSSValueWebkitBaselineMiddle:
-        return VerticalAlign::BaselineMiddle;
-    default:
-        break;
-    }
-    ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-    return VerticalAlign::Top;
-}
-
 #define TYPE Visibility
 #define FOR_EACH(CASE) CASE(Visible) CASE(Hidden) CASE(Collapse)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
@@ -1642,11 +1571,6 @@ constexpr CSSValueID toCSSValueID(TextEmphasisMark mark)
         return CSSValueTriangle;
     case TextEmphasisMark::Sesame:
         return CSSValueSesame;
-    case TextEmphasisMark::None:
-    case TextEmphasisMark::Auto:
-    case TextEmphasisMark::Custom:
-        ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-        return CSSValueNone;
     }
     ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
     return CSSValueInvalid;
@@ -1655,8 +1579,6 @@ constexpr CSSValueID toCSSValueID(TextEmphasisMark mark)
 template<> constexpr TextEmphasisMark fromCSSValueID(CSSValueID valueID)
 {
     switch (valueID) {
-    case CSSValueNone:
-        return TextEmphasisMark::None;
     case CSSValueDot:
         return TextEmphasisMark::Dot;
     case CSSValueCircle:
@@ -1671,7 +1593,7 @@ template<> constexpr TextEmphasisMark fromCSSValueID(CSSValueID valueID)
         break;
     }
     ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-    return TextEmphasisMark::None;
+    return TextEmphasisMark::Dot;
 }
 
 #define TYPE TextOrientation
@@ -2653,6 +2575,32 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
+
+#define TYPE Style::ScrollBehavior
+#define FOR_EACH(CASE) CASE(Auto) CASE(Smooth)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#if ENABLE(WEBKIT_OVERFLOW_SCROLLING_CSS_PROPERTY)
+
+#define TYPE Style::WebkitOverflowScrolling
+#define FOR_EACH(CASE) CASE(Auto) CASE(Touch)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#endif
+
+#if ENABLE(WEBKIT_TOUCH_CALLOUT_CSS_PROPERTY)
+
+#define TYPE Style::WebkitTouchCallout
+#define FOR_EACH(CASE) CASE(Default) CASE(None)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#endif
 
 #undef EMIT_TO_CSS_SWITCH_CASE
 #undef EMIT_FROM_CSS_SWITCH_CASE

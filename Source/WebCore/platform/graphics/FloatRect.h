@@ -34,11 +34,7 @@ typedef struct CGRect CGRect;
 #endif
 
 #if PLATFORM(MAC)
-#ifdef NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES
 typedef struct CGRect NSRect;
-#else
-typedef struct _NSRect NSRect;
-#endif
 #endif // PLATFORM(MAC)
 
 #if USE(CAIRO)
@@ -222,11 +218,6 @@ public:
     WEBCORE_EXPORT operator CGRect() const;
 #endif
 
-#if PLATFORM(MAC) && !defined(NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES)
-    WEBCORE_EXPORT FloatRect(const NSRect&);
-    WEBCORE_EXPORT operator NSRect() const;
-#endif
-
 #if USE(SKIA)
     FloatRect(const SkRect&);
     operator SkRect() const;
@@ -254,18 +245,6 @@ public:
     WEBCORE_EXPORT Ref<JSON::Object> toJSONObject() const;
 
     friend bool operator==(const FloatRect&, const FloatRect&) = default;
-
-    struct MarkableTraits {
-        constexpr static bool isEmptyValue(const FloatRect& rect)
-        {
-            return rect.isNaN();
-        }
-
-        constexpr static FloatRect emptyValue()
-        {
-            return FloatRect::nanRect();
-        }
-    };
 
 private:
     FloatPoint m_location;
@@ -365,7 +344,7 @@ constexpr FloatRect FloatRect::nanRect()
 
 constexpr bool FloatRect::isNaN() const
 {
-    return isNaNConstExpr(x());
+    return isNaNConstExpr(x()) || isNaNConstExpr(y());
 }
 
 inline void FloatRect::inflate(float deltaX, float deltaY, float deltaMaxX, float deltaMaxY)
@@ -398,6 +377,19 @@ struct LogArgument<WebCore::FloatRect> {
     static String toString(const WebCore::FloatRect& rect)
     {
         return rect.toJSONString();
+    }
+};
+
+template<>
+struct MarkableTraits<WebCore::FloatRect> {
+    constexpr static bool isEmptyValue(const WebCore::FloatRect& rect)
+    {
+        return rect.isNaN();
+    }
+
+    constexpr static WebCore::FloatRect emptyValue()
+    {
+        return WebCore::FloatRect::nanRect();
     }
 };
 

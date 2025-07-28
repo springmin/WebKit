@@ -853,6 +853,23 @@ TextStream& operator<<(TextStream& ts, Order order)
     return ts;
 }
 
+TextStream& operator<<(TextStream& ts, OutlineStyle outlineStyle)
+{
+    switch (outlineStyle) {
+    case OutlineStyle::Auto: ts << "auto"_s; break;
+    case OutlineStyle::None: ts << "none"_s; break;
+    case OutlineStyle::Inset: ts << "inset"_s; break;
+    case OutlineStyle::Groove: ts << "groove"_s; break;
+    case OutlineStyle::Outset: ts << "outset"_s; break;
+    case OutlineStyle::Ridge: ts << "ridge"_s; break;
+    case OutlineStyle::Dotted: ts << "dotted"_s; break;
+    case OutlineStyle::Dashed: ts << "dashed"_s; break;
+    case OutlineStyle::Solid: ts << "solid"_s; break;
+    case OutlineStyle::Double: ts << "double"_s; break;
+    }
+    return ts;
+}
+
 TextStream& operator<<(TextStream& ts, Overflow overflow)
 {
     switch (overflow) {
@@ -1204,14 +1221,11 @@ TextStream& operator<<(TextStream& ts, TextEmphasisFill fill)
 TextStream& operator<<(TextStream& ts, TextEmphasisMark mark)
 {
     switch (mark) {
-    case TextEmphasisMark::None: ts << "none"_s; break;
-    case TextEmphasisMark::Auto: ts << "auto"_s; break;
     case TextEmphasisMark::Dot: ts << "dot"_s; break;
     case TextEmphasisMark::Circle: ts << "circle"_s; break;
     case TextEmphasisMark::DoubleCircle: ts << "double-circle"_s; break;
     case TextEmphasisMark::Triangle: ts << "triangle"_s; break;
     case TextEmphasisMark::Sesame: ts << "sesame"_s; break;
-    case TextEmphasisMark::Custom: ts << "custom"_s; break;
     }
     return ts;
 }
@@ -1401,23 +1415,6 @@ TextStream& operator<<(TextStream& ts, UserSelect userSelect)
     case UserSelect::None: ts << "none"_s; break;
     case UserSelect::Text: ts << "text"_s; break;
     case UserSelect::All: ts << "all"_s; break;
-    }
-    return ts;
-}
-
-TextStream& operator<<(TextStream& ts, VerticalAlign verticalAlign)
-{
-    switch (verticalAlign) {
-    case VerticalAlign::Baseline: ts << "baseline"_s; break;
-    case VerticalAlign::Middle: ts << "middle"_s; break;
-    case VerticalAlign::Sub: ts << "sub"_s; break;
-    case VerticalAlign::Super: ts << "super"_s; break;
-    case VerticalAlign::TextTop: ts << "text-top"_s; break;
-    case VerticalAlign::TextBottom: ts << "text-bottom"_s; break;
-    case VerticalAlign::Top: ts << "top"_s; break;
-    case VerticalAlign::Bottom: ts << "bottom"_s; break;
-    case VerticalAlign::BaselineMiddle: ts << "baseline-middle"_s; break;
-    case VerticalAlign::Length: ts << "length"_s; break;
     }
     return ts;
 }

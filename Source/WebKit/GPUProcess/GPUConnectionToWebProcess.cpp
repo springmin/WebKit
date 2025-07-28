@@ -75,10 +75,6 @@
 #include <WebCore/AVVideoCaptureSource.h>
 #include <WebCore/MediaSessionManagerCocoa.h>
 #include <WebCore/MediaSessionManagerIOS.h>
-#if ENABLE(MEDIA_RECORDER)
-#include "RemoteMediaRecorderPrivateWriterManager.h"
-#include "RemoteMediaRecorderPrivateWriterManagerMessages.h"
-#endif
 #endif
 
 #if ENABLE(WEBGL)
@@ -558,10 +554,6 @@ bool GPUConnectionToWebProcess::allowsExitUnderMemoryPressure() const
     if (!protectedLibWebRTCCodecsProxy()->allowsExitUnderMemoryPressure())
         return false;
 #endif
-#if PLATFORM(COCOA) && USE(MEDIA_RECORDER)
-    if (RefPtr mediaRecorderPrivateWriterManager = m_remoteMediaRecorderPrivateWriterManager; mediaRecorderPrivateWriterManager && mediaRecorderPrivateWriterManager->->allowsExitUnderMemoryPressure())
-        return false;
-#endif
     return true;
 }
 
@@ -575,7 +567,7 @@ Logger& GPUConnectionToWebProcess::logger()
     return *m_logger;
 }
 
-void GPUConnectionToWebProcess::didReceiveInvalidMessage(IPC::Connection& connection, IPC::MessageName messageName, int32_t)
+void GPUConnectionToWebProcess::didReceiveInvalidMessage(IPC::Connection& connection, IPC::MessageName messageName, const Vector<uint32_t>&)
 {
 #if ENABLE(IPC_TESTING_API)
     if (connection.ignoreInvalidMessageForTesting())
@@ -633,21 +625,6 @@ Ref<RemoteMediaResourceManager> GPUConnectionToWebProcess::protectedRemoteMediaR
     return remoteMediaResourceManager();
 }
 #endif
-
-#if PLATFORM(COCOA) && ENABLE(MEDIA_RECORDER)
-RemoteMediaRecorderPrivateWriterManager& GPUConnectionToWebProcess::remoteMediaRecorderPrivateWriterManager()
-{
-    if (!m_remoteMediaRecorderPrivateWriterManager)
-        lazyInitialize(m_remoteMediaRecorderPrivateWriterManager, makeUniqueWithoutRefCountedCheck<RemoteMediaRecorderPrivateWriterManager>(*this));
-
-    return *m_remoteMediaRecorderPrivateWriterManager;
-}
-
-Ref<RemoteMediaRecorderPrivateWriterManager> GPUConnectionToWebProcess::protectedRemoteMediaRecorderPrivateWriterManager()
-{
-    return remoteMediaRecorderPrivateWriterManager();
-}
-#endif // PLATFORM(COCOA) && ENABLE(MEDIA_RECORDER)
 
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
 UserMediaCaptureManagerProxy& GPUConnectionToWebProcess::userMediaCaptureManagerProxy()
@@ -1003,12 +980,6 @@ bool GPUConnectionToWebProcess::dispatchMessage(IPC::Connection& connection, IPC
         return true;
     }
 #endif
-#if PLATFORM(COCOA) && ENABLE(MEDIA_RECORDER)
-    if (decoder.messageReceiverName() == Messages::RemoteMediaRecorderPrivateWriterManager::messageReceiverName()) {
-        protectedRemoteMediaRecorderPrivateWriterManager()->didReceiveMessage(connection, decoder);
-        return true;
-    }
-#endif
 
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
     if (decoder.messageReceiverName() == Messages::UserMediaCaptureManagerProxy::messageReceiverName()) {
@@ -1112,12 +1083,6 @@ bool GPUConnectionToWebProcess::dispatchSyncMessage(IPC::Connection& connection,
     }
     if (decoder.messageReceiverName() == Messages::RemoteMediaPlayerProxy::messageReceiverName()) {
         return protectedRemoteMediaPlayerManagerProxy()->didReceiveSyncPlayerMessage(connection, decoder, replyEncoder);
-    }
-#endif
-#if PLATFORM(COCOA) && ENABLE(MEDIA_RECORDER)
-    if (decoder.messageReceiverName() == Messages::RemoteMediaRecorderPrivateWriterManager::messageReceiverName()) {
-        protectedRemoteMediaRecorderPrivateWriterManager()->didReceiveSyncMessage(connection, decoder, replyEncoder);
-        return true;
     }
 #endif
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)

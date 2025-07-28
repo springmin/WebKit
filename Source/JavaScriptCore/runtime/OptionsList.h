@@ -220,7 +220,9 @@ bool hasCapacityToUseLargeGigacage();
     v(Double, miniVMHeapGrowthFactor, 1.20, Normal, nullptr) \
     v(Double, heapGrowthSteepnessFactor, 2.00, Normal, nullptr) \
     v(Double, heapGrowthMaxIncrease, 3.00, Normal, nullptr) \
-    v(Unsigned, heapGrowthFunctionThresholdInMB, 16 * 1024, Normal, nullptr) \
+    v(Unsigned, aggressiveHeapThresholdInMB, 16 * 1024, Normal, nullptr) \
+    v(Double, maxEdenSizeForRateLimitingMultiplier, 8.0, Normal, nullptr) \
+    v(Double, gcRateLimitingHalfLifeInMS, 1000.00, Normal, nullptr) \
     v(Double, criticalGCMemoryThreshold, 0.80, Normal, "percent memory in use the GC considers critical.  The collector is much more aggressive above this threshold"_s) \
     v(Double, customFullGCCallbackBailThreshold, -1.0, Normal, "percent of memory paged out before we bail out of timer based Full GCs. -1.0 means use (maxHeapGrowthFactor - 1)"_s) \
     v(Double, minimumMutatorUtilization, 0, Normal, nullptr) \
@@ -238,6 +240,7 @@ bool hasCapacityToUseLargeGigacage();
     v(Double, sizeClassProgression, 1.4, Normal, nullptr) \
     v(Unsigned, preciseAllocationCutoff, 100000, Normal, nullptr) \
     v(Bool, dumpSizeClasses, false, Normal, nullptr) \
+    v(Bool, useBumpAllocator, true, Normal, nullptr) \
     v(Bool, stealEmptyBlocksFromOtherAllocators, true, Normal, nullptr) \
     v(Bool, eagerlyUpdateTopCallFrame, false, Normal, nullptr) \
     v(Bool, dumpZappedCellCrashData, false, Normal, nullptr) \
@@ -600,7 +603,7 @@ bool hasCapacityToUseLargeGigacage();
     v(Bool, dumpBaselineJITSizeStatistics, false, Normal, nullptr) \
     v(Bool, dumpDFGJITSizeStatistics, false, Normal, nullptr) \
     v(Bool, useLoopUnrolling, true, Normal, nullptr) \
-    v(Bool, usePartialLoopUnrolling, false, Normal, nullptr) \
+    v(Bool, usePartialLoopUnrolling, true, Normal, nullptr) \
     v(Bool, verboseLoopUnrolling, false, Normal, nullptr) \
     v(Bool, disallowLoopUnrollingForNonInnermost, true, Normal, nullptr) \
     v(Unsigned, maxLoopUnrollingCount, 5, Normal, nullptr) \
@@ -645,7 +648,7 @@ bool hasCapacityToUseLargeGigacage();
     v(Bool, useIteratorSequencing, false, Normal, "Expose the Iterator.concat method."_s) \
     v(Bool, useJSONSourceTextAccess, true, Normal, "Expose JSON source text access feature."_s) \
     v(Bool, useMapGetOrInsert, false, Normal, "Expose the Map.prototype.getOrInsert family of methods."_s) \
-    v(Bool, useMathSumPreciseMethod, false, Normal, "Expose the Math.sumPrecise() method."_s) \
+    v(Bool, useMathSumPreciseMethod, true, Normal, "Expose the Math.sumPrecise() method."_s) \
     v(Bool, useMoreCurrencyDisplayChoices, false, Normal, "Enable more currencyDisplay choices for Intl.NumberFormat"_s) \
     v(Bool, useSharedArrayBuffer, false, Normal, nullptr) \
     v(Bool, useShadowRealm, false, Normal, "Expose the ShadowRealm object."_s) \

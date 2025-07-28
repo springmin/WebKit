@@ -243,6 +243,19 @@ enum class BorderPrecedence : uint8_t {
     Cell
 };
 
+enum class OutlineStyle : uint8_t {
+    Auto,
+    None,
+    Inset,
+    Groove,
+    Outset,
+    Ridge,
+    Dotted,
+    Dashed,
+    Solid,
+    Double
+};
+
 enum class PositionType : uint8_t {
     Static = 0,
     Relative = 1,
@@ -290,19 +303,6 @@ enum class Overflow : uint8_t {
     Auto,
     PagedX,
     PagedY
-};
-
-enum class VerticalAlign : uint8_t {
-    Baseline,
-    Middle,
-    Sub,
-    Super,
-    TextTop,
-    TextBottom,
-    Top,
-    Bottom,
-    BaselineMiddle,
-    Length
 };
 
 enum class Clear : uint8_t {
@@ -933,14 +933,11 @@ enum class TextEmphasisFill : bool {
 };
 
 enum class TextEmphasisMark : uint8_t {
-    None,
-    Auto,
     Dot,
     Circle,
     DoubleCircle,
     Triangle,
-    Sesame,
-    Custom
+    Sesame
 };
 
 enum class TextEmphasisPosition : uint8_t {
@@ -1064,16 +1061,6 @@ constexpr float maximumAllowedFontSize = std::numeric_limits<short>::max();
 // Reasonable maximum to prevent insane font sizes from causing crashes on some platforms (such as Windows).
 constexpr float maximumAllowedFontSize = 1000000.0f;
 #endif
-
-enum class TextIndentLine : bool {
-    FirstLine,
-    EachLine
-};
-
-enum class TextIndentType : bool {
-    Normal,
-    Hanging
-};
 
 enum class Isolation : bool {
     Auto,
@@ -1311,6 +1298,7 @@ WTF::TextStream& operator<<(WTF::TextStream&, MaskMode);
 WTF::TextStream& operator<<(WTF::TextStream&, NBSPMode);
 WTF::TextStream& operator<<(WTF::TextStream&, ObjectFit);
 WTF::TextStream& operator<<(WTF::TextStream&, Order);
+WTF::TextStream& operator<<(WTF::TextStream&, OutlineStyle);
 WTF::TextStream& operator<<(WTF::TextStream&, WebCore::Overflow);
 WTF::TextStream& operator<<(WTF::TextStream&, OverflowAlignment);
 WTF::TextStream& operator<<(WTF::TextStream&, OverflowWrap);
@@ -1359,7 +1347,6 @@ WTF::TextStream& operator<<(WTF::TextStream&, TransformStyle3D);
 WTF::TextStream& operator<<(WTF::TextStream&, UserDrag);
 WTF::TextStream& operator<<(WTF::TextStream&, UserModify);
 WTF::TextStream& operator<<(WTF::TextStream&, UserSelect);
-WTF::TextStream& operator<<(WTF::TextStream&, VerticalAlign);
 WTF::TextStream& operator<<(WTF::TextStream&, Visibility);
 WTF::TextStream& operator<<(WTF::TextStream&, WhiteSpace);
 WTF::TextStream& operator<<(WTF::TextStream&, WhiteSpaceCollapse);

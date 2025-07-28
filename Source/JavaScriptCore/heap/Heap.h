@@ -312,6 +312,7 @@ typedef HashCountedSet<JSCell*> ProtectCountSet;
 typedef HashCountedSet<ASCIILiteral> TypeCountSet;
 
 enum class HeapType : uint8_t { Small, Medium, Large };
+enum class GrowthMode : uint8_t { Default, Aggressive };
 
 class HeapUtil;
 
@@ -454,8 +455,8 @@ public:
     JS_EXPORT_PRIVATE size_t globalObjectCount();
     JS_EXPORT_PRIVATE size_t protectedObjectCount();
     JS_EXPORT_PRIVATE size_t protectedGlobalObjectCount();
-    JS_EXPORT_PRIVATE std::unique_ptr<TypeCountSet> protectedObjectTypeCounts();
-    JS_EXPORT_PRIVATE std::unique_ptr<TypeCountSet> objectTypeCounts();
+    JS_EXPORT_PRIVATE TypeCountSet protectedObjectTypeCounts();
+    JS_EXPORT_PRIVATE TypeCountSet objectTypeCounts();
     JS_EXPORT_PRIVATE size_t arrayBufferSize();
 
     UncheckedKeyHashSet<MarkedVectorBase*>& markListSet();
@@ -762,6 +763,7 @@ private:
 
     void deleteUnmarkedCompiledCode();
     JS_EXPORT_PRIVATE void addToRememberedSet(const JSCell*);
+    double projectedGCRateLimitingValue(MonotonicTime);
     void updateAllocationLimits();
     void didFinishCollection();
     void resumeCompilerThreads();
@@ -819,7 +821,10 @@ private:
     const HeapType m_heapType;
     MutatorState m_mutatorState { MutatorState::Running };
     const size_t m_ramSize;
+    const GrowthMode m_growthMode;
     const size_t m_minBytesPerCycle;
+    const size_t m_maxEdenSizeForRateLimiting;
+    double m_gcRateLimitingValue { 0.0 };
     size_t m_bytesAllocatedBeforeLastEdenCollect { 0 };
     size_t m_sizeAfterLastCollect { 0 };
     size_t m_sizeAfterLastFullCollect { 0 };
@@ -843,8 +848,8 @@ private:
     bool m_shouldDoOpportunisticFullCollection { false };
     bool m_isInOpportunisticTask { false };
     bool m_shouldDoFullCollection { false };
-    Markable<CollectionScope, EnumMarkableTraits<CollectionScope>> m_collectionScope;
-    Markable<CollectionScope, EnumMarkableTraits<CollectionScope>> m_lastCollectionScope;
+    Markable<CollectionScope> m_collectionScope;
+    Markable<CollectionScope> m_lastCollectionScope;
     Lock m_raceMarkStackLock;
 
     MarkedSpace m_objectSpace;
@@ -1129,7 +1134,7 @@ public:
     std::unique_ptr<type> m_##name;
     
     struct SpaceAndSet {
-        WTF_MAKE_STRUCT_FAST_ALLOCATED;
+        WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(SpaceAndSet);
 
         IsoSubspace space;
         IsoCellSet set;
@@ -1160,7 +1165,7 @@ public:
     }
 
     struct ScriptExecutableSpaceAndSets {
-        WTF_MAKE_STRUCT_FAST_ALLOCATED;
+        WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(ScriptExecutableSpaceAndSets);
 
         IsoSubspace space;
         IsoCellSet clearableCodeSet;

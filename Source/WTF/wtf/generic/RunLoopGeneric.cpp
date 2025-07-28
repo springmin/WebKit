@@ -36,7 +36,7 @@ namespace WTF {
 static constexpr bool report = false;
 
 class RunLoop::TimerBase::ScheduledTask : public ThreadSafeRefCounted<ScheduledTask>, public RedBlackTree<ScheduledTask, MonotonicTime>::Node {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_DEPRECATED_MAKE_FAST_ALLOCATED(RunLoop);
     WTF_MAKE_NONCOPYABLE(ScheduledTask);
 
 public:
@@ -208,9 +208,9 @@ void RunLoop::runImpl(RunMode runMode)
         std::call_once(onceKey, [&] {
 #if USE(BUN_EVENT_LOOP)
             // construct() needs a RunLoop, not a RunLoopGenericState
-            reporter.construct(m_parent, [this] {
+            reporter.construct(m_parent, "RunLoop::runImpl::Reporter"_s, [this] {
 #else
-            reporter.construct(*this, [this] {
+            reporter.construct(*this, "RunLoop::runImpl::Reporter"_s, [this] {
 #endif
                 unsigned count = 0;
                 unsigned active = 0;
@@ -354,8 +354,9 @@ void RunLoop::unscheduleWithLock(TimerBase::ScheduledTask& task)
 // TimerBase and its owner should manage these lifetime.
 #if !USE(BUN_EVENT_LOOP)
 // For Bun, this is defined in RunLoopBun.cpp
-RunLoop::TimerBase::TimerBase(Ref<RunLoop>&& runLoop)
+RunLoop::TimerBase::TimerBase(Ref<RunLoop>&& runLoop, ASCIILiteral description)
     : m_runLoop(WTFMove(runLoop))
+    , m_description(description)
     , m_scheduledTask(ScheduledTask::create(*this))
 {
 }

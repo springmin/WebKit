@@ -22,6 +22,7 @@
 
 #if USE(GSTREAMER_WEBRTC)
 
+#include "ContextDestructionObserverInlines.h"
 #include "Document.h"
 #include "ExceptionOr.h"
 #include "GStreamerCommon.h"
@@ -393,9 +394,6 @@ bool GStreamerMediaEndpoint::setConfiguration(MediaEndpointConfiguration& config
                 auto valid = makeStringByReplacingAll(url.string().isolatedCopy(), "turn:"_s, "turn://"_s);
                 valid = makeStringByReplacingAll(valid, "turns:"_s, "turns://"_s);
                 URL validURL(URL(), valid);
-                // FIXME: libnice currently doesn't seem to handle IPv6 addresses very well.
-                if (validURL.host().startsWith('['))
-                    continue;
                 validURL.setUser(server.username);
                 validURL.setPassword(server.credential);
                 gboolean result = FALSE;
@@ -404,12 +402,8 @@ bool GStreamerMediaEndpoint::setConfiguration(MediaEndpointConfiguration& config
                     GST_WARNING("Unable to use TURN server: %s", validURL.string().utf8().data());
             }
             if (!stunSet && url.protocol().startsWith("stun"_s)) {
-                auto valid = makeStringByReplacingAll(url.string().isolatedCopy(), "stun:"_s, "stun://"_s);
-                URL validURL(URL(), valid);
-                // FIXME: libnice currently doesn't seem to handle IPv6 addresses very well.
-                if (validURL.host().startsWith('['))
-                    continue;
-                g_object_set(m_webrtcBin.get(), "stun-server", validURL.string().utf8().data(), nullptr);
+                auto stunURL = makeStringByReplacingAll(url.string().isolatedCopy(), "stun:"_s, "stun://"_s);
+                g_object_set(m_webrtcBin.get(), "stun-server", stunURL.utf8().data(), nullptr);
                 stunSet = true;
             }
         }
@@ -1433,6 +1427,7 @@ void GStreamerMediaEndpoint::connectIncomingTrack(WebRTCTrackData& data)
     ASSERT(isMainThread());
 
     const auto& caps = data.caps;
+    GST_DEBUG_OBJECT(m_pipeline.get(), "Connecting incoming track with mid '%s' and caps %" GST_PTR_FORMAT, data.mid.ascii().data(), caps.get());
     if (!gst_caps_is_empty(caps.get()) && !gst_caps_is_any(caps.get())) [[likely]] {
         const auto structure = gst_caps_get_structure(caps.get(), 0);
         if (auto encodingName = gstStructureGetString(structure, "encoding-name")) {
@@ -1444,18 +1439,22 @@ void GStreamerMediaEndpoint::connectIncomingTrack(WebRTCTrackData& data)
         }
     }
 
-    // NOTE: Here ideally we should match WebKit-side transceivers with data.transceiver but we
-    // cannot because in some situations (simulcast, mostly), we can end-up with multiple webrtcbin
-    // src pads associated to the same transceiver.
     auto peerConnectionBackend = this->peerConnectionBackend();
     if (!peerConnectionBackend)
         return;
+
+    // NOTE: Here ideally we should match WebKit-side transceivers with data.transceiver but we
+    // cannot because in some situations (simulcast, mostly), we can end-up with multiple webrtcbin
+    // src pads associated to the same transceiver.
     auto transceiver = peerConnectionBackend->existingTransceiver([&](auto& backend) -> bool {
         GUniqueOutPtr<char> mid;
         g_object_get(backend.rtcTransceiver(), "mid", &mid.outPtr(), nullptr);
+        GST_DEBUG_OBJECT(m_pipeline.get(), "Checking if transceiver with mid %s matches the track mid", mid.get());
         return data.mid == StringView::fromLatin1(mid.get());
     });
     if (!transceiver) {
+        GST_DEBUG_OBJECT(m_pipeline.get(), "Transceiver not found, checking SDP");
+
         GRefPtr<GstWebRTCRTPTransceiver> rtcTransceiver(data.transceiver);
         unsigned mLineIndex;
         g_object_get(rtcTransceiver.get(), "mlineindex", &mLineIndex, nullptr);
@@ -1468,6 +1467,7 @@ void GStreamerMediaEndpoint::connectIncomingTrack(WebRTCTrackData& data)
         }
         const auto& trackId = data.trackId;
         transceiver = &peerConnectionBackend->newRemoteTransceiver(makeUnique<GStreamerRtpTransceiverBackend>(WTFMove(rtcTransceiver)), data.type, trackId.isolatedCopy());
+        GST_DEBUG_OBJECT(m_pipeline.get(), "New remote transceiver created for track");
     }
 
     auto mediaStreamBin = adoptGRef(gst_bin_get_by_name(GST_BIN_CAST(m_pipeline.get()), data.mediaStreamBinName.ascii().data()));

@@ -33,11 +33,11 @@
 #import "CompositeEditCommand.h"
 #import "DocumentInlines.h"
 #import "DocumentMarkerController.h"
+#import "EditingHTMLConverter.h"
 #import "Editor.h"
 #import "FocusController.h"
 #import "FrameSelection.h"
 #import "GeometryUtilities.h"
-#import "HTMLConverter.h"
 #import "IntelligenceTextEffectsSupport.h"
 #import "Logging.h"
 #import "NodeRenderStyle.h"
@@ -207,6 +207,7 @@ void WritingToolsController::willBeginWritingToolsSession(const std::optional<Wr
         IncludedElement::Attachments,
         IncludedElement::PreservedContent,
         IncludedElement::NonRenderedContent,
+        IncludedElement::TextLists,
     };
 
     auto selectedTextRange = document->selection().selection().firstRange();
@@ -291,7 +292,7 @@ void WritingToolsController::proofreadingSessionDidReceiveSuggestions(const Writ
         return;
     }
 
-    RefPtr frame = m_page->checkedFocusController()->focusedOrMainFrame();
+    RefPtr frame = m_page->focusController().focusedOrMainFrame();
     IgnoreSelectionChangeForScope ignoreSelectionChanges { *frame };
 
     auto sessionRange = makeSimpleRange(state->contextRange);
@@ -1072,7 +1073,7 @@ RefPtr<Document> WritingToolsController::document() const
         return nullptr;
     }
 
-    RefPtr frame = m_page->checkedFocusController()->focusedOrMainFrame();
+    RefPtr frame = m_page->focusController().focusedOrMainFrame();
     if (!frame) {
         ASSERT_NOT_REACHED();
         return nullptr;

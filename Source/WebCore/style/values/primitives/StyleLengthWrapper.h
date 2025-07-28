@@ -27,6 +27,7 @@
 #include "CSSPrimitiveKeywordList.h"
 #include "Length.h"
 #include "LengthFunctions.h"
+#include "StylePrimitiveNumericTypes+Platform.h"
 #include "StylePrimitiveNumericTypes.h"
 #include "StyleValueTypes.h"
 #include <wtf/text/TextStream.h>
@@ -70,6 +71,8 @@ template<typename Numeric, CSS::PrimitiveKeyword... Ks> struct LengthWrapperBase
 
     LengthWrapperBase(Fixed fixed) : m_value(fixed.value, WebCore::LengthType::Fixed) { }
     LengthWrapperBase(Percentage percent) : m_value(percent.value, WebCore::LengthType::Percent) { }
+    LengthWrapperBase(Specified&& specified) : m_value(toPlatform(WTFMove(specified))) { }
+    LengthWrapperBase(const Specified& specified) : m_value(toPlatform(specified)) { }
 
     LengthWrapperBase(CSS::ValueLiteral<CSS::LengthUnit::Px> literal) : m_value(static_cast<float>(literal.value), WebCore::LengthType::Fixed) { }
     LengthWrapperBase(CSS::ValueLiteral<CSS::PercentageUnit::Percentage> literal) : m_value(static_cast<float>(literal.value), WebCore::LengthType::Percent) { }
@@ -78,6 +81,10 @@ template<typename Numeric, CSS::PrimitiveKeyword... Ks> struct LengthWrapperBase
     explicit LengthWrapperBase(const WebCore::Length& other) : m_value(other) { validate(m_value); }
 
     explicit LengthWrapperBase(WTF::HashTableEmptyValueType token) : m_value(token) { }
+
+    // IPC Support
+    explicit LengthWrapperBase(WebCore::Length::IPCData&& data) : m_value { WTFMove(data) } { validate(m_value); }
+    WebCore::Length::IPCData ipcData() const { return m_value.ipcData(); }
 
     ALWAYS_INLINE bool isFixed() const { return m_value.type() == WebCore::LengthType::Fixed; }
     ALWAYS_INLINE bool isPercent() const { return m_value.type() == WebCore::LengthType::Percent; }
@@ -105,7 +112,7 @@ template<typename Numeric, CSS::PrimitiveKeyword... Ks> struct LengthWrapperBase
         requires (SupportsIsIntrinsic)
     {
         return (SupportsMinContent && m_value.type() == WebCore::LengthType::MinContent)
-            || (SupportsMinContent && m_value.type() == WebCore::LengthType::MaxContent)
+            || (SupportsMaxContent && m_value.type() == WebCore::LengthType::MaxContent)
             || (SupportsWebkitFillAvailable && m_value.type() == WebCore::LengthType::FillAvailable)
             || (SupportsFitContent && m_value.type() == WebCore::LengthType::FitContent);
     }
@@ -130,9 +137,6 @@ template<typename Numeric, CSS::PrimitiveKeyword... Ks> struct LengthWrapperBase
     ALWAYS_INLINE bool isZero() const { return m_value.isZero(); }
     ALWAYS_INLINE bool isPositive() const { return m_value.isPositive(); }
     ALWAYS_INLINE bool isNegative() const { return m_value.isNegative(); }
-
-    // FIXME: Remove this when RenderBox's adjust*Box functions no longer need it.
-    ALWAYS_INLINE WebCore::LengthType type() const { return m_value.type(); }
 
     std::optional<Fixed> tryFixed() const { return isFixed() ? std::make_optional(Fixed { m_value.value() }) : std::nullopt; }
     std::optional<Percentage> tryPercentage() const { return isPercent() ? std::make_optional(Percentage { m_value.value() }) : std::nullopt; }
@@ -227,6 +231,14 @@ template<LengthWrapperBaseDerived T> struct ToPlatform<T> {
 // MARK: - Evaluation
 
 template<LengthWrapperBaseDerived T> struct Evaluation<T> {
+    auto operator()(const T& value, NOESCAPE const Invocable<LayoutUnit()> auto& lazyMaximumValueFunctor) -> LayoutUnit
+    {
+        return valueForLengthWithLazyMaximum<LayoutUnit, LayoutUnit>(toPlatform(value), lazyMaximumValueFunctor);
+    }
+    auto operator()(const T& value, NOESCAPE const Invocable<float()> auto& lazyMaximumValueFunctor) -> float
+    {
+        return valueForLengthWithLazyMaximum<float, float>(toPlatform(value), lazyMaximumValueFunctor);
+    }
     auto operator()(const T& value, LayoutUnit referenceLength) -> LayoutUnit
     {
         return valueForLength(toPlatform(value), referenceLength);

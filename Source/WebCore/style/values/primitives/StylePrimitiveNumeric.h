@@ -69,22 +69,42 @@ template<CSS::Numeric CSSType> struct PrimitiveNumeric {
     }
 
     constexpr bool isZero() const { return !value; }
+    constexpr bool isPositive() const { return value > 0; }
+    constexpr bool isNegative() const { return value < 0; }
 
     constexpr bool operator==(const PrimitiveNumeric&) const = default;
-    constexpr bool operator==(ResolvedValueType other) const { return value == other; };
+    constexpr bool operator==(ResolvedValueType other) const { return value == other; }
+
+    constexpr auto operator<=>(const PrimitiveNumeric&) const = default;
 
 private:
     template<typename> friend struct PrimitiveNumericMarkableTraits;
 
-    PrimitiveNumeric(PrimitiveNumericEmptyToken) requires std::floating_point<ResolvedValueType>
-        : value { std::numeric_limits<ResolvedValueType>::quiet_NaN() }
+    // Markable is supported for numeric values that have free bits. These currently include:
+    //  - any floating point value (using NaN).
+    //  - any numeric value where the minimum allowed value is greater than 0 (using 0).
+    //  - any numeric value where the minimum allowed value is equal to 0 and the minimum representable value is not zero (using -1).
+    static consteval ResolvedValueType emptyValue()
+    {
+        if constexpr (std::floating_point<ResolvedValueType>)
+            return std::numeric_limits<ResolvedValueType>::quiet_NaN();
+        else if constexpr (range.min > 0)
+            return 0;
+        else if constexpr (range.min == 0 && std::numeric_limits<ResolvedValueType>::min() != 0)
+            return -1;
+    }
+
+    PrimitiveNumeric(PrimitiveNumericEmptyToken)
+        : value { emptyValue() }
     {
     }
 
     bool isEmpty() const
-        requires std::floating_point<ResolvedValueType>
     {
-        return std::isnan(value);
+        if constexpr (std::floating_point<ResolvedValueType>)
+            return std::isnan(value);
+        else
+            return value == emptyValue();
     }
 };
 
@@ -183,6 +203,7 @@ private:
 
 template<CSS::Range R, typename V> struct Integer : PrimitiveNumeric<CSS::Integer<R, V>> {
     using Base = PrimitiveNumeric<CSS::Integer<R, V>>;
+    using Base::Base;
 };
 
 // MARK: Number Primitive
@@ -190,7 +211,6 @@ template<CSS::Range R, typename V> struct Integer : PrimitiveNumeric<CSS::Intege
 template<CSS::Range R, typename V> struct Number : PrimitiveNumeric<CSS::Number<R, V>> {
     using Base = PrimitiveNumeric<CSS::Number<R, V>>;
     using Base::Base;
-    using MarkableTraits = PrimitiveNumericMarkableTraits<Number>;
 };
 
 // MARK: Percentage Primitive
@@ -198,7 +218,6 @@ template<CSS::Range R, typename V> struct Number : PrimitiveNumeric<CSS::Number<
 template<CSS::Range R, typename V> struct Percentage : PrimitiveNumeric<CSS::Percentage<R, V>> {
     using Base = PrimitiveNumeric<CSS::Percentage<R, V>>;
     using Base::Base;
-    using MarkableTraits = PrimitiveNumericMarkableTraits<Percentage>;
 };
 
 // MARK: Dimension Primitives
@@ -206,32 +225,26 @@ template<CSS::Range R, typename V> struct Percentage : PrimitiveNumeric<CSS::Per
 template<CSS::Range R, typename V> struct Angle : PrimitiveNumeric<CSS::Angle<R, V>> {
     using Base = PrimitiveNumeric<CSS::Angle<R, V>>;
     using Base::Base;
-    using MarkableTraits = PrimitiveNumericMarkableTraits<Angle>;
 };
 template<CSS::Range R, typename V> struct Length : PrimitiveNumeric<CSS::Length<R, V>> {
     using Base = PrimitiveNumeric<CSS::Length<R, V>>;
     using Base::Base;
-    using MarkableTraits = PrimitiveNumericMarkableTraits<Length>;
 };
 template<CSS::Range R, typename V> struct Time : PrimitiveNumeric<CSS::Time<R, V>> {
     using Base = PrimitiveNumeric<CSS::Time<R, V>>;
     using Base::Base;
-    using MarkableTraits = PrimitiveNumericMarkableTraits<Time>;
 };
 template<CSS::Range R, typename V> struct Frequency : PrimitiveNumeric<CSS::Frequency<R, V>> {
     using Base = PrimitiveNumeric<CSS::Frequency<R, V>>;
     using Base::Base;
-    using MarkableTraits = PrimitiveNumericMarkableTraits<Frequency>;
 };
 template<CSS::Range R, typename V> struct Resolution : PrimitiveNumeric<CSS::Resolution<R, V>> {
     using Base = PrimitiveNumeric<CSS::Resolution<R, V>>;
     using Base::Base;
-    using MarkableTraits = PrimitiveNumericMarkableTraits<Resolution>;
 };
 template<CSS::Range R, typename V> struct Flex : PrimitiveNumeric<CSS::Flex<R, V>> {
     using Base = PrimitiveNumeric<CSS::Flex<R, V>>;
     using Base::Base;
-    using MarkableTraits = PrimitiveNumericMarkableTraits<Flex>;
 };
 
 // MARK: Dimension + Percentage Primitives
@@ -292,6 +305,37 @@ template<WebCore::Style::DimensionPercentageNumeric T>
 struct WTF::FlatteningVariantTraits<T> {
     using TypeList = typename FlatteningVariantTraits<typename T::Representation>::TypeList;
 };
+
+namespace WTF {
+
+template<auto R, typename V>
+struct MarkableTraits<WebCore::Style::Integer<R, V>> : WebCore::Style::PrimitiveNumericMarkableTraits<WebCore::Style::Integer<R, V>> { };
+
+template<auto R, typename V>
+struct MarkableTraits<WebCore::Style::Number<R, V>> : WebCore::Style::PrimitiveNumericMarkableTraits<WebCore::Style::Number<R, V>> { };
+
+template<auto R, typename V>
+struct MarkableTraits<WebCore::Style::Percentage<R, V>> : WebCore::Style::PrimitiveNumericMarkableTraits<WebCore::Style::Percentage<R, V>> { };
+
+template<auto R, typename V>
+struct MarkableTraits<WebCore::Style::Angle<R, V>> : WebCore::Style::PrimitiveNumericMarkableTraits<WebCore::Style::Angle<R, V>> { };
+
+template<auto R, typename V>
+struct MarkableTraits<WebCore::Style::Length<R, V>> : WebCore::Style::PrimitiveNumericMarkableTraits<WebCore::Style::Length<R, V>> { };
+
+template<auto R, typename V>
+struct MarkableTraits<WebCore::Style::Time<R, V>> : WebCore::Style::PrimitiveNumericMarkableTraits<WebCore::Style::Time<R, V>> { };
+
+template<auto R, typename V>
+struct MarkableTraits<WebCore::Style::Frequency<R, V>> : WebCore::Style::PrimitiveNumericMarkableTraits<WebCore::Style::Frequency<R, V>> { };
+
+template<auto R, typename V>
+struct MarkableTraits<WebCore::Style::Resolution<R, V>> : WebCore::Style::PrimitiveNumericMarkableTraits<WebCore::Style::Resolution<R, V>> { };
+
+template<auto R, typename V>
+struct MarkableTraits<WebCore::Style::Flex<R, V>> : WebCore::Style::PrimitiveNumericMarkableTraits<WebCore::Style::Flex<R, V>> { };
+
+} // namespace WTF
 
 template<auto R, typename V> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::AnglePercentage<R, V>> = true;
 template<auto R, typename V> inline constexpr auto WebCore::TreatAsVariantLike<WebCore::Style::LengthPercentage<R, V>> = true;

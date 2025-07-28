@@ -98,6 +98,7 @@ private:
         void createNewPage(WebKit::WebPageProxy&, Ref<API::PageConfiguration>&&, Ref<API::NavigationAction>&&, CompletionHandler<void(RefPtr<WebPageProxy>&&)>&&) final;
         void close(WebPageProxy*) final;
         void fullscreenMayReturnToInline(WebPageProxy*) final;
+        void willEnterFullscreen(WebPageProxy*) final;
         void didEnterFullscreen(WebPageProxy*) final;
         void didExitFullscreen(WebPageProxy*) final;
         void runJavaScriptAlert(WebPageProxy&, const WTF::String&, WebFrameProxy*, FrameInfoData&&, Function<void()>&& completionHandler) final;
@@ -172,7 +173,7 @@ private:
         std::optional<double> dataDetectionReferenceDate() final;
 
 #if ENABLE(POINTER_LOCK)
-        void requestPointerLock(WebPageProxy*) final;
+        void requestPointerLock(WebPageProxy*, CompletionHandler<void(bool)>&&) final;
         void didLosePointerLock(WebPageProxy*) final;
 #endif
         
@@ -276,6 +277,7 @@ private:
         bool webViewDidClose : 1;
         bool webViewClose : 1;
         bool webViewFullscreenMayReturnToInline : 1;
+        bool webViewWillEnterFullscreen : 1;
         bool webViewDidEnterFullscreen : 1;
         bool webViewDidExitFullscreen : 1;
         bool webViewMediaCaptureStateDidChange : 1;

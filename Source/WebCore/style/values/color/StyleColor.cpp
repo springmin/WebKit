@@ -282,18 +282,6 @@ template<typename T> Color::ColorKind Color::makeIndirectColor(T&& colorType)
     return { makeUniqueRef<T>(WTFMove(colorType)) };
 }
 
-// MARK: - MarkableTraits
-
-bool Color::MarkableTraits::isEmptyValue(const Color& color)
-{
-    return std::holds_alternative<EmptyToken>(color.value);
-}
-
-Color Color::MarkableTraits::emptyValue()
-{
-    return Color(EmptyToken());
-}
-
 WebCore::Color resolveColor(const Color& value, const WebCore::Color& currentColor)
 {
     return value.resolveColor(currentColor);
@@ -305,6 +293,16 @@ bool containsCurrentColor(const Color& value)
 }
 
 // MARK: - Serialization
+
+String serializationForCSSTokenization(const CSS::SerializationContext& context, const Color& value)
+{
+    return WTF::switchOn(value, [&](const auto& kind) { return WebCore::Style::serializationForCSSTokenization(context, kind); });
+}
+
+void serializationForCSSTokenization(StringBuilder& builder, const CSS::SerializationContext& context, const Color& value)
+{
+    WTF::switchOn(value, [&](const auto& kind) { WebCore::Style::serializationForCSSTokenization(builder, context, kind); });
+}
 
 void Serialize<Color>::operator()(StringBuilder& builder, const CSS::SerializationContext&, const RenderStyle& style, const Color& value)
 {

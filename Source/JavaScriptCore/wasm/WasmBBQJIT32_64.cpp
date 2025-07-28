@@ -3516,13 +3516,10 @@ void BBQJIT::emitMoveConst(Value constant, Location loc)
         m_jit.move(Imm32(constant.asI64lo()), loc.asGPRlo());
         break;
     case TypeKind::F32:
-        m_jit.move(Imm32(constant.asI32()), wasmScratchGPR);
-        m_jit.move32ToFloat(wasmScratchGPR, loc.asFPR());
+        m_jit.move32ToFloat(Imm32(constant.asI32()), loc.asFPR());
         break;
     case TypeKind::F64:
-        m_jit.move(Imm32(constant.asI64hi()), wasmScratchGPR2);
-        m_jit.move(Imm32(constant.asI64lo()), wasmScratchGPR);
-        m_jit.move64ToDouble(wasmScratchGPR2, wasmScratchGPR, loc.asFPR());
+        m_jit.move64ToDouble(Imm64(constant.asI64()), loc.asFPR());
         break;
     default:
         RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("Unimplemented constant typekind.");
@@ -3713,35 +3710,6 @@ void BBQJIT::emitLoad(TypeKind type, Location src, Location dst)
     default:
         RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("Unimplemented type kind load.");
     }
-}
-
-Location BBQJIT::allocateRegisterPair()
-{
-    GPRReg hi, lo;
-
-    do {
-        // we loop here until we can get _two_ register from m_gprSet
-        // this wouldn't be necessary except that evictGPR modifies m_gprSet and nextGPR _doesn't_
-
-        if (m_gprSet.isEmpty()) {
-            evictGPR();
-            continue;
-        }
-
-        auto iter = m_gprSet.begin();
-        ASSERT(iter != m_gprSet.end());
-        hi = (*iter).gpr();
-        ++iter;
-        if (iter == m_gprSet.end()) {
-            m_gprLRU.lock(hi);
-            evictGPR();
-            m_gprLRU.unlock(hi);
-            continue;
-        }
-        lo = (*iter).gpr();
-
-        return Location::fromGPR2(hi, lo);
-    } while (1);
 }
 
 PartialResult WARN_UNUSED_RETURN BBQJIT::addCallRef(const TypeDefinition& originalSignature, ArgumentList& args, ResultList& results, CallType callType)

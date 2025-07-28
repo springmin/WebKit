@@ -29,6 +29,7 @@
 #include "ColorSpace.h"
 #include "ColorUtilities.h"
 #include "DestinationColorSpace.h"
+#include <bit>
 #include <functional>
 #include <wtf/Forward.h>
 #include <wtf/HashFunctions.h>
@@ -217,7 +218,7 @@ private:
     friend void add(Hasher&, const Color&);
 
     class OutOfLineComponents : public ThreadSafeRefCounted<OutOfLineComponents> {
-        WTF_MAKE_FAST_COMPACT_ALLOCATED;
+        WTF_DEPRECATED_MAKE_FAST_COMPACT_ALLOCATED(OutOfLineComponents);
     public:
         static Ref<OutOfLineComponents> create(ColorComponents<float, 4>&& components)
         {
@@ -310,6 +311,7 @@ bool outOfLineComponentsEqualIgnoringSemanticColor(const Color&, const Color&);
 
 #if USE(CG)
 WEBCORE_EXPORT RetainPtr<CGColorRef> cachedCGColor(const Color&);
+WEBCORE_EXPORT RetainPtr<CGColorRef> cachedSDRCGColorForColorspace(const Color&, const DestinationColorSpace&);
 WEBCORE_EXPORT ColorComponents<float, 4> platformConvertColorComponents(ColorSpace, ColorComponents<float, 4>, const DestinationColorSpace&);
 WEBCORE_EXPORT std::optional<SRGBA<uint8_t>> roundAndClampToSRGBALossy(CGColorRef);
 #endif

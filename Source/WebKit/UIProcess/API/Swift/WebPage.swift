@@ -28,15 +28,78 @@ import Observation
 internal import WebKit_Private
 internal import WebKit_Internal
 
-/// An object that controls and manages the behavior of interactive web content.
+/// A ``WebPage`` is an ``Observable`` type, which you use to access various properties of web content
+/// and track changes to them. Use ``WebPage`` to interact with web content, like evaluating JavaScript
+/// or converting the page to PDF data. The following example shows you how you can combine these
+/// capabilities to get specific metadata from an ephemeral page with a custom user agent:
+///
+/// ```swift
+/// func fetchMetadata(for url: URL) async throws -> (title: String, description: String) {
+///     let botAgent = """
+///     Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/601.2.4 (KHTML, like Gecko) Version/9.0.1 Safari/601.2.4 facebookexternalhit/1.1 Facebot Twitterbot/1.0
+///     """
+///
+///     var configuration = WebPage.Configuration()
+///     configuration.loadsSubresources = false
+///     configuration.defaultNavigationPreferences.allowsContentJavaScript = false
+///     configuration.websiteDataStore = .nonPersistent()
+///
+///     // Set up the configured page.
+///
+///     let page = WebPage(configuration: configuration)
+///     page.customUserAgent = botAgent
+///
+///     // Load the request and wait for navigation to complete.
+///
+///     let request = URLRequest(url: url)
+///     for try await event in page.load(request) {
+///         // Optionally do something with `event`.
+///     }
+///
+///     // At this point, the navigation is complete.
+///     // Now, use JavaScript to query the appropriate properties of the page.
+///
+///     let fetchOpenGraphProperty = """
+///     const propertyValues = document.querySelectorAll(`meta[property="${property}"]`);
+///     return propertyValues[0];
+///     """
+///
+///     let javaScriptResult = try await page.callJavaScript(fetchOpenGraphProperty, arguments: arguments)
+///     guard let description = javaScriptResult as? String else {
+///         // Handle failure, like throwing an error.
+///     }
+///
+///     guard let title = page.title else {
+///         // Handle failure, like throwing an error.
+///     }
+///
+///     return (title, description)
+/// }
+/// ```
+///
+/// Use ``WebPage`` to programmatically navigate to various types of resources like URL requests,
+/// HTML strings, and data. Optionally, you can observe these navigations through the async sequence
+/// returned by their associated loading functions, and you can customize them by using a type that
+/// conforms to the ``WebPage/NavigationDeciding`` protocol. You can also use the ``WebPage/backForwardList``
+/// property to observe changes to people’s navigation history, and to programmatically navigate to a
+/// specific back-forward list item.
+///
+/// ``WebPage`` also conforms to the ``Transferable`` protocol. You can use this conformance to export the
+/// page to various different types of content, like PDF, web archive data, and other types. For customization
+/// of PDF or image export, use ``WebPage/exported(as:)``.
 @MainActor
 @Observable
-@available(WK_IOS_TBA, WK_MAC_TBA, WK_XROS_TBA, *)
+@available(iOS 26.0, macOS 26.0, visionOS 26.0, *)
 @available(watchOS, unavailable)
 @available(tvOS, unavailable)
 final public class WebPage {
     /// A CSS media type as defined by the [CSS specification](https://www.w3.org/TR/mediaqueries-4/#media-types), or an arbitrary media type value.
-    @available(WK_IOS_TBA, WK_MAC_TBA, WK_XROS_TBA, *)
+    ///
+    /// Media types are one of several media queries that influence the `@media` CSS at-rule; this rule is used
+    /// by webpages to apply parts of a style sheet depending on the media properties specified.
+    ///
+    /// You can customize the media type of a ``WebPage`` by using the ``WebPage/mediaType`` property.
+    @available(iOS 26.0, macOS 26.0, visionOS 26.0, *)
     @available(watchOS, unavailable)
     @available(tvOS, unavailable)
     public struct CSSMediaType: Hashable, RawRepresentable, Sendable {
@@ -54,16 +117,16 @@ final public class WebPage {
         /// Use the static type properties for the defined canonical CSS media type options.
         ///
         /// - Parameter rawValue: The raw value of the media type.
-        public init(rawValue: String) {
+        public init(rawValue: Swift.String) {
             self.rawValue = rawValue
         }
 
         /// The raw value of the media type.
-        public let rawValue: String
+        public let rawValue: Swift.String
     }
 
     /// The set of possible fullscreen states a webpage may be in.
-    @available(WK_IOS_TBA, WK_MAC_TBA, WK_XROS_TBA, *)
+    @available(iOS 26.0, macOS 26.0, visionOS 26.0, *)
     @available(watchOS, unavailable)
     @available(tvOS, unavailable)
     public enum FullscreenState: Hashable, Sendable {
@@ -73,10 +136,10 @@ final public class WebPage {
         /// The page is exiting fullscreen.
         case exitingFullscreen
 
-        /// The page is currently in a fullscreen state.
+        /// The page is currently in fullscreen.
         case inFullscreen
 
-        /// The page is not currently in a fullscreen state.
+        /// The page is not currently in fullscreen.
         case notInFullscreen
     }
     
@@ -108,7 +171,7 @@ final public class WebPage {
     /// - Parameters:
     ///   - configuration: A ``WebPage/Configuration`` value to use when initializing the page.
     ///   - navigationDecider: A navigation decider used to customize navigations that happen within the page.
-    ///   - dialogPresenter: A dialog presenter which controls how JS dialogs are handled.
+    ///   - dialogPresenter: A dialog presenter which controls how JavaScript dialogs are handled.
     public convenience init(
         configuration: Configuration = Configuration(),
         navigationDecider: some NavigationDeciding,
@@ -121,7 +184,7 @@ final public class WebPage {
     ///
     /// - Parameters:
     ///   - configuration: A ``WebPage/Configuration`` value to use when initializing the page.
-    ///   - dialogPresenter: A dialog presenter which controls how JS dialogs are handled.
+    ///   - dialogPresenter: A dialog presenter which controls how JavaScript dialogs are handled.
     public convenience init(
         configuration: Configuration = Configuration(),
         dialogPresenter: some DialogPresenting
@@ -180,12 +243,12 @@ final public class WebPage {
     /// This property contains the URL for the webpage currently being presented. Use this URL in places
     /// where you reflect the webpage address in your app’s user interface. If the webpage has not loaded
     /// any content yet, this value will be `nil`.
-    public var url: URL? {
+    public var url: Foundation.URL? {
         backingProperty(\.url, backedBy: \.url)
     }
 
     /// The page title.
-    public var title: String {
+    public var title: Swift.String {
         backingProperty(\.title, backedBy: \.title) { backingValue in
             // The title property is annotated as optional in WKWebView, but is never actually `nil`.
             // swift-format-ignore: NeverForceUnwrap
@@ -205,7 +268,7 @@ final public class WebPage {
 
     /// Indicates whether the webpage is currently loading content.
     ///
-    /// - Returns: `true` if the receiver is still loading content, otherwise, `false`.
+    /// - Returns: `true` if the page is still loading content, otherwise, `false`.
     public var isLoading: Bool {
         backingProperty(\.isLoading, backedBy: \.isLoading)
     }
@@ -213,6 +276,8 @@ final public class WebPage {
     /// The trust management object you use to evaluate trust for the current webpage.
     ///
     /// Use the object in this property to validate the webpage’s certificate and associated credentials.
+    /// See <doc://com.apple.documentation/documentation/security/evaluating-a-trust-and-parsing-the-result>
+    /// for more details on how to use the trust.
     public var serverTrust: SecTrust? {
         backingProperty(\.serverTrust, backedBy: \.serverTrust)
     }
@@ -222,7 +287,7 @@ final public class WebPage {
         backingProperty(\.hasOnlySecureContent, backedBy: \.hasOnlySecureContent)
     }
 
-    /// Indicates whether Writing Tools is active for the view.
+    /// Indicates whether Writing Tools is active for the page.
     public var isWritingToolsActive: Bool {
         backingProperty(\.isWritingToolsActive, backedBy: \.isWritingToolsActive)
     }
@@ -250,11 +315,14 @@ final public class WebPage {
         backingProperty(\.microphoneCaptureState, backedBy: \.microphoneCaptureState)
     }
 
-    /// The media type for the contents of the web view.
+    /// The media type for the contents of the webpage.
     ///
     /// When the value of this property is `nil`, the webpage derives the current media type from the CSS
     /// media property of its content. If you assign a value other than `nil` to this property, the webpage
     /// uses the value you provide instead.
+    ///
+    /// For example, you can use this property to configure a page for viewing as a print preview by setting
+    /// it to ``WebPage/CSSMediaType/print``.
     ///
     /// The default value of this property is `nil`.
     public var mediaType: WebPage.CSSMediaType? {
@@ -267,14 +335,14 @@ final public class WebPage {
     /// Use this property to specify a custom user agent string for the webpage.
     ///
     /// The default value of this property is `nil`.
-    public var customUserAgent: String? {
+    public var customUserAgent: Swift.String? {
         get { backingWebView.customUserAgent }
         set { backingWebView.customUserAgent = newValue }
     }
 
-    /// Indicates whether you can inspect the view with Safari Web Inspector.
+    /// Indicates whether you can inspect the page with Safari Web Inspector.
     ///
-    /// Set to true at any point in the view’s lifetime to allow Safari Web Inspector access to inspect the view’s content.
+    /// Set to `true` at any point in the page's lifetime to allow Safari Web Inspector access to inspect the view’s content.
     /// Then, select your view in Safari’s Develop menu for either your computer or an attached device to inspect it.
     ///
     /// If you set this value to false during inspection, the system immediately closes Safari Web Inspector and does not
@@ -344,7 +412,7 @@ final public class WebPage {
     /// - Parameter url: The URL to load. If this is `nil`, an error will be immediately thrown from the returned sequence.
     /// - Returns: An async sequence you use to track the loading progress of the navigation. If the `Task` enclosing the sequence is cancelled, the page will stop loading all resources.
     @discardableResult
-    public func load(_ url: URL?) -> some AsyncSequence<NavigationEvent, any Error> {
+    public func load(_ url: Foundation.URL?) -> some AsyncSequence<NavigationEvent, any Error> {
         guard let url else {
             return AsyncThrowingStream { continuation in
                 continuation.finish(throwing: NavigationError.invalidURL)
@@ -380,7 +448,12 @@ final public class WebPage {
     ///   - baseURL: A URL that you use to resolve relative URLs within the document.
     /// - Returns: An async sequence you use to track the loading progress of the navigation. If the `Task` enclosing the sequence is cancelled, the page will stop loading all resources.
     @discardableResult
-    public func load(_ data: Data, mimeType: String, characterEncoding: String.Encoding, baseURL: URL) -> some AsyncSequence<NavigationEvent, any Error> {
+    public func load(
+        _ data: Data,
+        mimeType: Swift.String,
+        characterEncoding: Swift.String.Encoding,
+        baseURL: Foundation.URL
+    ) -> some AsyncSequence<NavigationEvent, any Error> {
         let cfEncoding = CFStringConvertNSStringEncodingToEncoding(characterEncoding.rawValue)
         guard cfEncoding != kCFStringEncodingInvalidId else {
             preconditionFailure("\(characterEncoding) is not a valid character encoding")
@@ -406,19 +479,15 @@ final public class WebPage {
     ///   - html: The string to use as the contents of the webpage.
     ///   - baseURL: The base URL to use when the system resolves relative URLs within the HTML string. By default, this is `about:blank`.
     /// - Returns: An async sequence you use to track the loading progress of the navigation. If the `Task` enclosing the sequence is cancelled, the page will stop loading all resources.
+    // swift-format-ignore: NeverForceUnwrap
     @discardableResult
-    public func load(html: String, baseURL: URL = URL(string: "about:blank")!) -> some AsyncSequence<NavigationEvent, any Error> {
+    public func load(
+        html: Swift.String,
+        baseURL: Foundation.URL = Foundation.URL(string: "about:blank")!
+    ) -> some AsyncSequence<NavigationEvent, any Error> {
         toNavigationSequence {
             $0.loadHTMLString(html, baseURL: baseURL)
         }
-    }
-
-    @available(*, deprecated, message: "Navigations are now observed using async sequences directly.")
-    @_spi(_)
-    @_disfavoredOverload
-    @discardableResult
-    public func load(html: String, baseURL: URL) -> NavigationID? {
-        backingWebView.loadHTMLString(html, baseURL: baseURL).map(NavigationID.init(_:))
     }
 
     /// Loads the web content from the data you provide as if the data were the response to the request.
@@ -443,7 +512,10 @@ final public class WebPage {
     ///   - htmlString: The HTML code you provide in a string to use as the contents of the webpage.
     /// - Returns: An async sequence you use to track the loading progress of the navigation. If the `Task` enclosing the sequence is cancelled, the page will stop loading all resources.
     @discardableResult
-    public func load(simulatedRequest request: URLRequest, responseHTML htmlString: String) -> some AsyncSequence<NavigationEvent, any Error> {
+    public func load(
+        simulatedRequest request: URLRequest,
+        responseHTML htmlString: Swift.String
+    ) -> some AsyncSequence<NavigationEvent, any Error> {
         toNavigationSequence {
             // `WKWebView` annotates this method as returning non-nil, but it may return nil.
             $0.loadSimulatedRequest(request, responseHTML: htmlString) as WKNavigation?
@@ -523,11 +595,11 @@ final public class WebPage {
     ///   all scripts, regardless of which content world you specify. For more information about content worlds, see `WKContentWorld`.
     ///
     /// - Returns: The result of the script evaluation. If your function body doesn't return an explicit value, `nil` is returned. If your function body explicitly returns `null`, then `NSNull` is returned.
-    /// - Throws: An error if a problem occurred while evaluating the JabaScript.
+    /// - Throws: An error if a problem occurred while evaluating the JavaScript.
     @discardableResult
     public func callJavaScript(
-        _ functionBody: String,
-        arguments: [String: Any] = [:],
+        _ functionBody: Swift.String,
+        arguments: [Swift.String: Any] = [:],
         in frame: FrameInfo? = nil,
         contentWorld: WKContentWorld? = nil
     ) async throws -> sending Any? {

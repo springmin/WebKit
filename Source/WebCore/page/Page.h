@@ -138,7 +138,7 @@ class HistoryItemClient;
 class OpportunisticTaskScheduler;
 class ImageAnalysisQueue;
 class ImageOverlayController;
-class InspectorClient;
+class InspectorBackendClient;
 class InspectorController;
 class IntSize;
 class KeyboardScrollingAnimator;
@@ -149,6 +149,7 @@ class LowPowerModeNotifier;
 class MediaCanStartListener;
 class MediaPlaybackTarget;
 class MediaSessionCoordinatorPrivate;
+class MediaSessionManagerInterface;
 class ModelPlayerProvider;
 class PageConfiguration;
 class PageConsoleClient;
@@ -252,6 +253,7 @@ enum class FindOption : uint16_t;
 enum class FilterRenderingMode : uint8_t;
 enum class LayoutMilestone : uint16_t;
 enum class LoginStatusAuthenticationType : uint8_t;
+enum class PlatformMediaSessionPlaybackControlsPurpose : uint8_t;
 enum class MediaPlaybackTargetContextMockState : uint8_t;
 enum class MediaProducerMediaState : uint32_t;
 enum class MediaProducerMediaCaptureKind : uint8_t;
@@ -324,6 +326,9 @@ enum class LinkDecorationFilteringTrigger : uint8_t {
     Copy,
     Paste,
 };
+
+// For accessibility tree debugging.
+enum class IncludeDOMInfo : bool { No, Yes };
 
 constexpr OptionSet<RenderingUpdateStep> updateRenderingSteps = {
     RenderingUpdateStep::Reveal,
@@ -489,8 +494,7 @@ public:
     DragController& dragController() { return m_dragController.get(); }
     const DragController& dragController() const { return m_dragController.get(); }
 #endif
-    FocusController& focusController() const { return *m_focusController; }
-    WEBCORE_EXPORT CheckedRef<FocusController> checkedFocusController() const;
+    FocusController& focusController() const { return m_focusController; }
 #if ENABLE(CONTEXT_MENUS)
     ContextMenuController& contextMenuController() { return m_contextMenuController.get(); }
     const ContextMenuController& contextMenuController() const { return m_contextMenuController.get(); }
@@ -724,7 +728,7 @@ public:
     PerformanceLoggingClient* performanceLoggingClient() const { return m_performanceLoggingClient.get(); }
 
     WheelEventDeltaFilter* wheelEventDeltaFilter() { return m_recentWheelEventDeltaFilter.get(); }
-    PageOverlayController& pageOverlayController() { return *m_pageOverlayController; }
+    PageOverlayController& pageOverlayController() { return m_pageOverlayController; }
 
 #if PLATFORM(MAC) && (ENABLE(SERVICE_CONTROLS) || ENABLE(TELEPHONE_NUMBER_DETECTION))
     ServicesOverlayController& servicesOverlayController() { return m_servicesOverlayController.get(); }
@@ -1132,7 +1136,7 @@ public:
     WEBCORE_EXPORT void applicationWillEnterForeground();
     WEBCORE_EXPORT void applicationDidBecomeActive();
 
-    PerformanceLogging& performanceLogging() const { return *m_performanceLogging; }
+    PerformanceLogging& performanceLogging() const { return m_performanceLogging; }
 
     void configureLoggingChannel(const String&, WTFLogChannelState, WTFLogLevel);
 
@@ -1207,7 +1211,10 @@ public:
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     bool shouldUpdateAccessibilityRegions() const;
 #endif
-    WEBCORE_EXPORT std::optional<AXTreeData> accessibilityTreeData() const;
+    WEBCORE_EXPORT std::optional<AXTreeData> accessibilityTreeData(IncludeDOMInfo) const;
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    WEBCORE_EXPORT void clearAccessibilityIsolatedTree();
+#endif
 #if USE(ATSPI)
     AccessibilityRootAtspi* accessibilityRootObject() const;
     void setAccessibilityRootObject(AccessibilityRootAtspi*);
@@ -1325,6 +1332,7 @@ public:
     WEBCORE_EXPORT void flushDeferredScrollEvents();
 
     bool reportScriptTrackingPrivacy(const URL&, ScriptTrackingPrivacyCategory);
+    bool shouldAllowScriptAccess(const URL&, const SecurityOrigin& topOrigin, ScriptTrackingPrivacyCategory) const;
     bool requiresScriptTrackingPrivacyProtections(const URL&) const;
 
     WEBCORE_EXPORT bool isAlwaysOnLoggingAllowed() const;
@@ -1341,6 +1349,12 @@ public:
     WEBCORE_EXPORT void setPresentingApplicationBundleIdentifier(String&&);
 #endif
 
+    WEBCORE_EXPORT RefPtr<HTMLMediaElement> bestMediaElementForRemoteControls(PlatformMediaSessionPlaybackControlsPurpose, Document*);
+
+    WEBCORE_EXPORT MediaSessionManagerInterface& mediaSessionManager();
+    WEBCORE_EXPORT MediaSessionManagerInterface* mediaSessionManagerIfExists() const;
+    WEBCORE_EXPORT static MediaSessionManagerInterface* mediaSessionManagerForPageIdentifier(PageIdentifier);
+
 #if ENABLE(MODEL_ELEMENT)
     bool shouldDisableModelLoadDelaysForTesting() const { return m_modelLoadDelaysDisabledForTesting; }
     void disableModelLoadDelaysForTesting() { m_modelLoadDelaysDisabledForTesting = true; }
@@ -1350,7 +1364,9 @@ public:
     bool requiresUserGestureForVideoPlayback() const;
 
 #if HAVE(SUPPORT_HDR_DISPLAY)
+    WEBCORE_EXPORT bool drawsHDRContent() const;
     Headroom displayEDRHeadroom() const { return m_displayEDRHeadroom; }
+    bool hdrLayersRequireTonemapping() const { return m_hdrLayersRequireTonemapping; }
     void updateDisplayEDRHeadroom();
     void updateDisplayEDRSuppression();
 #endif
@@ -1439,7 +1455,7 @@ private:
 #if ENABLE(DRAG_SUPPORT)
     const UniqueRef<DragController> m_dragController;
 #endif
-    std::unique_ptr<FocusController> m_focusController;
+    const UniqueRef<FocusController> m_focusController;
 #if ENABLE(CONTEXT_MENUS)
     const UniqueRef<ContextMenuController> m_contextMenuController;
 #endif
@@ -1652,14 +1668,14 @@ private:
     std::optional<CompositingPolicy> m_compositingPolicyOverride;
 
     const std::unique_ptr<PerformanceMonitor> m_performanceMonitor;
-    std::unique_ptr<LowPowerModeNotifier> m_lowPowerModeNotifier;
-    std::unique_ptr<ThermalMitigationNotifier> m_thermalMitigationNotifier;
+    const UniqueRef<LowPowerModeNotifier> m_lowPowerModeNotifier;
+    const UniqueRef<ThermalMitigationNotifier> m_thermalMitigationNotifier;
     OptionSet<ThrottlingReason> m_throttlingReasons;
     OptionSet<ThrottlingReason> m_throttlingReasonsOverridenForTesting;
 
     std::optional<Navigation> m_navigationToLogWhenVisible;
 
-    std::unique_ptr<PerformanceLogging> m_performanceLogging;
+    const UniqueRef<PerformanceLogging> m_performanceLogging;
 #if ENABLE(WHEEL_EVENT_LATCHING)
     const std::unique_ptr<ScrollLatchingController> m_scrollLatchingController;
 #endif
@@ -1673,7 +1689,7 @@ private:
 #endif
 
     std::unique_ptr<WheelEventDeltaFilter> m_recentWheelEventDeltaFilter;
-    std::unique_ptr<PageOverlayController> m_pageOverlayController;
+    const UniqueRef<PageOverlayController> m_pageOverlayController;
 
 #if ENABLE(APPLE_PAY)
     RefPtr<PaymentCoordinator> m_paymentCoordinator;
@@ -1786,8 +1802,8 @@ private:
 
 #if HAVE(SUPPORT_HDR_DISPLAY)
     Headroom m_displayEDRHeadroom { Headroom::None };
-    bool m_suppressEDR { false };
     bool m_screenSupportsHDR { false };
+    bool m_hdrLayersRequireTonemapping { false };
 #endif
 
     HashSet<std::pair<URL, ScriptTrackingPrivacyCategory>> m_scriptTrackingPrivacyReports;
@@ -1811,6 +1827,10 @@ private:
 #if PLATFORM(COCOA)
     String m_presentingApplicationBundleIdentifier;
 #endif
+
+    using MediaSessionManagerFactory = Function<RefPtr<MediaSessionManagerInterface> (std::optional<PageIdentifier>)>;
+    std::optional<MediaSessionManagerFactory> m_mediaSessionManagerFactory;
+    RefPtr<MediaSessionManagerInterface> m_mediaSessionManager;
 
 #if ENABLE(MODEL_ELEMENT)
     bool m_modelLoadDelaysDisabledForTesting { false };

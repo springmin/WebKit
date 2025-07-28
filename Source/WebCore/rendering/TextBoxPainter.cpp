@@ -47,8 +47,8 @@
 #include "RenderTheme.h"
 #include "RenderView.h"
 #include "RenderedDocumentMarker.h"
+#include "StyleTextDecorationThickness.h"
 #include "StyledMarkedText.h"
-#include "TextDecorationThickness.h"
 #include "TextPaintStyle.h"
 #include "TextPainter.h"
 
@@ -504,7 +504,7 @@ void TextBoxPainter::paintForeground(const StyledMarkedText& markedText)
     const FontCascade& font = fontCascade();
 
     float emphasisMarkOffset = 0;
-    const AtomString& emphasisMark = m_emphasisMarkExistsAndIsAbove ? m_style.textEmphasisMarkString() : nullAtom();
+    auto& emphasisMark = m_emphasisMarkExistsAndIsAbove ? m_style.textEmphasisStyle().markString() : nullAtom();
     if (!emphasisMark.isEmpty())
         emphasisMarkOffset = *m_emphasisMarkExistsAndIsAbove ? -font.metricsOfPrimaryFont().intAscent() - font.emphasisMarkDescent(emphasisMark) : font.metricsOfPrimaryFont().intDescent() + font.emphasisMarkAscent(emphasisMark);
 
@@ -514,7 +514,7 @@ void TextBoxPainter::paintForeground(const StyledMarkedText& markedText)
         m_style,
         markedText.style.textStyles,
         markedText.style.textShadow,
-        !markedText.style.textShadow.isEmpty() && m_style.hasAppleColorFilter() ? &m_style.appleColorFilter() : nullptr,
+        !markedText.style.textShadow.isNone() && m_style.hasAppleColorFilter() ? &m_style.appleColorFilter() : nullptr,
         emphasisMark,
         emphasisMarkOffset,
         m_isCombinedText ? &downcast<RenderCombineText>(m_renderer) : nullptr
@@ -555,7 +555,7 @@ TextDecorationPainter TextBoxPainter::createDecorationPainter(const StyledMarked
         context,
         fontCascade(),
         markedText.style.textShadow,
-        !markedText.style.textShadow.isEmpty() && m_style.hasAppleColorFilter() ? &m_style.appleColorFilter() : nullptr,
+        !markedText.style.textShadow.isNone() && m_style.hasAppleColorFilter() ? &m_style.appleColorFilter() : nullptr,
         m_document.printing(),
         writingMode()
     };
@@ -568,7 +568,7 @@ static inline float computedTextDecorationThickness(const RenderStyle& styleToUs
 
 static inline float computedAutoTextDecorationThickness(const RenderStyle& styleToUse, float deviceScaleFactor)
 {
-    return ceilToDevicePixel(TextDecorationThickness::createWithAuto().resolve(styleToUse.computedFontSize(), styleToUse.metricsOfPrimaryFont()), deviceScaleFactor);
+    return ceilToDevicePixel(Style::TextDecorationThickness { CSS::Keyword::Auto { } }.resolve(styleToUse.computedFontSize(), styleToUse.metricsOfPrimaryFont()), deviceScaleFactor);
 }
 
 static inline float computedLinethroughCenter(const RenderStyle& styleToUse, float textDecorationThickness, float autoTextDecorationThickness)

@@ -748,9 +748,6 @@ TextStream& operator<<(WTF::TextStream& stream, AXProperty property)
     case AXProperty::EmbeddedImageDescription:
         stream << "EmbeddedImageDescription";
         break;
-    case AXProperty::TextEmissionBehavior:
-        stream << "TextEmissionBehavior";
-        break;
     case AXProperty::ExpandedTextValue:
         stream << "ExpandedTextValue";
         break;
@@ -818,9 +815,6 @@ TextStream& operator<<(WTF::TextStream& stream, AXProperty property)
         break;
     case AXProperty::HasTextShadow:
         stream << "HasTextShadow";
-        break;
-    case AXProperty::HasUnderline:
-        stream << "HasUnderline";
         break;
     case AXProperty::HorizontalScrollBar:
         stream << "HorizontalScrollBar";
@@ -965,6 +959,15 @@ TextStream& operator<<(WTF::TextStream& stream, AXProperty property)
         break;
     case AXProperty::IsTableRow:
         stream << "IsTableRow";
+        break;
+    case AXProperty::IsTextEmissionBehaviorDoubleNewline:
+        stream << "IsTextEmissionBehaviorDoubleNewline";
+        break;
+    case AXProperty::IsTextEmissionBehaviorNewline:
+        stream << "IsTextEmissionBehaviorNewline";
+        break;
+    case AXProperty::IsTextEmissionBehaviorTab:
+        stream << "IsTextEmissionBehaviorTab";
         break;
     case AXProperty::IsTree:
         stream << "IsTree";
@@ -1146,9 +1149,6 @@ TextStream& operator<<(WTF::TextStream& stream, AXProperty property)
     case AXProperty::SupportsCurrent:
         stream << "SupportsCurrent";
         break;
-    case AXProperty::SupportsDatetimeAttribute:
-        stream << "SupportsDatetimeAttribute";
-        break;
     case AXProperty::SupportsExpanded:
         stream << "SupportsExpanded";
         break;
@@ -1220,7 +1220,7 @@ TextStream& operator<<(WTF::TextStream& stream, AXProperty property)
 
 TextStream& operator<<(TextStream& stream, const AXCoreObject& object)
 {
-    constexpr OptionSet<AXStreamOptions> options = { AXStreamOptions::ObjectID, AXStreamOptions::Role, AXStreamOptions::ParentID, AXStreamOptions::IdentifierAttribute, AXStreamOptions::OuterHTML, AXStreamOptions::DisplayContents, AXStreamOptions::Address };
+    constexpr OptionSet<AXStreamOptions> options = { AXStreamOptions::ObjectID, AXStreamOptions::Role, AXStreamOptions::ParentID, AXStreamOptions::IdentifierAttribute, AXStreamOptions::OuterHTML, AXStreamOptions::DisplayContents, AXStreamOptions::Address, AXStreamOptions::RendererOrNode };
     streamAXCoreObject(stream, object, options);
     return stream;
 }
@@ -1233,7 +1233,7 @@ TextStream& operator<<(TextStream& stream, AXIsolatedTree& tree)
     stream << "treeID " << tree.treeID();
     stream.dumpProperty("rootNodeID"_s, tree.rootNode()->objectID());
     stream.dumpProperty("focusedNodeID"_s, tree.m_focusedNodeID);
-    constexpr OptionSet<AXStreamOptions> options = { AXStreamOptions::ObjectID, AXStreamOptions::Role, AXStreamOptions::ParentID, AXStreamOptions::IdentifierAttribute, AXStreamOptions::OuterHTML, AXStreamOptions::DisplayContents, AXStreamOptions::Address };
+    constexpr OptionSet<AXStreamOptions> options = { AXStreamOptions::ObjectID, AXStreamOptions::Role, AXStreamOptions::ParentID, AXStreamOptions::IdentifierAttribute, AXStreamOptions::OuterHTML, AXStreamOptions::DisplayContents, AXStreamOptions::Address, AXStreamOptions::RendererOrNode };
     if (RefPtr root = tree.rootNode())
         streamSubtree(stream, root.releaseNonNull(), options);
     return stream;
@@ -1269,7 +1269,7 @@ TextStream& operator<<(TextStream& stream, AXObjectCache& axObjectCache)
     if (!document)
         stream << "No document!";
     else if (RefPtr root = axObjectCache.get(document->view())) {
-        constexpr OptionSet<AXStreamOptions> options = { AXStreamOptions::ObjectID, AXStreamOptions::Role, AXStreamOptions::ParentID, AXStreamOptions::IdentifierAttribute, AXStreamOptions::OuterHTML, AXStreamOptions::DisplayContents, AXStreamOptions::Address };
+        constexpr OptionSet<AXStreamOptions> options = { AXStreamOptions::ObjectID, AXStreamOptions::Role, AXStreamOptions::ParentID, AXStreamOptions::IdentifierAttribute, AXStreamOptions::OuterHTML, AXStreamOptions::DisplayContents, AXStreamOptions::Address, AXStreamOptions::RendererOrNode };
         streamSubtree(stream, root.releaseNonNull(), options);
     } else
         stream << "No root!";
@@ -1294,10 +1294,12 @@ void streamAXCoreObject(TextStream& stream, const AXCoreObject& object, const Op
 
     auto* axObject = dynamicDowncast<AccessibilityObject>(object);
     if (axObject) {
-        if (auto* renderer = axObject->renderer())
-            stream.dumpProperty("renderer"_s, renderer->debugDescription());
-        else if (auto* node = axObject->node())
-            stream.dumpProperty("node"_s, node->debugDescription());
+        if (options & AXStreamOptions::RendererOrNode) {
+            if (auto* renderer = axObject->renderer())
+                stream.dumpProperty("renderer"_s, renderer->debugDescription());
+            else if (auto* node = axObject->node())
+                stream.dumpProperty("node"_s, node->debugDescription());
+        }
     }
 
     if (options & AXStreamOptions::ParentID) {

@@ -134,6 +134,9 @@ namespace WritingTools {
 enum class ReplacementBehavior : uint8_t;
 }
 
+struct FrameIdentifierType;
+using FrameIdentifier = ObjectIdentifier<FrameIdentifierType>;
+
 } // namespace WebCore
 
 @protocol WebViewImplDelegate
@@ -187,6 +190,8 @@ struct DragItem;
 struct DigitalCredentialsRequestData;
 #endif
 
+struct FrameIdentifierType;
+using FrameIdentifier = ObjectIdentifier<FrameIdentifierType>;
 }
 
 namespace WebKit {
@@ -496,6 +501,8 @@ public:
     void accessibilityRegisterUIProcessTokens();
     void updateRemoteAccessibilityRegistration(bool registerProcess);
     id accessibilityFocusedUIElement();
+    NSUInteger accessibilityRemoteChildTokenHash();
+    NSUInteger accessibilityUIProcessLocalTokenHash();
     bool accessibilityIsIgnored() const { return false; }
     id accessibilityHitTest(CGPoint);
     void enableAccessibilityIfNecessary(NSString *attribute = nil);
@@ -901,7 +908,9 @@ private:
     const UniqueRef<PageClient> m_pageClient;
     const Ref<WebPageProxy> m_page;
 
+#if ENABLE(TILED_CA_DRAWING_AREA)
     DrawingAreaType m_drawingAreaType { DrawingAreaType::TiledCoreAnimation };
+#endif
 
     bool m_willBecomeFirstResponderAgain { false };
     bool m_inBecomeFirstResponder { false };
@@ -997,6 +1006,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     bool m_allowsMagnification { false };
 
     RetainPtr<NSAccessibilityRemoteUIElement> m_remoteAccessibilityChild;
+    RetainPtr<NSData> m_remoteAccessibilityChildToken;
+    RetainPtr<NSData> m_remoteAccessibilityTokenGeneratedByUIProcess;
     RetainPtr<NSMutableDictionary> m_remoteAccessibilityFrameCache;
 
     RefPtr<WebCore::Image> m_promisedImage;
@@ -1012,13 +1023,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     // that has been already sent to WebCore.
     RetainPtr<NSEvent> m_keyDownEventBeingResent;
 
-    struct CheckedCommands : public CanMakeCheckedPtr<CheckedCommands> {
-        WTF_MAKE_FAST_ALLOCATED;
-        WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(CheckedCommands);
-    public:
-        Vector<WebCore::KeypressCommand> commands;
-    };
-    CheckedPtr<CheckedCommands> m_collectedKeypressCommands;
+    std::optional<Vector<WebCore::KeypressCommand>> m_collectedKeypressCommands;
+    std::optional<NSRange> m_stagedMarkedRange;
+    Vector<CompletionHandler<void()>> m_interpretKeyEventHoldingTank;
 
     String m_lastStringForCandidateRequest;
     NSInteger m_lastCandidateRequestSequenceNumber;

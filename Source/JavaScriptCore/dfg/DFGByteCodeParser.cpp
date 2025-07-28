@@ -570,7 +570,7 @@ private:
                 phantomLocalDirect(reg);
         }
         
-        if (!argument && m_codeBlock->specializationKind() == CodeForConstruct)
+        if (!argument && m_codeBlock->specializationKind() == CodeSpecializationKind::CodeForConstruct)
             variableAccessData->mergeShouldNeverUnbox(true);
         
         variableAccessData->mergeStructureCheckHoistingFailed(
@@ -2242,7 +2242,7 @@ bool ByteCodeParser::handleVarargsInlining(Node* callTargetNode, Operand result,
 unsigned ByteCodeParser::getInliningBalance(const CallLinkStatus& callLinkStatus, CodeSpecializationKind specializationKind)
 {
     unsigned inliningBalance = m_graph.m_plan.isFTL() ? Options::maximumFunctionForCallInlineCandidateBytecodeCostForFTL() : Options::maximumFunctionForCallInlineCandidateBytecodeCostForDFG();
-    if (specializationKind == CodeForConstruct)
+    if (specializationKind == CodeSpecializationKind::CodeForConstruct)
         inliningBalance = std::min(inliningBalance, m_graph.m_plan.isFTL() ? Options::maximumFunctionForConstructInlineCandidateBytecodeCostForFTL() : Options::maximumFunctionForConstructInlineCandidateBytecodeCostForDFG());
     if (callLinkStatus.isClosureCall())
         inliningBalance = std::min(inliningBalance, m_graph.m_plan.isFTL() ? Options::maximumFunctionForClosureCallInlineCandidateBytecodeCostForFTL() : Options::maximumFunctionForClosureCallInlineCandidateBytecodeCostForDFG());
@@ -2270,9 +2270,41 @@ ByteCodeParser::CallOptimizationResult ByteCodeParser::handleInlining(
     // simplification on the fly and this helps reduce compile times, but we can only leverage
     // this in cases where we don't need control flow diamonds to check the callee.
     if (!callLinkStatus.couldTakeSlowPath() && callLinkStatus.size() == 1) {
-        return handleCallVariant(
-            callTargetNode, result, callLinkStatus[0], registerOffset, thisArgument,
-            argumentCountIncludingThis, osrExitIndex, callOp, kind, prediction, newTarget, inliningBalance, nullptr, true);
+        auto callee = callLinkStatus[0];
+        constexpr bool needsToCheckCallee = true;
+        CallOptimizationResult inliningResult = handleCallVariant(
+            callTargetNode, result, callee, registerOffset, thisArgument,
+            argumentCountIncludingThis, osrExitIndex, callOp, kind, prediction, newTarget, inliningBalance, nullptr, needsToCheckCallee);
+        if (inliningResult == CallOptimizationResult::DidNothing) {
+            // When non inlined call is only having one call variant , let's emit DirectCall with appropriate checks instead.
+            if (!m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadConstantValue)
+                && !m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadType)
+                && callee.executable()
+                && (callOp == Call || callOp == TailCall || callOp == Construct)) {
+                auto* executable = callee.executable();
+                if (executable->intrinsic() == WasmFunctionIntrinsic && !Options::forceICFailure())
+                    return inliningResult;
+
+                if (auto* functionExecutable = jsDynamicCast<FunctionExecutable*>(executable)) {
+                    // We need to update m_parameterSlots before we get to the backend, but we don't
+                    // want to do too much of this.
+                    unsigned numAllocatedArgs = std::max(static_cast<unsigned>(functionExecutable->parameterCount()) + 1, static_cast<unsigned>(argumentCountIncludingThis));
+                    if (numAllocatedArgs > Options::maximumDirectCallStackSize())
+                        return inliningResult;
+
+                    m_parameterSlots = std::max(m_parameterSlots, Graph::parameterSlotsForArgCount(numAllocatedArgs));
+                }
+
+                m_graph.m_plan.recordedStatuses().addCallLinkStatus(currentNodeOrigin().semantic, CallLinkStatus(callee));
+                emitFunctionChecks(callee, callTargetNode, thisArgument);
+                Node* callNode = addCall(result, callOp, OpInfo(), callTargetNode, argumentCountIncludingThis, registerOffset, prediction);
+                ASSERT(callNode->op() != TailCallVarargs && callNode->op() != TailCallForwardVarargs);
+                auto emittedCallOp = callNode->op();
+                callNode->convertToDirectCall(m_graph.freeze(executable));
+                return emittedCallOp == TailCall ? CallOptimizationResult::InlinedTerminal : CallOptimizationResult::Inlined;
+            }
+        }
+        return inliningResult;
     }
 
     // We need to create some kind of switch over callee. For now we only do this if we believe that
@@ -2364,11 +2396,12 @@ ByteCodeParser::CallOptimizationResult ByteCodeParser::handleInlining(
         m_exitOK = true;
         
         Node* myCallTargetNode = getDirect(calleeReg);
-        
+
+        constexpr bool needsToCheckCallee = false;
         auto inliningResult = handleCallVariant(
             myCallTargetNode, result, callLinkStatus[i], registerOffset,
             thisArgument, argumentCountIncludingThis, osrExitIndex, callOp, kind, prediction, newTarget,
-            inliningBalance, continuationBlock, false);
+            inliningBalance, continuationBlock, needsToCheckCallee);
         
         if (inliningResult == CallOptimizationResult::DidNothing) {
             // That failed so we let the block die. Nothing interesting should have been added to
@@ -2630,7 +2663,7 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
 
             insertChecks();
 
-            std::optional<IterationKind> kind = interationKindForIntrinsic(intrinsic);
+            std::optional<IterationKind> kind = iterationKindForIntrinsic(intrinsic);
             RELEASE_ASSERT(!!kind);
 
             // Add the constant before exit becomes invalid because we may want to insert (redundant) checks on it in Fixup.
@@ -4979,7 +5012,7 @@ bool ByteCodeParser::handleTypedArrayConstructor(
     if (function->classInfo() != constructorClassInfoForType(type))
         return false;
     
-    if (kind == CodeForCall)
+    if (kind == CodeSpecializationKind::CodeForCall)
         return false;
 
     if (function->globalObject() != m_inlineStackTop->m_codeBlock->globalObject())
@@ -5051,7 +5084,7 @@ bool ByteCodeParser::handleConstantFunction(
         return false;
 
     if (function->classInfo() == ArrayConstructor::info()) {
-        if (kind == CodeForConstruct) {
+        if (kind == CodeSpecializationKind::CodeForConstruct) {
             Node* newTargetNode = get(virtualRegisterForArgumentIncludingThis(0, registerOffset));
             // We cannot handle the case where new.target != callee (i.e. a construct from a super call) because we
             // don't know what the prototype of the constructed object will be.
@@ -5076,7 +5109,7 @@ bool ByteCodeParser::handleConstantFunction(
     }
 
     if (function->classInfo() == NumberConstructor::info()) {
-        if (kind == CodeForConstruct)
+        if (kind == CodeSpecializationKind::CodeForConstruct)
             return false;
 
         insertChecks();
@@ -5089,7 +5122,7 @@ bool ByteCodeParser::handleConstantFunction(
     }
 
     if (function->classInfo() == BooleanConstructor::info()) {
-        if (kind == CodeForConstruct)
+        if (kind == CodeSpecializationKind::CodeForConstruct)
             return false;
 
         insertChecks();
@@ -5105,7 +5138,7 @@ bool ByteCodeParser::handleConstantFunction(
     }
     
     if (function->classInfo() == StringConstructor::info()) {
-        if (kind == CodeForConstruct) {
+        if (kind == CodeSpecializationKind::CodeForConstruct) {
             Node* newTargetNode = get(virtualRegisterForArgumentIncludingThis(0, registerOffset));
             // We cannot handle the case where new.target != callee (i.e. a construct from a super call) because we
             // don't know what the prototype of the constructed object will be.
@@ -5123,7 +5156,7 @@ bool ByteCodeParser::handleConstantFunction(
             argumentNode = get(virtualRegisterForArgumentIncludingThis(1, registerOffset));
         
         Node* resultNode;
-        if (kind == CodeForConstruct)
+        if (kind == CodeSpecializationKind::CodeForConstruct)
             resultNode = addToGraph(NewStringObject, OpInfo(m_graph.registerStructure(function->globalObject()->stringObjectStructure())), addToGraph(ToString, argumentNode));
         else
             resultNode = addToGraph(CallStringConstructor, argumentNode);
@@ -5153,7 +5186,7 @@ bool ByteCodeParser::handleConstantFunction(
         }
     }
 
-    if (function->classInfo() == MapConstructor::info() && kind == CodeForConstruct) {
+    if (function->classInfo() == MapConstructor::info() && kind == CodeSpecializationKind::CodeForConstruct) {
         Node* newTargetNode = get(virtualRegisterForArgumentIncludingThis(0, registerOffset));
         // We cannot handle the case where new.target != callee (i.e. a construct from a super call) because we
         // don't know what the prototype of the constructed object will be.
@@ -5170,7 +5203,7 @@ bool ByteCodeParser::handleConstantFunction(
         }
     }
 
-    if (function->classInfo() == SetConstructor::info() && kind == CodeForConstruct) {
+    if (function->classInfo() == SetConstructor::info() && kind == CodeSpecializationKind::CodeForConstruct) {
         Node* newTargetNode = get(virtualRegisterForArgumentIncludingThis(0, registerOffset));
         // We cannot handle the case where new.target != callee (i.e. a construct from a super call) because we
         // don't know what the prototype of the constructed object will be.
@@ -5187,7 +5220,7 @@ bool ByteCodeParser::handleConstantFunction(
         }
     }
 
-    if ((function->classInfo() == JSArrayBufferConstructor::info() || function->classInfo() == JSSharedArrayBufferConstructor::info()) && kind == CodeForConstruct) {
+    if ((function->classInfo() == JSArrayBufferConstructor::info() || function->classInfo() == JSSharedArrayBufferConstructor::info()) && kind == CodeSpecializationKind::CodeForConstruct) {
         Node* newTargetNode = get(virtualRegisterForArgumentIncludingThis(0, registerOffset));
         // We cannot handle the case where new.target != callee (i.e. a construct from a super call) because we
         // don't know what the prototype of the constructed object will be.
@@ -5204,7 +5237,7 @@ bool ByteCodeParser::handleConstantFunction(
         }
     }
 
-    if (function->classInfo() == SymbolConstructor::info() && kind == CodeForCall) {
+    if (function->classInfo() == SymbolConstructor::info() && kind == CodeSpecializationKind::CodeForCall) {
         Node* newTargetNode = get(virtualRegisterForArgumentIncludingThis(0, registerOffset));
         // We cannot handle the case where new.target != callee (i.e. a construct from a super call) because we
         // don't know what the prototype of the constructed object will be.
@@ -5226,7 +5259,7 @@ bool ByteCodeParser::handleConstantFunction(
     }
 
     if (function->classInfo() == ObjectConstructor::info()) {
-        if (kind == CodeForConstruct) {
+        if (kind == CodeSpecializationKind::CodeForConstruct) {
             Node* newTargetNode = get(virtualRegisterForArgumentIncludingThis(0, registerOffset));
             // We cannot handle the case where new.target != callee (i.e. a construct from a super call) because we
             // don't know what the prototype of the constructed object will be.
@@ -5246,7 +5279,7 @@ bool ByteCodeParser::handleConstantFunction(
         return true;
     }
 
-    if (kind == CodeForConstruct) {
+    if (kind == CodeSpecializationKind::CodeForConstruct) {
         Node* newTargetNode = get(virtualRegisterForArgumentIncludingThis(0, registerOffset));
         // We cannot handle the case where new.target != callee (i.e. a construct from a super call) because we
         // don't know what the prototype of the constructed object will be.
@@ -8398,13 +8431,25 @@ void ByteCodeParser::parseBlock(unsigned limit)
             data.switchTableIndex = m_inlineStackTop->m_switchRemap[bytecode.m_tableIndex];
             const UnlinkedSimpleJumpTable& unlinkedTable = m_graph.unlinkedSwitchJumpTable(data.switchTableIndex);
             data.fallThrough.setBytecodeIndex(m_currentIndex.offset() + unlinkedTable.defaultOffset());
-            for (unsigned i = 0; i < unlinkedTable.m_branchOffsets.size(); ++i) {
-                if (!unlinkedTable.m_branchOffsets[i])
-                    continue;
-                unsigned target = m_currentIndex.offset() + unlinkedTable.m_branchOffsets[i];
-                if (target == data.fallThrough.bytecodeIndex())
-                    continue;
-                data.cases.append(SwitchCase::withBytecodeIndex(m_graph.freeze(jsNumber(static_cast<int32_t>(unlinkedTable.m_min + i))), target));
+
+            if (unlinkedTable.isList()) {
+                data.clearSwitchTableIndex();
+                for (unsigned i = 0; i < unlinkedTable.m_branchOffsets.size(); i += 2) {
+                    int32_t value = unlinkedTable.m_branchOffsets[i];
+                    unsigned target = m_currentIndex.offset() + unlinkedTable.m_branchOffsets[i + 1];
+                    if (target == data.fallThrough.bytecodeIndex())
+                        continue;
+                    data.cases.append(SwitchCase::withBytecodeIndex(m_graph.freeze(jsNumber(value)), target));
+                }
+            } else {
+                for (unsigned i = 0; i < unlinkedTable.m_branchOffsets.size(); ++i) {
+                    if (!unlinkedTable.m_branchOffsets[i])
+                        continue;
+                    unsigned target = m_currentIndex.offset() + unlinkedTable.m_branchOffsets[i];
+                    if (target == data.fallThrough.bytecodeIndex())
+                        continue;
+                    data.cases.append(SwitchCase::withBytecodeIndex(m_graph.freeze(jsNumber(static_cast<int32_t>(unlinkedTable.m_min + i))), target));
+                }
             }
             addToGraph(Switch, OpInfo(&data), get(bytecode.m_scrutinee));
             flushIfTerminal(data);
@@ -8418,14 +8463,25 @@ void ByteCodeParser::parseBlock(unsigned limit)
             data.switchTableIndex = m_inlineStackTop->m_switchRemap[bytecode.m_tableIndex];
             const UnlinkedSimpleJumpTable& unlinkedTable = m_graph.unlinkedSwitchJumpTable(data.switchTableIndex);
             data.fallThrough.setBytecodeIndex(m_currentIndex.offset() + unlinkedTable.defaultOffset());
-            for (unsigned i = 0; i < unlinkedTable.m_branchOffsets.size(); ++i) {
-                if (!unlinkedTable.m_branchOffsets[i])
-                    continue;
-                unsigned target = m_currentIndex.offset() + unlinkedTable.m_branchOffsets[i];
-                if (target == data.fallThrough.bytecodeIndex())
-                    continue;
-                data.cases.append(
-                    SwitchCase::withBytecodeIndex(LazyJSValue::singleCharacterString(unlinkedTable.m_min + i), target));
+
+            if (unlinkedTable.isList()) {
+                data.clearSwitchTableIndex();
+                for (unsigned i = 0; i < unlinkedTable.m_branchOffsets.size(); i += 2) {
+                    int32_t value = unlinkedTable.m_branchOffsets[i];
+                    unsigned target = m_currentIndex.offset() + unlinkedTable.m_branchOffsets[i + 1];
+                    if (target == data.fallThrough.bytecodeIndex())
+                        continue;
+                    data.cases.append(SwitchCase::withBytecodeIndex(LazyJSValue::singleCharacterString(value), target));
+                }
+            } else {
+                for (unsigned i = 0; i < unlinkedTable.m_branchOffsets.size(); ++i) {
+                    if (!unlinkedTable.m_branchOffsets[i])
+                        continue;
+                    unsigned target = m_currentIndex.offset() + unlinkedTable.m_branchOffsets[i];
+                    if (target == data.fallThrough.bytecodeIndex())
+                        continue;
+                    data.cases.append(SwitchCase::withBytecodeIndex(LazyJSValue::singleCharacterString(unlinkedTable.m_min + i), target));
+                }
             }
             addToGraph(Switch, OpInfo(&data), get(bytecode.m_scrutinee));
             flushIfTerminal(data);

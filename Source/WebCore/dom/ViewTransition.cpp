@@ -33,6 +33,7 @@
 #include "CSSValuePool.h"
 #include "CheckVisibilityOptions.h"
 #include "ContainerNodeInlines.h"
+#include "ContextDestructionObserverInlines.h"
 #include "Document.h"
 #include "DocumentTimeline.h"
 #include "ElementInlines.h"
@@ -347,29 +348,48 @@ static AtomString effectiveViewTransitionName(RenderLayerModelObject& renderer, 
         return nullAtom();
 
     auto& transitionName = renderer.style().viewTransitionName();
-    if (transitionName.isNone())
-        return nullAtom();
 
-    auto scope = Style::Scope::forOrdinal(originatingElement, transitionName.scopeOrdinal());
-    if (!scope || scope != &documentScope)
-        return nullAtom();
+    auto computeScope = [&] -> Style::Scope* {
+        auto scope = Style::Scope::forOrdinal(originatingElement, transitionName.scopeOrdinal());
+        if (!scope || scope != &documentScope)
+            return nullptr;
+        return scope;
+    };
 
-    if (transitionName.isCustomIdent())
-        return transitionName.customIdent();
+    return WTF::switchOn(transitionName,
+        [&](const CSS::Keyword::None&) {
+            return nullAtom();
+        },
+        [&](const CSS::Keyword::Auto&) {
+            auto scope = computeScope();
+            if (!scope || !renderer.element())
+                return nullAtom();
 
-    ASSERT(transitionName.isAuto() || transitionName.isMatchElement());
+            Ref element = *renderer.element();
+            if (scope == &Style::Scope::forNode(element) && element->hasID())
+                return makeAtomString("-ua-id-"_s, renderer.protectedElement()->getIdAttribute());
 
-    if (!renderer.element())
-        return nullAtom();
+            if (isCrossDocument)
+                return nullAtom();
 
-    Ref element = *renderer.element();
-    if (transitionName.isAuto() && scope == &Style::Scope::forNode(element) && element->hasID())
-        return makeAtomString("-ua-id-"_s, renderer.protectedElement()->getIdAttribute());
+            return makeAtomString("-ua-auto-"_s, String::number(element->nodeIdentifier().toRawValue()));
+        },
+        [&](const CSS::Keyword::MatchElement&) {
+            auto scope = computeScope();
+            if (!scope || isCrossDocument || !renderer.element())
+                return nullAtom();
 
-    if (isCrossDocument)
-        return nullAtom();
+            Ref element = *renderer.element();
+            return makeAtomString("-ua-auto-"_s, String::number(element->nodeIdentifier().toRawValue()));
+        },
+        [&](const CustomIdentifier& customIdentifier) {
+            auto scope = computeScope();
+            if (!scope)
+                return nullAtom();
 
-    return makeAtomString("-ua-auto-"_s, String::number(element->identifier().toRawValue()));
+            return customIdentifier.value;
+        }
+    );
 }
 
 static ExceptionOr<void> checkDuplicateViewTransitionName(const AtomString& name, ListHashSet<AtomString>& usedTransitionNames)
@@ -382,17 +402,20 @@ static ExceptionOr<void> checkDuplicateViewTransitionName(const AtomString& name
 
 static Vector<AtomString> effectiveViewTransitionClassList(RenderLayerModelObject& renderer, Element& originatingElement, Style::Scope& documentScope)
 {
-    auto classList = renderer.style().viewTransitionClasses();
-    if (classList.isEmpty())
-        return { };
+    return WTF::switchOn(renderer.style().viewTransitionClasses(),
+        [](const CSS::Keyword::None&) -> Vector<AtomString> {
+            return { };
+        },
+        [&](const auto& list) -> Vector<AtomString> {
+            auto scope = Style::Scope::forOrdinal(originatingElement, list[0].scopeOrdinal);
+            if (!scope || scope != &documentScope)
+                return { };
 
-    auto scope = Style::Scope::forOrdinal(originatingElement, classList.first().scopeOrdinal);
-    if (!scope || scope != &documentScope)
-        return { };
-
-    return WTF::map(classList, [&](auto& item) {
-        return item.name;
-    });
+            return WTF::map(list, [&](auto& item) {
+                return item.name;
+            });
+        }
+    );
 }
 
 LayoutRect ViewTransition::captureOverflowRect(RenderLayerModelObject& renderer)
@@ -976,7 +999,7 @@ void ViewTransition::updatePseudoElementStylesWrite()
 
     bool changed = false;
     for (auto& [name, capturedElement] : m_namedElements.map())
-        changed |= updatePropertiesForGroupPseudo(*capturedElement, name);
+        changed |= updatePropertiesForGroupPseudo(capturedElement, name);
 
     if (changed) {
         if (RefPtr documentElement = document->documentElement())

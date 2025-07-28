@@ -58,12 +58,12 @@ public: \
         static const TZoneSpecification s_heapSpec = { &s_heapRef, sizeof(_type), ::bmalloc::api::compactAllocationMode<_type>(), SizeAndAlignment::encode<_type>() TZONE_SPEC_NAME_ARG(#_type) }; \
     \
         if (!s_heapRef || size != sizeof(_type)) { [[unlikely]] \
-            if constexpr (::bmalloc::api::requiresCompactPointers<_type>()) \
+            if constexpr (::bmalloc::api::compactAllocationMode<_type>() == CompactAllocationMode::Compact) \
                 return ::bmalloc::api::tzoneAllocateCompactSlow(size, s_heapSpec); \
             return ::bmalloc::api::tzoneAllocate ## _compactMode ## Slow(size, s_heapSpec); \
         } \
         BASSERT(::bmalloc::api::tzoneMallocFallback > TZoneMallocFallback::ForceDebugMalloc); \
-        if constexpr (::bmalloc::api::requiresCompactPointers<_type>()) \
+        if constexpr (::bmalloc::api::compactAllocationMode<_type>() == CompactAllocationMode::Compact) \
             return ::bmalloc::api::tzoneAllocateCompact(s_heapRef); \
         return ::bmalloc::api::tzoneAllocate ## _compactMode(s_heapRef); \
     } \
@@ -94,7 +94,7 @@ const TZoneSpecification _type::s_heapSpec = { &_type::s_heapRef, sizeof(_type),
 \
 void* _type::operatorNewSlow(size_t size) \
 { \
-    if constexpr (::bmalloc::api::requiresCompactPointers<_type>()) \
+    if constexpr (::bmalloc::api::compactAllocationMode<_type>() == CompactAllocationMode::Compact) \
         return ::bmalloc::api::tzoneAllocateCompactSlow(size, s_heapSpec); \
     return ::bmalloc::api::tzoneAllocate ## _compactMode ## Slow(size, s_heapSpec); \
 } \

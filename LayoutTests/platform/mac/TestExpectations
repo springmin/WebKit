@@ -1064,6 +1064,7 @@ webkit.org/b/181594 media/encrypted-media/clearKey/clearKey-cenc-video-playback-
 webkit.org/b/189200 media/encrypted-media/clearKey/clearKey-webm-video-playback-mse.html [ Skip ]
 media/encrypted-media/clearKey/clearKey-cenc-video-playback-mse-multikey.html [ Skip ]
 webkit.org/b/258070 media/encrypted-media/clearKey/clearKey-cenc-stop-playback-before-key.html [ Skip ]
+media/encrypted-media/encrypted-media-append-clear-encrypted.html [ Skip ]
 
 webkit.org/b/162507 http/tests/media/hls/hls-video-resize.html [ Pass Failure ]
 
@@ -1396,6 +1397,12 @@ imported/w3c/web-platform-tests/pointerevents/pointerup_after_pointerdown_target
 imported/w3c/web-platform-tests/pointerevents/predicted_events_attributes.html?touch [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/touch-action-with-swipe-dir-change.html?touch [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/coalesced_events_attributes_on_redispatch.https.html?touch [ Skip ]
+imported/w3c/web-platform-tests/pointerevents/pointerevent_element_haspointercapture_release_pending_capture.html?touch [ Skip ]
+imported/w3c/web-platform-tests/pointerevents/pointerevent_element_haspointercapture.html?touch [ Skip ]
+imported/w3c/web-platform-tests/pointerevents/pointerevent_releasepointercapture_release_right_after_capture.html?touch [ Skip ]
+imported/w3c/web-platform-tests/pointerevents/pointerevent_setpointercapture_override_pending_capture_element.html?touch [ Skip ]
+imported/w3c/web-platform-tests/pointerevents/pointerevent_setpointercapture_to_same_element_twice.html?touch [ Skip ]
+imported/w3c/web-platform-tests/pointerevents/pointerevent_pointerrawupdate_changes_pointer_capture.https.html [ Skip ]
 
 webkit.org/b/274686 imported/w3c/web-platform-tests/pointerevents/pointerevent_capture_mouse_and_release_and_capture_again.html [ Skip ]
 
@@ -2214,7 +2221,6 @@ webkit.org/b/269873 imported/w3c/web-platform-tests/webrtc-extensions/transfer-d
 [ Sonoma ] fast/canvas/putImageData-multiple.html [ ImageOnlyFailure ]
 [ Sonoma ] fast/canvas/webgl/match-page-color-space-p3.html [ ImageOnlyFailure ]
 [ Sonoma ] fast/clip/hidpi-background-clip-with-text-fill-color.html [ ImageOnlyFailure ]
-[ Sonoma ] fast/images/decode-static-image-resolve.html [ ImageOnlyFailure ]
 [ Sonoma ] fast/images/image-orientation-none-canvas.html [ ImageOnlyFailure ]
 [ Sonoma ] fast/images/svg-mask-in-canvas.html [ ImageOnlyFailure ]
 [ Sonoma ] fast/overflow/containing-block-and-overflow-hidden.html [ ImageOnlyFailure ]
@@ -2286,8 +2292,6 @@ imported/w3c/web-platform-tests/fetch/metadata/generated/window-location.sub.htm
 [ Release arm64 ] http/tests/webgpu/webgpu [ Skip ]
 
 webkit.org/b/275713 fast/text/international/system-language/declarative-language.html [ Failure ]
-
-webkit.org/b/275962 imported/w3c/web-platform-tests/navigation-api/navigation-history-entry/no-referrer-dynamic-url-censored.html [ Timeout ]
 
 # rdar://124307254 ([ Sequoia+ ]: Bad rendering of EmojiImage)
 [ Sequoia+ ] fast/css/font-fallback-private-use-area-apple-logo-exception.html [ ImageOnlyFailure ]
@@ -2450,4 +2454,54 @@ webkit.org/b/294316 [ Debug ] imported/w3c/web-platform-tests/pointerevents/coal
 
 webkit.org/b/295127  transitions/svg-text-shadow-transition.html [ Pass Failure ]
 
+webkit.org/b/295457 [ X86_64 Sequoia ] webanimations/document-timeline-current-time-updates-without-running-animations.html [ Failure ]
+
 webkit.org/b/295308 fullscreen/full-screen-enter-while-exiting-multiple-elements.html [ Pass Timeout ]
+
+webkit.org/b/295408 imported/w3c/web-platform-tests/xhr/send-redirect.htm [ Pass Failure ]
+
+webkit.org/b/295435 compositing/layer-creation/overlap-animation-container.html [ Pass Failure ]
+
+# The padding for native select controls is overridden on macOS Sequoia and earlier.
+imported/w3c/web-platform-tests/css/css-ui/select-author-level-padding-applies.html [ Skip ]
+
+# rdar://154886047 (REGRESSION(Liquid Glass): Rebaseline? [ OS 26 ] 5X imported/w3c/web-platform-tests/css/css-view-transitions/ (Layout-Tests) are constant ImageOnlyFailures)
+imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-below-and-on-top-of-viewport-partially-onscreen-new.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-left-of-viewport-offscreen-new.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-on-top-of-viewport-offscreen-new.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-right-and-left-of-viewport-partially-onscreen-new.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-view-transitions/new-content-transform-position-fixed.html [ ImageOnlyFailure ]
+
+# rdar://154889639 (REGRESSION(Liquid Glass): [ OS 26 ] fast/forms/datalist/datalist-fallback-content.html is a constant ImageOnlyFailure)
+fast/forms/datalist/datalist-fallback-content.html [ ImageOnlyFailure ]
+
+# rdar://154990654 (REGRESSION(Liquid Glass): [ Tahoe ] 4X fast/forms/switch/zoom-approximates-transform (layout-tests) are constant ImageOnlyFailures)
+fast/forms/switch/zoom-approximates-transform-rtl.html [ ImageOnlyFailure ]
+fast/forms/switch/zoom-approximates-transform-vertical-lr.html [ ImageOnlyFailure ] 
+fast/forms/switch/zoom-approximates-transform-vertical-rl.html [ ImageOnlyFailure ] 
+fast/forms/switch/zoom-approximates-transform.html [ ImageOnlyFailure ] 
+
+# rdar://154997421 (REGRESSION(Liquid Glass): [ Tahoe ] 5X fast/forms/range (layout-tests) are constant failures
+fast/forms/range/input-appearance-range-rtl.html [ ImageOnlyFailure ]
+fast/forms/range/slider-in-multi-column.html [ Failure ]
+
+# Tests which pass only with form control refresh enabled
+fast/forms/appearance-default-button.html  [ Pass ]
+fast/forms/form-control-refresh [ Pass ]
+imported/w3c/web-platform-tests/css/css-ui/button-author-level-padding-applies.html [ Pass ]
+
+# Tests which do not pass with form control refresh enabled due to differences in appearance
+fast/forms/datalist/input-appearance-range-with-datalist-rtl.html [ Skip ]
+
+webkit.org/b/295810 [ Debug ] fast/dynamic/disappearing-content-on-size-change-crash.html [ Timeout ]
+
+webkit.org/b/296010 fast/frames/frame-append-body-child-crash.html [ Pass Failure ]
+
+webkit.org/b/296138 compositing/transforms/transformed-replaced-with-shadow-children.html [ Pass ImageOnlyFailure ]
+
+# Test seems to pass on WPT dashboard but fails on macOS
+imported/w3c/web-platform-tests/css/css-tables/paint/table-border-paint-caption-change.html [ Skip ]
+
+webkit.org/b/296017 [ Release ] imported/w3c/web-platform-tests/css/css-shapes/shape-outside/shape-image/shape-image-022.html [ Pass ImageOnlyFailure ]
+
+[ x86_64 ] imported/w3c/web-platform-tests/svg/text/reftests/dominant-baseline-central-large-font-size.svg [ Skip ]

@@ -40,7 +40,6 @@
 #include "EventNames.h"
 #include "EventTargetInlines.h"
 #include "HTMLBodyElement.h"
-#include "HTMLDetailsElement.h"
 #include "HTMLDialogElement.h"
 #include "HTMLDivElement.h"
 #include "HTMLInputElement.h"
@@ -76,6 +75,7 @@
 #include "TouchAction.h"
 #include "TypedElementDescendantIterator.h"
 #include "TypedElementDescendantIteratorInlines.h"
+#include "UserAgentParts.h"
 #include "VisibilityAdjustment.h"
 #include "WebAnimationTypes.h"
 #include <wtf/RobinHoodHashSet.h>
@@ -651,7 +651,10 @@ void Adjuster::adjust(RenderStyle& style) const
         if (m_element->invokedPopover())
             style.setIsPopoverInvoker();
 
-        if (m_document->settings().detailsAutoExpandEnabled() && is<HTMLDetailsElement>(element))
+        if (m_document->settings().detailsAutoExpandEnabled() && m_element->isInUserAgentShadowTree() && m_element->userAgentPart() == UserAgentParts::detailsContent())
+            style.setAutoRevealsWhenFound();
+
+        if (RefPtr htmlElement = dynamicDowncast<HTMLElement>(element); htmlElement && htmlElement->isHiddenUntilFound())
             style.setAutoRevealsWhenFound();
     }
 
@@ -703,9 +706,9 @@ void Adjuster::adjust(RenderStyle& style) const
     if ((style.overflowY() == Overflow::PagedX || style.overflowY() == Overflow::PagedY) && !(m_element && (m_element->hasTagName(htmlTag) || m_element->hasTagName(bodyTag))))
         style.setColumnStylesFromPaginationMode(WebCore::paginationModeForRenderStyle(style));
 
-#if ENABLE(OVERFLOW_SCROLLING_TOUCH)
+#if ENABLE(WEBKIT_OVERFLOW_SCROLLING_CSS_PROPERTY)
     // Touch overflow scrolling creates a stacking context.
-    if (style.hasAutoUsedZIndex() && style.useTouchOverflowScrolling() && (isScrollableOverflow(style.overflowX()) || isScrollableOverflow(style.overflowY())))
+    if (style.hasAutoUsedZIndex() && style.overflowScrolling() == Style::WebkitOverflowScrolling::Touch && (isScrollableOverflow(style.overflowX()) || isScrollableOverflow(style.overflowY())))
         style.setUsedZIndex(0);
 #endif
 
@@ -799,8 +802,8 @@ void Adjuster::adjust(RenderStyle& style) const
 
 #if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
         // Every element will automatically get an interaction region which is not useful, ignoring the `cursor: pointer;` on the body.
-        if (is<HTMLBodyElement>(*m_element) && style.cursor() == CursorType::Pointer && style.eventListenerRegionTypes().contains(EventListenerRegionType::MouseClick))
-            style.setCursor(CursorType::Auto);
+        if (is<HTMLBodyElement>(*m_element) && style.cursorType() == CursorType::Pointer && style.eventListenerRegionTypes().contains(EventListenerRegionType::MouseClick))
+            style.setCursor(CSS::Keyword::Auto { });
 #endif
 
 #if ENABLE(TEXT_AUTOSIZING)
@@ -956,13 +959,13 @@ void Adjuster::adjustThemeStyle(RenderStyle& style, const RenderStyle& parentSty
     RenderTheme::singleton().adjustStyle(style, parentStyle, m_element.get());
 
     if (style.containsSize()) {
-        if (style.containIntrinsicWidthType() != ContainIntrinsicSizeType::None) {
+        if (!style.containIntrinsicWidth().isNone()) {
             if (isOldWidthAuto)
                 style.setWidth(CSS::Keyword::Auto { });
             if (isOldMinWidthAuto)
                 style.setMinWidth(CSS::Keyword::Auto { });
         }
-        if (style.containIntrinsicHeightType() != ContainIntrinsicSizeType::None) {
+        if (!style.containIntrinsicHeight().isNone()) {
             if (isOldHeightAuto)
                 style.setHeight(CSS::Keyword::Auto { });
             if (isOldMinHeightAuto)

@@ -214,7 +214,8 @@ std::pair<LayoutUnit, LayoutUnit> InlineFormattingContext::minimumMaximumContent
     // This also undermines the idea of computing min/max values independently.
     if (*minimumContentSize > *maximumContentSize) {
         auto hasNegativeImplicitMargin = [](auto& style) {
-            return (style.textIndent().isFixed() && style.textIndent().value() < 0) || style.wordSpacing() < 0 || style.letterSpacing() < 0;
+            auto textIndentFixedLength = style.textIndent().length.tryFixed();
+            return (textIndentFixedLength && textIndentFixedLength->value < 0) || style.wordSpacing() < 0 || style.letterSpacing() < 0;
         };
         auto contentHasNegativeImplicitMargin = hasNegativeImplicitMargin(root().style());
         if (!contentHasNegativeImplicitMargin) {
@@ -515,8 +516,8 @@ void InlineFormattingContext::initializeInlineLayoutState(const LayoutState& glo
 {
     auto& inlineLayoutState = layoutState();
 
-    if (auto limitLinesValue = root().style().hyphenationLimitLines(); limitLinesValue != RenderStyle::initialHyphenationLimitLines())
-        inlineLayoutState.setHyphenationLimitLines(limitLinesValue);
+    if (auto limitLinesValue = root().style().hyphenateLimitLines().tryValue())
+        inlineLayoutState.setHyphenationLimitLines(limitLinesValue->value);
     // FIXME: Remove when IFC takes care of running layout on inline-blocks.
     inlineLayoutState.setShouldNotSynthesizeInlineBlockBaseline();
     if (globalLayoutState.inStandardsMode())

@@ -36,6 +36,7 @@
 #import <CoreFoundation/CoreFoundation.h>
 #import <CoreMedia/CMBufferQueue.h>
 #import <CoreMedia/CMFormatDescription.h>
+#import <map>
 #import <pal/avfoundation/MediaTimeAVFoundation.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/MainThread.h>
@@ -68,17 +69,17 @@ static bool canCopyFormatDescriptionExtension()
     return canCopyFormatDescriptionExtension;
 }
 
-Ref<WebCoreDecompressionSession> WebCoreDecompressionSession::createOpenGL()
+Ref<WebCoreDecompressionSession> WebCoreDecompressionSession::createOpenGL(GuaranteedSerialFunctionDispatcher* dispatcher)
 {
-    return adoptRef(*new WebCoreDecompressionSession(nullptr));
+    return adoptRef(*new WebCoreDecompressionSession(nullptr, dispatcher));
 }
 
-Ref<WebCoreDecompressionSession> WebCoreDecompressionSession::createRGB()
+Ref<WebCoreDecompressionSession> WebCoreDecompressionSession::createRGB(GuaranteedSerialFunctionDispatcher* dispatcher)
 {
     return adoptRef(*new WebCoreDecompressionSession(@{
         (__bridge NSString *)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32BGRA),
         (__bridge NSString *)kCVPixelBufferIOSurfacePropertiesKey: @{ /* empty dictionary */ }
-    }));
+    }, dispatcher));
 }
 
 NSDictionary *WebCoreDecompressionSession::defaultPixelBufferAttributes()
@@ -90,8 +91,9 @@ NSDictionary *WebCoreDecompressionSession::defaultPixelBufferAttributes()
     };
 }
 
-WebCoreDecompressionSession::WebCoreDecompressionSession(NSDictionary *pixelBufferAttributes)
+WebCoreDecompressionSession::WebCoreDecompressionSession(NSDictionary *pixelBufferAttributes, GuaranteedSerialFunctionDispatcher* dispatcher)
     : m_pixelBufferAttributes(pixelBufferAttributes ? pixelBufferAttributes : defaultPixelBufferAttributes())
+    , m_dispatcher(dispatcher ? *dispatcher : queueSingleton())
     , m_stereoSupported(VTIsStereoMVHEVCDecodeSupported())
 {
 }
@@ -113,7 +115,7 @@ void WebCoreDecompressionSession::invalidate()
     assertIsMainThread();
     m_invalidated = true;
     Locker lock { m_lock };
-    queueSingleton().dispatch([decoder = WTFMove(m_videoDecoder)] {
+    m_dispatcher->dispatch([decoder = WTFMove(m_videoDecoder)] {
         if (decoder)
             decoder->close();
     });
@@ -289,9 +291,10 @@ Expected<RetainPtr<VTDecompressionSessionRef>, OSStatus> WebCoreDecompressionSes
         auto result = VTDecompressionSessionCreate(kCFAllocatorDefault, videoFormatDescription, (__bridge CFDictionaryRef)videoDecoderSpecification, (__bridge CFDictionaryRef)m_pixelBufferAttributes.get(), nullptr, &decompressionSessionOut);
         if (noErr == result)
             m_decompressionSession = adoptCF(decompressionSessionOut);
-        if (queueSingleton().isCurrent()) {
-            assertIsCurrent(queueSingleton());
+        if (m_dispatcher->isCurrent()) {
+            assertIsCurrent(m_dispatcher.get());
 
+            m_currentImageDescription = nullptr;
             m_stereoConfigured = false;
             m_tagCollections = nullptr;
         }
@@ -361,7 +364,7 @@ static RetainPtr<CMFormatDescriptionRef> copyDescriptionExtensionValuesIfNeeded(
     return adoptCF(newImageDescription);
 }
 
-static Expected<RetainPtr<CMSampleBufferRef>, OSStatus> handleDecompressionOutput(WebCoreDecompressionSession::DecodingFlags flags, OSStatus status, VTDecodeInfoFlags, CVImageBufferRef imageBuffer, CMTaggedBufferGroupRef group, CMTime presentationTimeStamp, CMTime presentationDuration, CMVideoFormatDescriptionRef description = nullptr)
+static Expected<RetainPtr<CMSampleBufferRef>, OSStatus> handleDecompressionOutput(WebCoreDecompressionSession::DecodingFlags flags, OSStatus status, VTDecodeInfoFlags, CVImageBufferRef imageBuffer, CMTaggedBufferGroupRef group, CMTime presentationTimeStamp, CMTime presentationDuration, CMFormatDescriptionRef currentImageDescription, CMVideoFormatDescriptionRef description = nullptr)
 {
     if (isNonRecoverableError(status)) {
         RELEASE_LOG_ERROR(Media, "Video sample decompression failed with error:%d", int(status));
@@ -372,21 +375,28 @@ static Expected<RetainPtr<CMSampleBufferRef>, OSStatus> handleDecompressionOutpu
         return { };
 
     if (group) {
-        CMTaggedBufferGroupFormatDescriptionRef rawBufferGroupFormatDescription = nullptr;
-        if (auto status = PAL::CMTaggedBufferGroupFormatDescriptionCreateForTaggedBufferGroup(kCFAllocatorDefault, group, &rawBufferGroupFormatDescription); status != noErr)
-            return makeUnexpected(status);
-        RetainPtr groupFormatDescription = copyDescriptionExtensionValuesIfNeeded(adoptCF(rawBufferGroupFormatDescription), description, group);
+        RetainPtr groupFormatDescription = currentImageDescription;
+        if (!groupFormatDescription) {
+            CMTaggedBufferGroupFormatDescriptionRef rawBufferGroupFormatDescription = nullptr;
+            if (auto status = PAL::CMTaggedBufferGroupFormatDescriptionCreateForTaggedBufferGroup(kCFAllocatorDefault, group, &rawBufferGroupFormatDescription); status != noErr)
+                return makeUnexpected(status);
+            groupFormatDescription = copyDescriptionExtensionValuesIfNeeded(adoptCF(rawBufferGroupFormatDescription), description, group);
+        }
+        ASSERT(PAL::CMFormatDescriptionGetMediaType(groupFormatDescription.get()) == kCMMediaType_TaggedBufferGroup);
         CMSampleBufferRef rawGroupSampleBuffer;
         if (auto status = PAL::CMSampleBufferCreateForTaggedBufferGroup(kCFAllocatorDefault, group, presentationTimeStamp, presentationDuration, groupFormatDescription.get(), &rawGroupSampleBuffer); status != noErr)
             return makeUnexpected(status);
         return adoptCF(rawGroupSampleBuffer);
     }
 
-    CMVideoFormatDescriptionRef rawImageBufferDescription = nullptr;
-    if (auto status = PAL::CMVideoFormatDescriptionCreateForImageBuffer(kCFAllocatorDefault, imageBuffer, &rawImageBufferDescription); status != noErr)
-        return makeUnexpected(status);
-    RetainPtr imageBufferDescription = copyDescriptionExtensionValuesIfNeeded(adoptCF(rawImageBufferDescription), description, nullptr);
-
+    RetainPtr imageBufferDescription = currentImageDescription;
+    if (!imageBufferDescription) {
+        CMVideoFormatDescriptionRef rawImageBufferDescription = nullptr;
+        if (auto status = PAL::CMVideoFormatDescriptionCreateForImageBuffer(kCFAllocatorDefault, imageBuffer, &rawImageBufferDescription); status != noErr)
+            return makeUnexpected(status);
+        imageBufferDescription = copyDescriptionExtensionValuesIfNeeded(adoptCF(rawImageBufferDescription), description, nullptr);
+    }
+    ASSERT(PAL::CMFormatDescriptionGetMediaType(imageBufferDescription.get()) == kCMMediaType_Video);
     CMSampleTimingInfo imageBufferTiming {
         presentationDuration,
         presentationTimeStamp,
@@ -404,7 +414,7 @@ auto WebCoreDecompressionSession::decodeSample(CMSampleBufferRef sample, Decodin
 {
     DecodingPromise::Producer producer;
     auto promise = producer.promise();
-    queueSingleton().dispatch([protectedThis = RefPtr { this }, producer = WTFMove(producer), sample = RetainPtr { sample }, flags, flushId = m_flushId.load()]() mutable {
+    m_dispatcher->dispatch([protectedThis = RefPtr { this }, producer = WTFMove(producer), sample = RetainPtr { sample }, flags, flushId = m_flushId.load()]() mutable {
         if (flushId == protectedThis->m_flushId)
             protectedThis->decodeSampleInternal(sample.get(), flags)->chainTo(WTFMove(producer));
         else
@@ -415,7 +425,7 @@ auto WebCoreDecompressionSession::decodeSample(CMSampleBufferRef sample, Decodin
 
 Ref<WebCoreDecompressionSession::DecodingPromise> WebCoreDecompressionSession::decodeSampleInternal(CMSampleBufferRef sample, DecodingFlags flags)
 {
-    assertIsCurrent(queueSingleton());
+    assertIsCurrent(m_dispatcher.get());
 
     m_lastDecodingError = noErr;
     size_t numberOfSamples = PAL::CMSampleBufferGetNumSamples(sample);
@@ -462,7 +472,7 @@ Ref<WebCoreDecompressionSession::DecodingPromise> WebCoreDecompressionSession::d
             if (!videoDecoder)
                 return DecodingPromise::createAndReject(0);
 
-            assertIsCurrent(queueSingleton());
+            assertIsCurrent(m_dispatcher.get());
 
             m_pendingDecodeData = { flags };
             MediaTime totalDuration = PAL::toMediaTime(PAL::CMSampleBufferGetDuration(cmSamples.get()));
@@ -488,13 +498,13 @@ Ref<WebCoreDecompressionSession::DecodingPromise> WebCoreDecompressionSession::d
             }
             DecodingPromise::Producer producer;
             auto promise = producer.promise();
-            VideoDecoder::DecodePromise::all(promises)->whenSettled(queueSingleton(), [weakThis = ThreadSafeWeakPtr { *this }, totalDuration = PAL::toCMTime(totalDuration), producer = WTFMove(producer)] (auto&& result) {
+            VideoDecoder::DecodePromise::all(promises)->whenSettled(m_dispatcher, [weakThis = ThreadSafeWeakPtr { *this }, totalDuration = PAL::toCMTime(totalDuration), producer = WTFMove(producer)] (auto&& result) {
                 RefPtr protectedThis = weakThis.get();
                 if (!protectedThis || protectedThis->isInvalidated()) {
                     producer.reject(0);
                     return;
                 }
-                assertIsCurrent(queueSingleton());
+                assertIsCurrent(protectedThis->m_dispatcher.get());
                 if (protectedThis->m_lastDecodingError)
                     producer.reject(protectedThis->m_lastDecodingError);
                 else if (!result)
@@ -508,7 +518,7 @@ Ref<WebCoreDecompressionSession::DecodingPromise> WebCoreDecompressionSession::d
             return promise;
         };
         if (initPromise) {
-            return initPromise->then(queueSingleton(), WTFMove(decode), [] {
+            return initPromise->then(m_dispatcher, WTFMove(decode), [] {
                 return DecodingPromise::createAndReject(kVTVideoDecoderNotAvailableNowErr);
             });
         }
@@ -521,30 +531,40 @@ Ref<WebCoreDecompressionSession::DecodingPromise> WebCoreDecompressionSession::d
     DecodingPromise::Producer producer;
     auto promise = producer.promise();
 
-    auto handler = makeBlockPtr([weakThis = ThreadSafeWeakPtr { *this }, flags, producer = WTFMove(producer), numberOfTimesCalled = 0u, numberOfSamples, decodedSamples = std::exchange(m_lastDecodedSamples, { }), description = RetainPtr { PAL::CMSampleBufferGetFormatDescription(sample) }, tagCollections = m_tagCollections](OSStatus status, VTDecodeInfoFlags infoFlags, CVImageBufferRef imageBuffer, CMTaggedBufferGroupRef taggedBufferGroup, CMTime presentationTimeStamp, CMTime presentationDuration) mutable {
+    auto handler = makeBlockPtr([weakThis = ThreadSafeWeakPtr { *this }, flags, producer = WTFMove(producer), numberOfTimesCalled = 0u, numberOfSamples, decodedSamples = std::exchange(m_lastDecodedSamples, { }), originalDescription = RetainPtr { PAL::CMSampleBufferGetFormatDescription(sample) }, currentImageDescription = m_currentImageDescription, tagCollections = m_tagCollections, workQueue = Ref { m_dispatcher }](OSStatus status, VTDecodeInfoFlags infoFlags, CVImageBufferRef imageBuffer, CMTaggedBufferGroupRef taggedBufferGroup, CMTime presentationTimeStamp, CMTime presentationDuration) mutable {
         if (producer.isSettled())
             return;
         RetainPtr group = taggedBufferGroup;
         if (taggedBufferGroup) {
             if (!tagCollections) {
-                auto map = createMVHEVCStereoViewMap(description.get());
+                auto map = createMVHEVCStereoViewMap(originalDescription.get());
                 tagCollections = createTagCollectionRequiredFromVideoToolboxOutput(taggedBufferGroup, map);
                 if (!tagCollections) {
                     producer.reject(kVTCouldNotOutputTaggedBufferGroupErr);
                     return;
                 }
-                queueSingleton().dispatch([weakThis, tagCollections]() mutable {
-                    assertIsCurrent(queueSingleton());
-                    if (RefPtr protectedThis = weakThis.get())
+                workQueue->dispatch([weakThis, tagCollections]() mutable {
+                    if (RefPtr protectedThis = weakThis.get()) {
+                        assertIsCurrent(protectedThis->m_dispatcher.get());
                         protectedThis->m_tagCollections = WTFMove(tagCollections);
+                    }
                 });
             }
             group = createTaggedBufferGroupWithRequiredVideoTagsFromVideoToolboxOutput(taggedBufferGroup, tagCollections.get());
         }
-        auto result = handleDecompressionOutput(flags, status, infoFlags, imageBuffer, group.get(), presentationTimeStamp, presentationDuration, description.get());
+        auto result = handleDecompressionOutput(flags, status, infoFlags, imageBuffer, group.get(), presentationTimeStamp, presentationDuration, currentImageDescription.get(), originalDescription.get());
         if (!result) {
             producer.reject(result.error());
             return;
+        }
+        if (!currentImageDescription) {
+            currentImageDescription = PAL::CMSampleBufferGetFormatDescription(result->get());
+            workQueue->dispatch([weakThis, currentImageDescription]() mutable {
+                if (RefPtr protectedThis = weakThis.get()) {
+                    assertIsCurrent(protectedThis->m_dispatcher.get());
+                    protectedThis->m_currentImageDescription = WTFMove(currentImageDescription);
+                }
+            });
         }
         decodedSamples.append(WTFMove(*result));
         if (++numberOfTimesCalled == numberOfSamples)
@@ -608,10 +628,10 @@ Ref<MediaPromise> WebCoreDecompressionSession::initializeVideoDecoder(FourCharCo
     MediaPromise::Producer producer;
     auto promise = producer.promise();
 
-    VideoDecoder::create(VideoDecoder::fourCCToCodecString(codec), config, [weakThis = ThreadSafeWeakPtr { *this }] (auto&& result) {
-        queueSingleton().dispatch([weakThis, result = WTFMove(result)] () {
+    VideoDecoder::create(VideoDecoder::fourCCToCodecString(codec), config, [weakThis = ThreadSafeWeakPtr { *this }, workQueue = Ref { m_dispatcher }] (auto&& result) {
+        workQueue->dispatch([weakThis, result = WTFMove(result)] () {
             if (RefPtr protectedThis = weakThis.get()) {
-                assertIsCurrent(queueSingleton());
+                assertIsCurrent(protectedThis->m_dispatcher.get());
                 if (protectedThis->isInvalidated() || !protectedThis->m_pendingDecodeData)
                     return;
 
@@ -624,15 +644,15 @@ Ref<MediaPromise> WebCoreDecompressionSession::initializeVideoDecoder(FourCharCo
 
                 auto presentationTime = PAL::toCMTime(MediaTime(result->timestamp, 1000000));
                 auto presentationDuration = PAL::toCMTime(MediaTime(result->duration.value_or(0), 1000000));
-                auto sampleResult = handleDecompressionOutput(protectedThis->m_pendingDecodeData->flags, noErr, 0, result->frame->pixelBuffer(), nullptr, presentationTime, presentationDuration);
+                auto sampleResult = handleDecompressionOutput(protectedThis->m_pendingDecodeData->flags, noErr, 0, result->frame->pixelBuffer(), nullptr, presentationTime, presentationDuration, nullptr);
                 if (!sampleResult)
                     protectedThis->m_lastDecodingError = sampleResult.error();
                 else
                     protectedThis->m_lastDecodedSamples.append(WTFMove(*sampleResult));
             }
         });
-    })->whenSettled(queueSingleton(), [protectedThis = Ref { *this }, this, producer = WTFMove(producer)] (auto&& result) mutable {
-        assertIsCurrent(queueSingleton());
+    })->whenSettled(m_dispatcher, [protectedThis = Ref { *this }, this, producer = WTFMove(producer)] (auto&& result) mutable {
+        assertIsCurrent(m_dispatcher.get());
         if (!result || isInvalidated()) {
             producer.reject(PlatformMediaError::DecoderCreationError);
             return;

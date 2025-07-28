@@ -29,9 +29,8 @@
 #include "BorderPainter.h"
 #include "BorderShape.h"
 #include "CachedResourceLoader.h"
-#include "ContentData.h"
+#include "ContainerNodeInlines.h"
 #include "ContentVisibilityDocumentState.h"
-#include "CursorList.h"
 #include "DocumentInlines.h"
 #include "ElementChildIteratorInlines.h"
 #include "EventHandler.h"
@@ -179,23 +178,37 @@ const Layout::ElementBox* RenderElement::layoutBox() const
     return downcast<Layout::ElementBox>(RenderObject::layoutBox());
 }
 
-bool RenderElement::isContentDataSupported(const ContentData& contentData)
+static RefPtr<StyleImage> minimallySupportedContentDataImage(const Style::Content& content)
 {
     // Minimal support for content properties replacing an entire element.
     // Works only if we have exactly one piece of content and it's a URL.
     // Otherwise acts as if we didn't support this feature.
-    return is<ImageContentData>(contentData) && !contentData.next();
+    auto* data = content.tryData();
+    if (!data)
+        return nullptr;
+    if (data->list.size() != 1)
+        return nullptr;
+    auto* image = std::get_if<Style::Content::Image>(&data->list[0]);
+    if (!image)
+        return nullptr;
+    return image->image.ptr();
+}
+
+bool RenderElement::isContentDataSupported(const Style::Content& content)
+{
+    return minimallySupportedContentDataImage(content) != nullptr;
 }
 
 RenderPtr<RenderElement> RenderElement::createFor(Element& element, RenderStyle&& style, OptionSet<ConstructBlockLevelRendererFor> rendererTypeOverride)
 {
-    const ContentData* contentData = style.contentData();
-    if (!rendererTypeOverride && contentData && isContentDataSupported(*contentData) && !element.isPseudoElement()) {
-        Style::loadPendingResources(style, element.document(), &element);
-        Ref styleImage = downcast<ImageContentData>(*contentData).image();
-        auto image = createRenderer<RenderImage>(RenderObject::Type::Image, element, WTFMove(style), const_cast<StyleImage*>(styleImage.ptr()));
-        image->setIsGeneratedContent();
-        return image;
+    if (!rendererTypeOverride) {
+        if (RefPtr styleImage = minimallySupportedContentDataImage(style.content()); styleImage && !element.isPseudoElement()) {
+            Style::loadPendingResources(style, element.document(), &element);
+            auto image = createRenderer<RenderImage>(RenderObject::Type::Image, element, WTFMove(style), styleImage.get());
+            image->setIsGeneratedContent();
+            image->updateAltText();
+            return image;
+        }
     }
 
     switch (style.display()) {
@@ -1009,12 +1022,12 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
 
     if (view().frameView().hasSlowRepaintObject(*this)) {
         if (!newStyleSlowScroll)
-            view().protectedFrameView()->removeSlowRepaintObject(*this);
+            view().frameView().removeSlowRepaintObject(*this);
     } else if (newStyleSlowScroll)
-        view().protectedFrameView()->addSlowRepaintObject(*this);
+        view().frameView().addSlowRepaintObject(*this);
 
     if (isDocumentElementRenderer() || isBody())
-        view().protectedFrameView()->updateExtendBackgroundIfNecessary();
+        view().frameView().updateExtendBackgroundIfNecessary();
 }
 
 inline void RenderCounter::rendererStyleChanged(RenderElement& renderer, const RenderStyle* oldStyle, const RenderStyle& newStyle)
@@ -1024,19 +1037,6 @@ inline void RenderCounter::rendererStyleChanged(RenderElement& renderer, const R
 
     rendererStyleChangedSlowCase(renderer, oldStyle, newStyle);
 }
-
-#if !PLATFORM(IOS_FAMILY)
-static bool areNonIdenticalCursorListsEqual(const RenderStyle* a, const RenderStyle* b)
-{
-    ASSERT(a->cursors() != b->cursors());
-    return a->cursors() && b->cursors() && *a->cursors() == *b->cursors();
-}
-
-static inline bool areCursorsEqual(const RenderStyle* a, const RenderStyle* b)
-{
-    return a->cursor() == b->cursor() && (a->cursors() == b->cursors() || areNonIdenticalCursorListsEqual(a, b));
-}
-#endif
 
 void RenderElement::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
@@ -1093,12 +1093,12 @@ void RenderElement::styleDidChange(StyleDifference diff, const RenderStyle* oldS
     // updated by subclasses before we know if we have to repaint (in setStyle()).
 
 #if !PLATFORM(IOS_FAMILY)
-    if (oldStyle && !areCursorsEqual(oldStyle, &style()))
+    if (oldStyle && oldStyle->cursor() != style().cursor())
         protectedFrame()->eventHandler().scheduleCursorUpdate();
 #endif
 
-    bool hadOutlineAuto = oldStyle && oldStyle->hasAutoOutlineStyle();
-    bool hasOutlineAuto = outlineStyleForRepaint().hasAutoOutlineStyle();
+    bool hadOutlineAuto = oldStyle && oldStyle->outlineStyle() == OutlineStyle::Auto;
+    bool hasOutlineAuto = outlineStyleForRepaint().outlineStyle() == OutlineStyle::Auto;
     if (hasOutlineAuto != hadOutlineAuto) {
         updateOutlineAutoAncestor(hasOutlineAuto);
         issueRepaintForOutlineAuto(hasOutlineAuto ? outlineStyleForRepaint().outlineSize() : oldStyle->outlineSize());
@@ -1167,7 +1167,7 @@ inline void RenderElement::clearSubtreeLayoutRootIfNeeded() const
     // This indicates a failure to layout the child, which is why
     // the layout root is still set to |this|. Make sure to clear it
     // since we are getting destroyed.
-    view().protectedFrameView()->layoutContext().clearSubtreeLayoutRoot();
+    view().frameView().layoutContext().clearSubtreeLayoutRoot();
 }
 
 void RenderElement::willBeDestroyed()
@@ -1177,7 +1177,7 @@ void RenderElement::willBeDestroyed()
         document().contentChangeObserver().rendererWillBeDestroyed(*element());
 #endif
     if (m_style.hasAnyFixedBackground() && !settings().fixedBackgroundsPaintRelativeToDocument())
-        view().protectedFrameView()->removeSlowRepaintObject(*this);
+        view().frameView().removeSlowRepaintObject(*this);
 
     unregisterForVisibleInViewportCallback();
 
@@ -1496,7 +1496,7 @@ bool RenderElement::repaintAfterLayoutIfNeeded(SingleThreadWeakPtr<const RenderL
                 });
             };
             auto outlineRightInsetExtent = [&]() -> LayoutUnit {
-                auto offset = LayoutUnit { outlineStyle.outlineOffset() };
+                auto offset = LayoutUnit { Style::evaluate(outlineStyle.outlineOffset()) };
                 return offset < 0 ? -offset : 0_lu;
             };
             auto boxShadowRightInsetExtent = [&] {
@@ -1540,7 +1540,7 @@ bool RenderElement::repaintAfterLayoutIfNeeded(SingleThreadWeakPtr<const RenderL
                 });
             };
             auto outlineBottomInsetExtent = [&]() -> LayoutUnit {
-                auto offset = LayoutUnit { outlineStyle.outlineOffset() };
+                auto offset = LayoutUnit { Style::evaluate(outlineStyle.outlineOffset()) };
                 return offset < 0 ? -offset : 0_lu;
             };
             auto boxShadowBottomInsetExtent = [&]() -> LayoutUnit {
@@ -2101,22 +2101,22 @@ static bool useShrinkWrappedFocusRingForOutlineStyleAuto()
 
 static void drawFocusRing(GraphicsContext& context, const Path& path, const RenderStyle& style, const Color& color)
 {
-    context.drawFocusRing(path, style.outlineWidth(), color);
+    context.drawFocusRing(path, Style::evaluate(style.outlineWidth()), color);
 }
 
 static void drawFocusRing(GraphicsContext& context, Vector<FloatRect> rects, const RenderStyle& style, const Color& color)
 {
 #if PLATFORM(MAC)
-    context.drawFocusRing(rects, 0, style.outlineWidth(), color);
+    context.drawFocusRing(rects, 0, Style::evaluate(style.outlineWidth()), color);
 #else
-    context.drawFocusRing(rects, style.outlineOffset(), style.outlineWidth(), color);
+    context.drawFocusRing(rects, Style::evaluate(style.outlineOffset()), Style::evaluate(style.outlineWidth()), color);
 #endif
 }
 
 void RenderElement::paintFocusRing(const PaintInfo& paintInfo, const RenderStyle& style, const Vector<LayoutRect>& focusRingRects) const
 {
-    ASSERT(style.hasAutoOutlineStyle());
-    float outlineOffset = style.outlineOffset();
+    ASSERT(style.outlineStyle() == OutlineStyle::Auto);
+    float outlineOffset = Style::evaluate(style.outlineOffset());
     Vector<FloatRect> pixelSnappedFocusRingRects;
     float deviceScaleFactor = document().deviceScaleFactor();
     for (auto rect : focusRingRects) {
@@ -2172,7 +2172,7 @@ void RenderElement::updateOutlineAutoAncestor(bool hasOutlineAuto)
         if (hasOutlineAuto == child->hasOutlineAutoAncestor())
             continue;
         child->setHasOutlineAutoAncestor(hasOutlineAuto);
-        bool childHasOutlineAuto = child->outlineStyleForRepaint().hasAutoOutlineStyle();
+        bool childHasOutlineAuto = child->outlineStyleForRepaint().outlineStyle() == OutlineStyle::Auto;
         if (childHasOutlineAuto)
             continue;
         if (auto* element = dynamicDowncast<RenderElement>(child.get()))

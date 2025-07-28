@@ -168,10 +168,11 @@ static RefPtr<NativeImage> renderPDFPagePreview(RetainPtr<PDFDocument>&& pdfDocu
         // from this page's drawing origin.
         context.translate(destinationRect.minXMaxYCorner());
         context.scale({ 1, -1 });
-        CGContextSetShouldSubpixelQuantizeFonts(context.platformContext(), false);
-        CGContextSetAllowsFontSubpixelPositioning(context.platformContext(), true);
+        RetainPtr platformContext = context.platformContext();
+        CGContextSetShouldSubpixelQuantizeFonts(platformContext.get(), false);
+        CGContextSetAllowsFontSubpixelPositioning(platformContext.get(), true);
         LOG_WITH_STREAM(PDFAsyncRendering, stream << "renderPDFPagePreview - page:" << request.pageIndex);
-        [pdfPage drawWithBox:kPDFDisplayBoxCropBox toContext:context.platformContext()];
+        [pdfPage drawWithBox:kPDFDisplayBoxCropBox toContext:platformContext.get()];
     }
     return ImageBuffer::sinkIntoNativeImage(WTFMove(imageBuffer));
 }
@@ -583,7 +584,7 @@ static void renderPDFTile(PDFDocument *pdfDocument, const TileRenderInfo& render
         context.scale({ 1, -1 });
 
         LOG_WITH_STREAM(PDFAsyncRendering, stream << "renderPDFTile renderInfo:" << renderInfo << ", PDF page:" << pageInfo.pageIndex << " destinationRect:" << destinationRect);
-        [pdfPage drawWithBox:kPDFDisplayBoxCropBox toContext:context.platformContext()];
+        [pdfPage drawWithBox:kPDFDisplayBoxCropBox toContext:RetainPtr { context.platformContext() }.get()];
     }
 }
 
@@ -608,7 +609,7 @@ static std::optional<DynamicContentScalingDisplayList> renderPDFTileToDynamicCon
     ASSERT(!isMainRunLoop());
     WebCore::ImageBufferCreationContext creationContext;
     creationContext.dynamicContentScalingResourceCache = dynamicContentScalingResourceCache;
-    RefPtr tileBuffer = ImageBuffer::create<DynamicContentScalingImageBufferBackend, DynamicContentScalingImageBuffer>(renderInfo.tileRect.size(), renderInfo.pageCoverage.deviceScaleFactor, DestinationColorSpace::SRGB(), ImageBufferPixelFormat::BGRA8, RenderingPurpose::Unspecified, creationContext);
+    RefPtr tileBuffer = ImageBuffer::create<DynamicContentScalingImageBufferBackend, DynamicContentScalingImageBuffer>(renderInfo.tileRect.size(), renderInfo.pageCoverage.deviceScaleFactor, DestinationColorSpace::SRGB(), { ImageBufferPixelFormat::BGRA8 }, RenderingPurpose::Unspecified, creationContext);
     if (!tileBuffer)
         return std::nullopt;
     // Fixup incremental rendering requests to render the contents covering the full tile.

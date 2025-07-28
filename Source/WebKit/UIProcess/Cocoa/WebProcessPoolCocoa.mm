@@ -54,6 +54,7 @@
 #import "WebPageGroup.h"
 #import "WebPageMessages.h"
 #import "WebPageProxy.h"
+#import "WebPreferencesDefaultValues.h"
 #import "WebPreferencesKeys.h"
 #import "WebPrivacyHelpers.h"
 #import "WebProcessCache.h"
@@ -537,6 +538,14 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     parameters.notifyState = WTF::map(m_notifyState, [] (auto&& item) {
         return std::make_pair(item.key, item.value);
     });
+#endif
+
+#if ENABLE(INITIALIZE_ACCESSIBILITY_ON_DEMAND)
+    parameters.shouldInitializeAccessibility = m_hasReceivedAXRequestInUIProcess;
+#endif
+
+#if HAVE(LIQUID_GLASS)
+    parameters.isLiquidGlassEnabled = isLiquidGlassEnabled();
 #endif
 }
 
@@ -1261,13 +1270,10 @@ void WebProcessPool::screenPropertiesChanged()
 #if HAVE(SUPPORT_HDR_DISPLAY)
     if (m_suppressEDR) {
         for (auto& properties : screenProperties.screenDataMap.values()) {
-            constexpr auto maxStudioDisplayHeadroom = 2.f;
-            constexpr auto threeQuartersStudioDisplayHeadroom = 1.5f;
-            constexpr auto halfMaxHeadroomMultiplier = 0.5f;
-            auto maxHeadroom = std::clamp(properties.maxEDRHeadroom * halfMaxHeadroomMultiplier, std::min(properties.maxEDRHeadroom, threeQuartersStudioDisplayHeadroom), maxStudioDisplayHeadroom);
-            properties.currentEDRHeadroom = maxHeadroom;
-            properties.maxEDRHeadroom = maxHeadroom;
-            properties.suppressEDR = m_suppressEDR;
+            constexpr auto maxSuppressedHeadroom = 1.6f;
+            auto suppressedHeadroom = std::min(maxSuppressedHeadroom, properties.currentEDRHeadroom);
+            properties.currentEDRHeadroom = suppressedHeadroom;
+            properties.suppressEDR = true;
         }
     }
 #endif
@@ -1295,7 +1301,7 @@ void WebProcessPool::displayPropertiesChanged(const WebCore::ScreenProperties& s
 
 static void displayReconfigurationCallBack(CGDirectDisplayID displayID, CGDisplayChangeSummaryFlags flags, void *userInfo)
 {
-    RunLoop::protectedMain()->dispatch([displayID, flags]() {
+    RunLoop::mainSingleton().dispatch([displayID, flags]() {
         auto screenProperties = WebCore::collectScreenProperties();
         for (auto& processPool : WebProcessPool::allProcessPools())
             processPool->displayPropertiesChanged(screenProperties, displayID, flags);
@@ -1314,7 +1320,7 @@ void WebProcessPool::registerDisplayConfigurationCallback()
 
 static void webProcessPoolHighDynamicRangeDidChangeCallback(CFNotificationCenterRef, void*, CFNotificationName, const void*, CFDictionaryRef)
 {
-    RunLoop::protectedMain()->dispatch([] {
+    RunLoop::mainSingleton().dispatch([] {
         auto properties = WebCore::collectScreenProperties();
         for (auto& pool : WebProcessPool::allProcessPools())
             pool->sendToAllProcesses(Messages::WebProcess::SetScreenProperties(properties));
@@ -1488,8 +1494,8 @@ String WebProcessPool::platformResourceMonitorRuleListSourceForTesting()
 }
 #endif
 
-#if PLATFORM(MAC)
-static Vector<SandboxExtension::Handle> sandboxExtensionsForUserInstalledFonts(const Vector<URL>& fontPathURLs, std::optional<audit_token_t> auditToken)
+template <typename Collection>
+static Vector<SandboxExtension::Handle> sandboxExtensionsForFonts(const Collection& fontPathURLs, std::optional<audit_token_t> auditToken)
 {
     Vector<SandboxExtension::Handle> handles;
     for (auto& fontPathURL : fontPathURLs) {
@@ -1504,10 +1510,31 @@ static Vector<SandboxExtension::Handle> sandboxExtensionsForUserInstalledFonts(c
     return handles;
 }
 
+void WebProcessPool::registerFontsForGPUProcessIfNeeded()
+{
+    RefPtr gpuProcess = m_gpuProcess;
+    if (!gpuProcess)
+        return;
+
+    Vector<SandboxExtension::Handle> handles;
+    if (m_userInstalledFontURLs)
+        handles.appendVector(sandboxExtensionsForFonts(m_userInstalledFontURLs->values(), std::nullopt));
+
+    if (m_sandboxExtensionURLs)
+        handles.appendVector(sandboxExtensionsForFonts(*m_sandboxExtensionURLs, std::nullopt));
+
+    if (m_assetFontURLs)
+        handles.appendVector(sandboxExtensionsForFonts(*m_assetFontURLs, std::nullopt));
+
+    if (!handles.isEmpty())
+        gpuProcess->send(Messages::GPUProcess::RegisterFonts(WTFMove(handles)), 0);
+}
+
+#if PLATFORM(MAC)
 void WebProcessPool::registerUserInstalledFonts(WebProcessProxy& process)
 {
     if (m_userInstalledFontURLs) {
-        process.send(Messages::WebProcess::RegisterFontMap(*m_userInstalledFontURLs, *m_userInstalledFontFamilyMap,  sandboxExtensionsForUserInstalledFonts(*m_sandboxExtensionURLs, process.auditToken())), 0);
+        process.send(Messages::WebProcess::RegisterFontMap(*m_userInstalledFontURLs, *m_userInstalledFontFamilyMap,  sandboxExtensionsForFonts(*m_sandboxExtensionURLs, process.auditToken())), 0);
         return;
     }
 
@@ -1551,13 +1578,17 @@ void WebProcessPool::registerUserInstalledFonts(WebProcessProxy& process)
     }
     RELEASE_LOG(Process, "WebProcessPool::registerUserInstalledFonts: done registering fonts");
 
-    RetainPtr assetFontURL = adoptNS([[NSURL alloc] initFileURLWithPath:@"/System/Library/AssetsV2/com_apple_MobileAsset_Font7" isDirectory:YES]);
-    sandboxExtensionURLs.append(URL(assetFontURL.get()));
+    RetainPtr assetFontURL7 = adoptNS([[NSURL alloc] initFileURLWithPath:@"/System/Library/AssetsV2/com_apple_MobileAsset_Font7" isDirectory:YES]);
+    RetainPtr assetFontURL8 = adoptNS([[NSURL alloc] initFileURLWithPath:@"/System/Library/AssetsV2/com_apple_MobileAsset_Font8" isDirectory:YES]);
+    sandboxExtensionURLs.append(URL(assetFontURL7.get()));
+    sandboxExtensionURLs.append(URL(assetFontURL8.get()));
 
-    process.send(Messages::WebProcess::RegisterFontMap(fontURLs, fontFamilyMap, sandboxExtensionsForUserInstalledFonts(sandboxExtensionURLs, process.auditToken())), 0);
+    process.send(Messages::WebProcess::RegisterFontMap(fontURLs, fontFamilyMap, sandboxExtensionsForFonts(sandboxExtensionURLs, process.auditToken())), 0);
     m_userInstalledFontURLs = WTFMove(fontURLs);
     m_userInstalledFontFamilyMap = WTFMove(fontFamilyMap);
     m_sandboxExtensionURLs = WTFMove(sandboxExtensionURLs);
+
+    registerFontsForGPUProcessIfNeeded();
 }
 
 void WebProcessPool::registerAdditionalFonts(NSArray *fontNames)
@@ -1586,9 +1617,10 @@ void WebProcessPool::registerAdditionalFonts(NSArray *fontNames)
     for (Ref process : m_processes) {
         if (!process->canSendMessage())
             continue;
-        process->send(Messages::WebProcess::RegisterFontMap(*m_userInstalledFontURLs, *m_userInstalledFontFamilyMap, sandboxExtensionsForUserInstalledFonts(*m_sandboxExtensionURLs, process->auditToken())), 0);
+        process->send(Messages::WebProcess::RegisterFontMap(*m_userInstalledFontURLs, *m_userInstalledFontFamilyMap, sandboxExtensionsForFonts(*m_sandboxExtensionURLs, process->auditToken())), 0);
     }
 
+    registerFontsForGPUProcessIfNeeded();
 }
 #endif // PLATFORM(MAC)
 
@@ -1623,7 +1655,7 @@ void WebProcessPool::registerAssetFonts(WebProcessProxy& process)
         if (state != kCTFontDescriptorMatchingDidFinish)
             return true;
         RELEASE_LOG(Process, "Font matching finished, progress parameter = %@", (__bridge id)progressParameter);
-        RunLoop::protectedMain()->dispatch([assetFonts = WTFMove(assetFonts), weakProcess = WTFMove(weakProcess), weakThis = WTFMove(weakThis)] {
+        RunLoop::mainSingleton().dispatch([assetFonts = WTFMove(assetFonts), weakProcess = WTFMove(weakProcess), weakThis = WTFMove(weakThis)] {
             RefPtr protectedThis = weakThis.get();
             if (!protectedThis)
                 return;
@@ -1637,6 +1669,8 @@ void WebProcessPool::registerAssetFonts(WebProcessProxy& process)
             }
             if (weakProcess)
                 weakProcess->send(Messages::WebProcess::RegisterAdditionalFonts(AdditionalFonts::additionalFonts({ *protectedThis->m_assetFontURLs }, weakProcess->auditToken())), 0);
+
+            protectedThis->registerFontsForGPUProcessIfNeeded();
         });
         return true;
     });
