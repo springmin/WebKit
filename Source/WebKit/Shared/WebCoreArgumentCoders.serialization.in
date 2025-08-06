@@ -2305,7 +2305,7 @@ header: <WebCore/VP9Utilities.h>
 }
 
 class WebCore::BlobPart {
-    Variant<Vector<uint8_t>, URL> m_dataOrURL;
+    Variant<Vector<uint8_t>, Ref<WebCore::SharedBuffer>, URL> m_dataOrURL;
 };
 
 [WebKitPlatform] enum class WebCore::ColorSpace : uint8_t {
@@ -3247,14 +3247,14 @@ header: <WebCore/StyleLengthWrapperData.h>
 [CustomHeader, Nested] struct WebCore::Style::LengthWrapperData::NormalData {
 };
 [CustomHeader, Nested] struct WebCore::Style::LengthWrapperData::FixedData {
-    Variant<float, int> value
+    float value
     bool hasQuirk
 };
 [CustomHeader, Nested] struct WebCore::Style::LengthWrapperData::RelativeData {
-    Variant<float, int> value
+    float value
 };
 [CustomHeader, Nested] struct WebCore::Style::LengthWrapperData::PercentData {
-    Variant<float, int> value
+    float value
 };
 [CustomHeader, Nested] struct WebCore::Style::LengthWrapperData::IntrinsicData {
 };
@@ -5702,6 +5702,8 @@ enum class WebCore::StorageAccessWasGranted : uint8_t {
 };
 
 enum class WebCore::StorageAccessPromptWasShown : bool
+
+enum class WebCore::HasOrShouldIgnoreUserGesture : bool
 
 enum class WebCore::StorageAccessScope : bool
 

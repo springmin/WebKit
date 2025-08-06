@@ -1973,7 +1973,7 @@ void RenderBox::paintMaskImages(const PaintInfo& paintInfo, const LayoutRect& pa
         pushTransparencyLayer = true;
 
         // Don't render a masked element until all the mask images have loaded, to prevent a flash of unmasked content.
-        if (auto* maskBorder = style().maskBorder().image())
+        if (RefPtr maskBorder = style().maskBorder().source().tryStyleImage())
             allMaskImagesLoaded &= maskBorder->isLoaded(this);
 
         allMaskImagesLoaded &= style().maskLayers().imagesAreLoaded(this);
@@ -1994,8 +1994,8 @@ void RenderBox::paintMaskImages(const PaintInfo& paintInfo, const LayoutRect& pa
 
 LayoutRect RenderBox::maskClipRect(const LayoutPoint& paintOffset)
 {
-    const NinePieceImage& maskBorder = style().maskBorder();
-    if (maskBorder.image()) {
+    auto& maskBorder = style().maskBorder();
+    if (!maskBorder.source().isNone()) {
         LayoutRect borderImageRect = borderBoxRect();
         
         // Apply outsets to the border box.
@@ -2025,8 +2025,13 @@ static StyleImage* findLayerUsedImage(WrappedImagePtr image, const FillLayer& la
 
 void RenderBox::imageChanged(WrappedImagePtr image, const IntRect*)
 {
-    if ((style().borderImage().image() && style().borderImage().image()->data() == image) ||
-        (style().maskBorder().image() && style().maskBorder().image()->data() == image)) {
+    if (RefPtr source = style().borderImage().source().tryStyleImage(); source && source->data() == image) {
+        if (parent())
+            repaint();
+        return;
+    }
+
+    if (RefPtr source = style().maskBorder().source().tryStyleImage(); source && source->data() == image) {
         if (parent())
             repaint();
         return;
@@ -4496,7 +4501,7 @@ void RenderBox::computePositionedLogicalHeight(LogicalExtentComputedValues& comp
 
     // Calculate the position.
     blockConstraints.resolvePosition(computedValues);
-    blockConstraints.fixupLogicalTopPosition(computedValues);
+    blockConstraints.adjustLogicalTopWithLogicalHeightIfNeeded(computedValues);
 
     // Adjust logicalTop if we need to for perpendicular writing modes in fragments.
     // FIXME: Add support for other types of objects as containerBlock, not only RenderBlock.
@@ -4607,7 +4612,7 @@ void RenderBox::computePositionedLogicalHeightReplaced(LogicalExtentComputedValu
     computedValues.m_extent = computeReplacedLogicalHeight() + borderAndPaddingLogicalHeight();
 
     blockConstraints.resolvePosition(computedValues);
-    blockConstraints.fixupLogicalTopPosition(computedValues);
+    blockConstraints.adjustLogicalTopWithLogicalHeightIfNeeded(computedValues);
 }
 
 VisiblePosition RenderBox::positionForPoint(const LayoutPoint& point, HitTestSource source, const RenderFragmentContainer* fragment)
