@@ -46,8 +46,16 @@ function findExecutable(names: string[]): string | null {
   return null;
 }
 
-const CC = findExecutable(["clang-19", "clang"]) || "clang";
-const CXX = findExecutable(["clang++-19", "clang++"]) || "clang++";
+// Detect ccache
+const CCACHE = findExecutable(["ccache"]);
+const HAS_CCACHE = CCACHE !== null;
+
+// Configure compilers with ccache if available
+const CC_BASE = findExecutable(["clang-19", "clang"]) || "clang";
+const CXX_BASE = findExecutable(["clang++-19", "clang++"]) || "clang++";
+
+const CC = HAS_CCACHE ? CCACHE : CC_BASE;
+const CXX = HAS_CCACHE ? CCACHE : CXX_BASE;
 
 // Build directory based on config
 const getBuildDir = (config: BuildConfig) => {
@@ -73,9 +81,22 @@ const getCommonFlags = () => {
     "-DENABLE_FTL_JIT=ON",
     "-G",
     "Ninja",
-    `-DCMAKE_C_COMPILER=${CC}`,
-    `-DCMAKE_CXX_COMPILER=${CXX}`,
   ];
+
+  // Configure compiler with ccache if available
+  if (HAS_CCACHE) {
+    flags.push(
+      `-DCMAKE_C_COMPILER_LAUNCHER=${CCACHE}`,
+      `-DCMAKE_CXX_COMPILER_LAUNCHER=${CCACHE}`,
+      `-DCMAKE_C_COMPILER=${CC_BASE}`,
+      `-DCMAKE_CXX_COMPILER=${CXX_BASE}`
+    );
+  } else {
+    flags.push(
+      `-DCMAKE_C_COMPILER=${CC}`,
+      `-DCMAKE_CXX_COMPILER=${CXX}`
+    );
+  }
 
   if (IS_MAC) {
     flags.push(
@@ -186,6 +207,9 @@ function buildJSC() {
 
   console.log(`Building JSC with configuration: ${buildConfig}`);
   console.log(`Build directory: ${buildDir}`);
+  if (HAS_CCACHE) {
+    console.log(`Using ccache for faster builds: ${CCACHE}`);
+  }
 
   // Create build directories
   if (!existsSync(buildDir)) {
