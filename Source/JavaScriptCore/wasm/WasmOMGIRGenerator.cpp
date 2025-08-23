@@ -834,7 +834,7 @@ private:
 
     Value* allocatorForWasmGCHeapCellSize(Value* size, BasicBlock* slowPath);
     Value* allocateWasmGCHeapCell(Value* allocator, BasicBlock* slowPath);
-    Value* allocateWasmGCObject(Value* allocator, Value* structure, Value* typeInfo, BasicBlock* slowPath);
+    Value* allocateWasmGCObject(Value* allocator, Value* structureID, Value* typeInfo, BasicBlock* slowPath);
     Value* allocateWasmGCArrayUninitialized(uint32_t typeIndex, Value* size);
     Value* allocateWasmGCStructUninitialized(uint32_t typeIndex);
 
@@ -1792,7 +1792,7 @@ auto OMGIRGenerator::emitIndirectCall(Value* calleeInstance, Value* calleeCode, 
         patchpoint->setGenerator([prepareForCall = prepareForCall, patchArgsIndex](CCallHelpers& jit, const B3::StackmapGenerationParams& params) {
             AllowMacroScratchRegisterUsage allowScratch(jit);
             prepareForCall->run(jit, params);
-            jit.storeWasmCalleeCallee(params[patchArgsIndex + 1].gpr(), sizeof(CallerFrameAndPC) - prologueStackPointerDelta());
+            jit.storeWasmCalleeToCalleeCallFrame(params[patchArgsIndex + 1].gpr(), sizeof(CallerFrameAndPC) - prologueStackPointerDelta());
             jit.farJump(params[patchArgsIndex].gpr(), WasmEntryPtrTag);
         });
         return { };
@@ -1818,7 +1818,7 @@ auto OMGIRGenerator::emitIndirectCall(Value* calleeInstance, Value* calleeCode, 
         if (handle)
             handle->generate(jit, params, this);
 
-        jit.storeWasmCalleeCallee(params[patchArgsIndex + 1].gpr());
+        jit.storeWasmCalleeToCalleeCallFrame(params[patchArgsIndex + 1].gpr());
         jit.call(params[patchArgsIndex].gpr(), WasmEntryPtrTag);
         // Restore the stack pointer since it may have been lowered if our callee did a tail call.
         jit.addPtr(CCallHelpers::TrustedImm32(-params.code().frameSize()), GPRInfo::callFrameRegister, MacroAssembler::stackPointerRegister);
@@ -3665,13 +3665,13 @@ void OMGIRGenerator::emitRefTestOrCast(CastKind castKind, TypedExpression refere
         case Wasm::TypeKind::Funcref:
         case Wasm::TypeKind::Externref:
         case Wasm::TypeKind::Anyref:
-        case Wasm::TypeKind::Exn:
+        case Wasm::TypeKind::Exnref:
             // Casts to these types cannot fail as they are the top types of their respective hierarchies, and static type-checking does not allow cross-hierarchy casts.
             break;
-        case Wasm::TypeKind::Nullref:
-        case Wasm::TypeKind::Nullfuncref:
-        case Wasm::TypeKind::Nullexternref:
-        case Wasm::TypeKind::Nullexn:
+        case Wasm::TypeKind::Noneref:
+        case Wasm::TypeKind::Nofuncref:
+        case Wasm::TypeKind::Noexternref:
+        case Wasm::TypeKind::Noexnref:
             // Casts to any bottom type should always fail.
             if (castKind == CastKind::Cast) {
                 B3::PatchpointValue* throwException = m_currentBlock->appendNew<B3::PatchpointValue>(m_proc, B3::Void, origin());
@@ -3697,9 +3697,12 @@ void OMGIRGenerator::emitRefTestOrCast(CastKind castKind, TypedExpression refere
             endBlock->addPredecessor(m_currentBlock);
 
             m_currentBlock = checkObject;
-            emitCheckOrBranchForCast(castKind, m_currentBlock->appendNew<Value>(m_proc, BitAnd, origin(), value, constant(pointerType(), JSValue::NotCellMask)), castFailure, falseBlock);
-            Value* jsType = m_currentBlock->appendNew<MemoryValue>(m_proc, Load8Z, Int32, origin(), value, safeCast<int32_t>(JSCell::typeInfoTypeOffset()));
-            emitCheckOrBranchForCast(castKind, m_currentBlock->appendNew<Value>(m_proc, NotEqual, origin(), jsType, constant(Int32, JSType::WebAssemblyGCObjectType)), castFailure, falseBlock);
+            if (!reference.type().definitelyIsCellOrNull())
+                emitCheckOrBranchForCast(castKind, m_currentBlock->appendNew<Value>(m_proc, BitAnd, origin(), value, constant(pointerType(), JSValue::NotCellMask)), castFailure, falseBlock);
+            if (!reference.type().definitelyIsWasmGCObjectOrNull()) {
+                Value* jsType = m_currentBlock->appendNew<MemoryValue>(m_proc, Load8Z, Int32, origin(), value, safeCast<int32_t>(JSCell::typeInfoTypeOffset()));
+                emitCheckOrBranchForCast(castKind, m_currentBlock->appendNew<Value>(m_proc, NotEqual, origin(), jsType, constant(Int32, JSType::WebAssemblyGCObjectType)), castFailure, falseBlock);
+            }
             break;
         }
         case Wasm::TypeKind::I31ref: {
@@ -3711,9 +3714,12 @@ void OMGIRGenerator::emitRefTestOrCast(CastKind castKind, TypedExpression refere
         }
         case Wasm::TypeKind::Arrayref:
         case Wasm::TypeKind::Structref: {
-            emitCheckOrBranchForCast(castKind, m_currentBlock->appendNew<Value>(m_proc, BitAnd, origin(), value, constant(pointerType(), JSValue::NotCellMask)), castFailure, falseBlock);
-            Value* jsType = m_currentBlock->appendNew<MemoryValue>(m_proc, Load8Z, Int32, origin(), value, safeCast<int32_t>(JSCell::typeInfoTypeOffset()));
-            emitCheckOrBranchForCast(castKind, m_currentBlock->appendNew<Value>(m_proc, NotEqual, origin(), jsType, constant(Int32, JSType::WebAssemblyGCObjectType)), castFailure, falseBlock);
+            if (!reference.type().definitelyIsCellOrNull())
+                emitCheckOrBranchForCast(castKind, m_currentBlock->appendNew<Value>(m_proc, BitAnd, origin(), value, constant(pointerType(), JSValue::NotCellMask)), castFailure, falseBlock);
+            if (!reference.type().definitelyIsWasmGCObjectOrNull()) {
+                Value* jsType = m_currentBlock->appendNew<MemoryValue>(m_proc, Load8Z, Int32, origin(), value, safeCast<int32_t>(JSCell::typeInfoTypeOffset()));
+                emitCheckOrBranchForCast(castKind, m_currentBlock->appendNew<Value>(m_proc, NotEqual, origin(), jsType, constant(Int32, JSType::WebAssemblyGCObjectType)), castFailure, falseBlock);
+            }
             Value* rtt = emitLoadRTTFromObject(value);
             emitCheckOrBranchForCast(castKind, emitNotRTTKind(rtt, static_cast<TypeKind>(toHeapType) == Wasm::TypeKind::Arrayref ? RTTKind::Array : RTTKind::Struct), castFailure, falseBlock);
             break;
@@ -3730,10 +3736,12 @@ void OMGIRGenerator::emitRefTestOrCast(CastKind castKind, TypedExpression refere
             rtt = emitLoadRTTFromFuncref(value);
         else {
             // The cell check is only needed for non-functions, as the typechecker does not allow non-Cell values for funcref casts.
-            // FIXME: We only need this check if reference has a type that could include non-cells.
-            emitCheckOrBranchForCast(castKind, m_currentBlock->appendNew<Value>(m_proc, BitAnd, origin(), value, constant(Int64, JSValue::NotCellMask)), castFailure, falseBlock);
-            Value* jsType = m_currentBlock->appendNew<MemoryValue>(m_proc, Load8Z, Int32, origin(), value, safeCast<int32_t>(JSCell::typeInfoTypeOffset()));
-            emitCheckOrBranchForCast(castKind, m_currentBlock->appendNew<Value>(m_proc, NotEqual, origin(), jsType, constant(Int32, JSType::WebAssemblyGCObjectType)), castFailure, falseBlock);
+            if (!reference.type().definitelyIsCellOrNull())
+                emitCheckOrBranchForCast(castKind, m_currentBlock->appendNew<Value>(m_proc, BitAnd, origin(), value, constant(Int64, JSValue::NotCellMask)), castFailure, falseBlock);
+            if (!reference.type().definitelyIsWasmGCObjectOrNull()) {
+                Value* jsType = m_currentBlock->appendNew<MemoryValue>(m_proc, Load8Z, Int32, origin(), value, safeCast<int32_t>(JSCell::typeInfoTypeOffset()));
+                emitCheckOrBranchForCast(castKind, m_currentBlock->appendNew<Value>(m_proc, NotEqual, origin(), jsType, constant(Int32, JSType::WebAssemblyGCObjectType)), castFailure, falseBlock);
+            }
             rtt = emitLoadRTTFromObject(value);
         }
 
@@ -3888,7 +3896,7 @@ Value* OMGIRGenerator::allocateWasmGCHeapCell(Value* allocator, BasicBlock* slow
             // AssemblyHelpers::emitAllocate(). That way, the same optimized path is shared by
             // all of the compiler tiers.
             jit.emitAllocateWithNonNullAllocator(
-                params[0].gpr(), JITAllocator::variable(), allocatorGPR, params.gpScratch(0),
+                params[0].gpr(), JITAllocator::variableNonNull(), allocatorGPR, params.gpScratch(0),
                 jumpToSlowPath, CCallHelpers::SlowAllocationResult::UndefinedBehavior);
 
             CCallHelpers::Jump jumpToSuccess;
@@ -3912,10 +3920,9 @@ Value* OMGIRGenerator::allocateWasmGCHeapCell(Value* allocator, BasicBlock* slow
     return patchpoint;
 }
 
-Value* OMGIRGenerator::allocateWasmGCObject(Value* allocator, Value* structure, Value* typeInfo, BasicBlock* slowPath)
+Value* OMGIRGenerator::allocateWasmGCObject(Value* allocator, Value* structureID, Value* typeInfo, BasicBlock* slowPath)
 {
     auto* cell = allocateWasmGCHeapCell(allocator, slowPath);
-    auto* structureID = encodeStructureID(structure);
     m_currentBlock->appendNew<B3::MemoryValue>(m_proc, B3::Store, origin(), structureID, cell, safeCast<int32_t>(JSCell::structureIDOffset()));
     m_currentBlock->appendNew<B3::MemoryValue>(m_proc, B3::Store, origin(), typeInfo, cell, safeCast<int32_t>(JSCell::indexingTypeAndMiscOffset()));
     m_currentBlock->appendNew<B3::MemoryValue>(m_proc, B3::Store, origin(), constant(pointerType(), 0), cell, safeCast<int32_t>(JSObject::butterflyOffset()));
@@ -3927,7 +3934,7 @@ Value* OMGIRGenerator::allocateWasmGCArrayUninitialized(uint32_t typeIndex, Valu
     auto* slowPath = m_proc.addBlock();
     auto* continuation = m_proc.addBlock();
 
-    auto* structure = m_currentBlock->appendNew<MemoryValue>(m_proc, Load, pointerType(), origin(), instanceValue(), safeCast<int32_t>(JSWebAssemblyInstance::offsetOfGCObjectStructure(m_info.importFunctionCount(), m_info.tableCount(), m_info.globalCount(), typeIndex)));
+    auto* structureID = m_currentBlock->appendNew<MemoryValue>(m_proc, Load, Int32, origin(), instanceValue(), safeCast<int32_t>(JSWebAssemblyInstance::offsetOfGCObjectStructureID(m_info.importFunctionCount(), m_info.tableCount(), m_info.globalCount(), typeIndex)));
     const ArrayType* typeDefinition = m_info.typeSignatures[typeIndex]->expand().template as<ArrayType>();
     size_t elementSize = typeDefinition->elementType().type.elementSize();
     auto* extended = m_currentBlock->appendNew<Value>(m_proc, ZExt32, origin(), size);
@@ -3935,7 +3942,7 @@ Value* OMGIRGenerator::allocateWasmGCArrayUninitialized(uint32_t typeIndex, Valu
     auto* sizeInBytes = m_currentBlock->appendNew<Value>(m_proc, Add, pointerType(), origin(), shifted, constant(pointerType(), sizeof(JSWebAssemblyArray)));
     auto* allocator = allocatorForWasmGCHeapCellSize(sizeInBytes, slowPath);
     auto* typeInfo = constant(Int32, JSWebAssemblyArray::typeInfoBlob().blob());
-    auto* cell = allocateWasmGCObject(allocator, structure, typeInfo, slowPath);
+    auto* cell = allocateWasmGCObject(allocator, structureID, typeInfo, slowPath);
     auto* fastValue = m_currentBlock->appendNew<UpsilonValue>(m_proc, origin(), cell);
     m_currentBlock->appendNewControlValue(m_proc, Jump, origin(), continuation);
     continuation->addPredecessor(m_currentBlock);
@@ -3962,12 +3969,12 @@ Value* OMGIRGenerator::allocateWasmGCStructUninitialized(uint32_t typeIndex)
     auto* slowPath = m_proc.addBlock();
     auto* continuation = m_proc.addBlock();
 
-    auto* structure = m_currentBlock->appendNew<MemoryValue>(m_proc, Load, pointerType(), origin(), instanceValue(), safeCast<int32_t>(JSWebAssemblyInstance::offsetOfGCObjectStructure(m_info.importFunctionCount(), m_info.tableCount(), m_info.globalCount(), typeIndex)));
+    auto* structureID = m_currentBlock->appendNew<MemoryValue>(m_proc, Load, Int32, origin(), instanceValue(), safeCast<int32_t>(JSWebAssemblyInstance::offsetOfGCObjectStructureID(m_info.importFunctionCount(), m_info.tableCount(), m_info.globalCount(), typeIndex)));
     const StructType* typeDefinition = m_info.typeSignatures[typeIndex]->expand().template as<StructType>();
     Value* sizeInBytes = constant(pointerType(), JSWebAssemblyStruct::allocationSize(typeDefinition->instancePayloadSize()));
     auto* allocator = allocatorForWasmGCHeapCellSize(sizeInBytes, slowPath);
     auto* typeInfo = constant(Int32, JSWebAssemblyStruct::typeInfoBlob().blob());
-    auto* cell = allocateWasmGCObject(allocator, structure, typeInfo, slowPath);
+    auto* cell = allocateWasmGCObject(allocator, structureID, typeInfo, slowPath);
     auto* fastValue = m_currentBlock->appendNew<UpsilonValue>(m_proc, origin(), cell);
     m_currentBlock->appendNewControlValue(m_proc, Jump, origin(), continuation);
     continuation->addPredecessor(m_currentBlock);
@@ -4391,7 +4398,7 @@ auto OMGIRGenerator::addLoop(BlockSignature signature, Stack& enclosingStack, Co
             ASSERT(&data != &block);
             Variable* exceptionVariable = ControlType::isAnyCatch(data) ? data.exception() : nullptr;
             connectValuesAtEntrypoint(indexInBuffer, pointer, expressionStack, exceptionVariable);
-            if (Options::useWasmIPInt() && ControlType::isTry(data))
+            if (ControlType::isTry(data))
                 ++indexInBuffer;
         }
         connectValuesAtEntrypoint(indexInBuffer, pointer, enclosingStack, nullptr);
@@ -4711,7 +4718,7 @@ auto OMGIRGenerator::emitCatchTableImpl(ControlData& data, const ControlData::Tr
         Variable* var = m_proc.addVariable(wasmRefType());
         set(var, exception);
         push(exception);
-        resultStack.constructAndAppend(Type { TypeKind::RefNull, static_cast<TypeIndex>(TypeKind::Exn) }, var);
+        resultStack.constructAndAppend(Type { TypeKind::RefNull, static_cast<TypeIndex>(TypeKind::Exnref) }, var);
     }
 
     auto& targetControl = m_parser->resolveControlRef(target.target).controlData;
@@ -4771,7 +4778,7 @@ auto OMGIRGenerator::addThrow(unsigned exceptionIndex, ArgumentList& args, Stack
     return { };
 }
 
-auto WARN_UNUSED_RETURN OMGIRGenerator::addThrowRef(TypedExpression exn, Stack&) -> PartialResult
+auto WARN_UNUSED_RETURN OMGIRGenerator::addThrowRef(TypedExpression exnref, Stack&) -> PartialResult
 {
     TRACE_CF("THROW_REF");
 
@@ -4779,11 +4786,11 @@ auto WARN_UNUSED_RETURN OMGIRGenerator::addThrowRef(TypedExpression exn, Stack&)
     patch->clobber(RegisterSetBuilder::registersToSaveForJSCall(m_proc.usesSIMD() ? RegisterSetBuilder::allRegisters() : RegisterSetBuilder::allScalarRegisters()));
     patch->effects.terminal = true;
     patch->append(instanceValue(), ValueRep::reg(GPRInfo::argumentGPR0));
-    Value* exception = get(exn);
+    Value* exception = get(exnref);
     patch->append(exception , ValueRep::reg(GPRInfo::argumentGPR1));
 
-    if (exn.type().isNullable())
-        emitNullCheck(exception, ExceptionType::NullExnReference);
+    if (exnref.type().isNullable())
+        emitNullCheck(exception, ExceptionType::NullExnrefReference);
 
     PatchpointExceptionHandle handle = preparePatchpointForExceptions(m_currentBlock, patch);
     patch->setGenerator([this, handle, origin = this->origin()] (CCallHelpers& jit, const B3::StackmapGenerationParams& params) {
@@ -5776,11 +5783,17 @@ auto OMGIRGenerator::addCall(FunctionSpaceIndex functionIndexSpace, const TypeDe
             if (handle)
                 handle->generate(jit, params, this);
 
-            auto calleeMove = jit.storeWasmCalleeCalleePatchable(isTailCall ? sizeof(CallerFrameAndPC) - prologueStackPointerDelta() : 0);
+            ASSERT(!m_info.isImportedFunctionFromFunctionIndexSpace(functionIndexSpace));
+            RefPtr<IPIntCallee> callee;
+            {
+                Locker locker { m_calleeGroup.m_lock };
+                callee = m_calleeGroup.ipintCalleeFromFunctionIndexSpace(locker, functionIndexSpace);
+            }
+            jit.storeWasmCalleeToCalleeCallFrame(CCallHelpers::TrustedImmPtr(CalleeBits::boxNativeCallee(callee.get())), isTailCall ? sizeof(CallerFrameAndPC) - prologueStackPointerDelta() : 0);
             auto call = isTailCall ? jit.threadSafePatchableNearTailCall() : jit.threadSafePatchableNearCall();
 
-            jit.addLinkTask([unlinkedWasmToWasmCalls, call, functionIndexSpace, calleeMove](LinkBuffer& linkBuffer) {
-                unlinkedWasmToWasmCalls->append({ linkBuffer.locationOfNearCall<WasmEntryPtrTag>(call), functionIndexSpace, linkBuffer.locationOf<WasmEntryPtrTag>(calleeMove) });
+            jit.addLinkTask([unlinkedWasmToWasmCalls, call, functionIndexSpace](LinkBuffer& linkBuffer) {
+                unlinkedWasmToWasmCalls->append({ linkBuffer.locationOfNearCall<WasmEntryPtrTag>(call), functionIndexSpace });
             });
             jit.addPtr(CCallHelpers::TrustedImm32(-params.code().frameSize()), GPRInfo::callFrameRegister, MacroAssembler::stackPointerRegister);
         });

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,7 +32,6 @@
 #include "JITCompilation.h"
 #include "LinkBuffer.h"
 #include "NativeCalleeRegistry.h"
-#include "VMInspector.h"
 #include "WasmCallee.h"
 #include "WasmIRGeneratorHelpers.h"
 #include "WasmNameSection.h"
@@ -188,18 +187,16 @@ void OMGPlan::work()
 
         for (auto& call : callee->wasmToWasmCallsites()) {
             CodePtr<WasmEntryPtrTag> entrypoint;
-            RefPtr<Wasm::Callee> calleeCallee;
             if (call.functionIndexSpace < m_module->moduleInformation().importFunctionCount())
                 entrypoint = m_calleeGroup->m_wasmToWasmExitStubs[call.functionIndexSpace].code();
             else {
-                calleeCallee = m_calleeGroup->wasmEntrypointCalleeFromFunctionIndexSpace(locker, call.functionIndexSpace);
+                Ref calleeCallee = m_calleeGroup->wasmEntrypointCalleeFromFunctionIndexSpace(locker, call.functionIndexSpace);
                 entrypoint = calleeCallee->entrypoint().retagged<WasmEntryPtrTag>();
             }
 
             // FIXME: This does an icache flush for each of these... which doesn't make any sense since this code isn't runnable here
             // and any stale cache will be evicted when updateCallsitesToCallUs is called.
             MacroAssembler::repatchNearCall(call.callLocation, CodeLocationLabel<WasmEntryPtrTag>(entrypoint));
-            MacroAssembler::repatchPointer(call.calleeLocation, CalleeBits::boxNativeCalleeIfExists(calleeCallee.get()));
         }
 
         m_calleeGroup->updateCallsitesToCallUs(locker, CodeLocationLabel<WasmEntryPtrTag>(entrypoint), m_functionIndex);
@@ -211,11 +208,10 @@ void OMGPlan::work()
                 Locker locker { bbqCallee->tierUpCounter().getLock() };
                 bbqCallee->tierUpCounter().setCompilationStatusForOMG(mode(), TierUpCount::CompilationStatus::Compiled);
             }
-            if (Options::useWasmIPInt() && m_calleeGroup->m_ipintCallees) {
-                IPIntCallee& ipintCallee = m_calleeGroup->m_ipintCallees->at(m_functionIndex).get();
-                Locker locker { ipintCallee.tierUpCounter().m_lock };
-                ipintCallee.tierUpCounter().setCompilationStatus(mode(), IPIntTierUpCounter::CompilationStatus::Compiled);
-            }
+            ASSERT(m_calleeGroup->m_ipintCallees);
+            IPIntCallee& ipintCallee = m_calleeGroup->m_ipintCallees->at(m_functionIndex).get();
+            Locker locker { ipintCallee.tierUpCounter().m_lock };
+            ipintCallee.tierUpCounter().setCompilationStatus(mode(), IPIntTierUpCounter::CompilationStatus::Compiled);
         }
     }
 

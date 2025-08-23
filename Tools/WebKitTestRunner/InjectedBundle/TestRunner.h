@@ -392,15 +392,6 @@ public:
     // Contextual menu actions
     void setAllowedMenuActions(JSContextRef, JSValueRef);
 
-    void installDidBeginSwipeCallback(JSContextRef, JSValueRef);
-    void installWillEndSwipeCallback(JSContextRef, JSValueRef);
-    void installDidEndSwipeCallback(JSContextRef, JSValueRef);
-    void installDidRemoveSwipeSnapshotCallback(JSContextRef, JSValueRef);
-    void callDidBeginSwipeCallback();
-    void callWillEndSwipeCallback();
-    void callDidEndSwipeCallback();
-    void callDidRemoveSwipeSnapshotCallback();
-
     void clearTestRunnerCallbacks();
 
     void accummulateLogsForChannel(JSStringRef channel);
@@ -482,6 +473,7 @@ public:
     void getAllStorageAccessEntries(JSContextRef, JSValueRef callback);
     void setRequestStorageAccessThrowsExceptionUntilReload(bool enabled);
     void setStorageAccessPermission(JSContextRef, bool, JSStringRef, JSValueRef callback);
+    void setStorageAccess(JSContextRef, bool, JSValueRef callback);
 
     // Open panel
     void setOpenPanelFiles(JSContextRef, JSValueRef);

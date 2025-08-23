@@ -115,16 +115,16 @@ uint32_t BBQJIT::sizeOfType(TypeKind type)
     case TypeKind::Subfinal:
     case TypeKind::Struct:
     case TypeKind::Structref:
-    case TypeKind::Exn:
+    case TypeKind::Exnref:
     case TypeKind::Externref:
     case TypeKind::Array:
     case TypeKind::Arrayref:
     case TypeKind::Eqref:
     case TypeKind::Anyref:
-    case TypeKind::Nullexn:
-    case TypeKind::Nullref:
-    case TypeKind::Nullfuncref:
-    case TypeKind::Nullexternref:
+    case TypeKind::Noexnref:
+    case TypeKind::Noneref:
+    case TypeKind::Nofuncref:
+    case TypeKind::Noexternref:
         return sizeof(EncodedJSValue);
     case TypeKind::Void:
         return 0;
@@ -225,17 +225,17 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::getGlobal(uint32_t index, Value& result
         case TypeKind::Subfinal:
         case TypeKind::Struct:
         case TypeKind::Structref:
-        case TypeKind::Exn:
+        case TypeKind::Exnref:
         case TypeKind::Externref:
         case TypeKind::Array:
         case TypeKind::Arrayref:
         case TypeKind::I31ref:
         case TypeKind::Eqref:
         case TypeKind::Anyref:
-        case TypeKind::Nullexn:
-        case TypeKind::Nullref:
-        case TypeKind::Nullfuncref:
-        case TypeKind::Nullexternref:
+        case TypeKind::Noexnref:
+        case TypeKind::Noneref:
+        case TypeKind::Nofuncref:
+        case TypeKind::Noexternref:
             m_jit.load64(Address(wasmScratchGPR), resultLocation.asGPR());
             break;
         case TypeKind::Void:
@@ -308,17 +308,17 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::setGlobal(uint32_t index, Value value)
         case TypeKind::Subfinal:
         case TypeKind::Struct:
         case TypeKind::Structref:
-        case TypeKind::Exn:
+        case TypeKind::Exnref:
         case TypeKind::Externref:
         case TypeKind::Array:
         case TypeKind::Arrayref:
         case TypeKind::I31ref:
         case TypeKind::Eqref:
         case TypeKind::Anyref:
-        case TypeKind::Nullexn:
-        case TypeKind::Nullref:
-        case TypeKind::Nullfuncref:
-        case TypeKind::Nullexternref:
+        case TypeKind::Noexnref:
+        case TypeKind::Noneref:
+        case TypeKind::Nofuncref:
+        case TypeKind::Noexternref:
             m_jit.store64(valueLocation.asGPR(), Address(wasmScratchGPR));
             break;
         case TypeKind::Void:
@@ -1601,7 +1601,7 @@ void BBQJIT::emitAllocateGCArrayUninitialized(GPRReg resultGPR, uint32_t typeInd
     JumpList slowPath;
     const ArrayType* typeDefinition = m_info.typeSignatures[typeIndex]->expand().template as<ArrayType>();
     MacroAssembler::Address allocatorBufferBase(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfAllocatorForGCObject(m_info.importFunctionCount(), m_info.tableCount(), m_info.globalCount(), m_info.typeCount(), 0));
-    MacroAssembler::Address structureAddress(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfGCObjectStructure(m_info.importFunctionCount(), m_info.tableCount(), m_info.globalCount(), typeIndex));
+    MacroAssembler::Address structureIDAddress(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfGCObjectStructureID(m_info.importFunctionCount(), m_info.tableCount(), m_info.globalCount(), typeIndex));
     Location sizeLocation;
     size_t elementSize = typeDefinition->elementType().type.elementSize();
     if (size.isConst()) {
@@ -1612,9 +1612,11 @@ void BBQJIT::emitAllocateGCArrayUninitialized(GPRReg resultGPR, uint32_t typeInd
             m_jit.loadPtr(allocatorBufferBase.withOffset(sizeClassIndex * sizeof(Allocator)), scratchGPR2);
             JIT_COMMENT(m_jit, "Do array allocation constant sized");
             m_jit.emitAllocateWithNonNullAllocator(resultGPR, JITAllocator::variableNonNull(), scratchGPR2, scratchGPR, slowPath, AssemblyHelpers::SlowAllocationResult::UndefinedBehavior);
+            m_jit.load32(structureIDAddress, scratchGPR);
+            m_jit.move(TrustedImm32(JSWebAssemblyArray::typeInfoBlob().blob()), scratchGPR2);
+            static_assert(JSCell::structureIDOffset() + sizeof(int32_t) == JSCell::indexingTypeAndMiscOffset());
+            m_jit.storePair32(scratchGPR, scratchGPR2, MacroAssembler::Address(resultGPR, JSCell::structureIDOffset()));
             m_jit.storePtr(TrustedImmPtr(nullptr), MacroAssembler::Address(resultGPR, JSObject::butterflyOffset()));
-            m_jit.loadPtr(structureAddress, scratchGPR);
-            m_jit.emitStoreStructureWithTypeInfo(scratchGPR, resultGPR, scratchGPR2);
             m_jit.store32(TrustedImm32(size.asI32()), MacroAssembler::Address(resultGPR, JSWebAssemblyArray::offsetOfSize()));
         } else {
             // FIXME: emitCCall can't handle being passed a destination... which is why we just jump to the slow path here.
@@ -1632,9 +1634,11 @@ void BBQJIT::emitAllocateGCArrayUninitialized(GPRReg resultGPR, uint32_t typeInd
         m_jit.add64(TrustedImm64(sizeof(JSWebAssemblyArray)), scratchGPR);
 
         m_jit.emitAllocateVariableSized(resultGPR, JITAllocator::variableNonNull(), allocatorBufferBase, scratchGPR, scratchGPR, scratchGPR2, slowPath, AssemblyHelpers::SlowAllocationResult::UndefinedBehavior);
+        m_jit.load32(structureIDAddress, scratchGPR);
+        m_jit.move(TrustedImm32(JSWebAssemblyArray::typeInfoBlob().blob()), scratchGPR2);
+        static_assert(JSCell::structureIDOffset() + sizeof(int32_t) == JSCell::indexingTypeAndMiscOffset());
+        m_jit.storePair32(scratchGPR, scratchGPR2, MacroAssembler::Address(resultGPR, JSCell::structureIDOffset()));
         m_jit.storePtr(TrustedImmPtr(nullptr), MacroAssembler::Address(resultGPR, JSObject::butterflyOffset()));
-        m_jit.loadPtr(structureAddress, scratchGPR);
-        m_jit.emitStoreStructureWithTypeInfo(scratchGPR, resultGPR, scratchGPR2);
         m_jit.store32(sizeLocation.asGPR(), MacroAssembler::Address(resultGPR, JSWebAssemblyArray::offsetOfSize()));
     }
 
@@ -2135,7 +2139,7 @@ void BBQJIT::emitAllocateGCStructUninitialized(GPRReg resultGPR, uint32_t typeIn
     JumpList slowPath;
     const StructType* typeDefinition = m_info.typeSignatures[typeIndex]->expand().template as<StructType>();
     MacroAssembler::Address allocatorBufferBase(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfAllocatorForGCObject(m_info.importFunctionCount(), m_info.tableCount(), m_info.globalCount(), m_info.typeCount(), 0));
-    MacroAssembler::Address structureAddress(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfGCObjectStructure(m_info.importFunctionCount(), m_info.tableCount(), m_info.globalCount(), typeIndex));
+    MacroAssembler::Address structureIDAddress(GPRInfo::wasmContextInstancePointer, JSWebAssemblyInstance::offsetOfGCObjectStructureID(m_info.importFunctionCount(), m_info.tableCount(), m_info.globalCount(), typeIndex));
     Location sizeLocation;
 
     size_t sizeInBytes = JSWebAssemblyStruct::allocationSize(typeDefinition->instancePayloadSize());
@@ -2145,9 +2149,11 @@ void BBQJIT::emitAllocateGCStructUninitialized(GPRReg resultGPR, uint32_t typeIn
         m_jit.loadPtr(allocatorBufferBase.withOffset(sizeClassIndex * sizeof(Allocator)), scratchGPR2);
         JIT_COMMENT(m_jit, "Do struct allocation");
         m_jit.emitAllocateWithNonNullAllocator(resultGPR, JITAllocator::variableNonNull(), scratchGPR2, scratchGPR, slowPath, AssemblyHelpers::SlowAllocationResult::UndefinedBehavior);
+        m_jit.load32(structureIDAddress, scratchGPR);
+        m_jit.move(TrustedImm32(JSWebAssemblyStruct::typeInfoBlob().blob()), scratchGPR2);
+        static_assert(JSCell::structureIDOffset() + sizeof(int32_t) == JSCell::indexingTypeAndMiscOffset());
+        m_jit.storePair32(scratchGPR, scratchGPR2, MacroAssembler::Address(resultGPR, JSCell::structureIDOffset()));
         m_jit.storePtr(TrustedImmPtr(nullptr), MacroAssembler::Address(resultGPR, JSObject::butterflyOffset()));
-        m_jit.loadPtr(structureAddress, scratchGPR);
-        m_jit.emitStoreStructureWithTypeInfo(scratchGPR, resultGPR, scratchGPR2);
         m_jit.store32(TrustedImm32(typeDefinition->instancePayloadSize()), MacroAssembler::Address(resultGPR, JSWebAssemblyStruct::offsetOfSize()));
     } else {
         // FIXME: emitCCall can't handle being passed a destination... which is why we just jump to the slow path here.
@@ -2381,13 +2387,13 @@ void BBQJIT::emitRefTestOrCast(const TypedExpression& typedValue, GPRReg valueGP
         case Wasm::TypeKind::Funcref:
         case Wasm::TypeKind::Externref:
         case Wasm::TypeKind::Anyref:
-        case Wasm::TypeKind::Exn:
+        case Wasm::TypeKind::Exnref:
             // Casts to these types cannot fail as they are the top types of their respective hierarchies, and static type-checking does not allow cross-hierarchy casts.
             break;
-        case Wasm::TypeKind::Nullref:
-        case Wasm::TypeKind::Nullfuncref:
-        case Wasm::TypeKind::Nullexternref:
-        case Wasm::TypeKind::Nullexn:
+        case Wasm::TypeKind::Noneref:
+        case Wasm::TypeKind::Nofuncref:
+        case Wasm::TypeKind::Noexternref:
+        case Wasm::TypeKind::Noexnref:
             // Casts to any bottom type should always fail.
             failureCases.append(m_jit.jump());
             break;
@@ -2398,8 +2404,10 @@ void BBQJIT::emitRefTestOrCast(const TypedExpression& typedValue, GPRReg valueGP
             doneCases.append(m_jit.jump());
 
             checkObjectCase.link(m_jit);
-            failureCases.append(m_jit.branchIfNotCell(valueGPR, DoNotHaveTagRegisters));
-            failureCases.append(m_jit.branchIfNotType(valueGPR, JSType::WebAssemblyGCObjectType));
+            if (!typedValue.type().definitelyIsCellOrNull())
+                failureCases.append(m_jit.branchIfNotCell(valueGPR, DoNotHaveTagRegisters));
+            if (!typedValue.type().definitelyIsWasmGCObjectOrNull())
+                failureCases.append(m_jit.branchIfNotType(valueGPR, JSType::WebAssemblyGCObjectType));
             break;
         }
         case Wasm::TypeKind::I31ref: {
@@ -2410,8 +2418,10 @@ void BBQJIT::emitRefTestOrCast(const TypedExpression& typedValue, GPRReg valueGP
         }
         case Wasm::TypeKind::Arrayref:
         case Wasm::TypeKind::Structref: {
-            failureCases.append(m_jit.branchIfNotCell(valueGPR, DoNotHaveTagRegisters));
-            failureCases.append(m_jit.branchIfNotType(valueGPR, JSType::WebAssemblyGCObjectType));
+            if (!typedValue.type().definitelyIsCellOrNull())
+                failureCases.append(m_jit.branchIfNotCell(valueGPR, DoNotHaveTagRegisters));
+            if (!typedValue.type().definitelyIsWasmGCObjectOrNull())
+                failureCases.append(m_jit.branchIfNotType(valueGPR, JSType::WebAssemblyGCObjectType));
             m_jit.emitLoadStructure(valueGPR, wasmScratchGPR);
             m_jit.loadPtr(Address(wasmScratchGPR, WebAssemblyGCStructure::offsetOfRTT()), wasmScratchGPR);
             failureCases.append(m_jit.branch8(CCallHelpers::NotEqual, Address(wasmScratchGPR, RTT::offsetOfKind()), TrustedImm32(static_cast<int32_t>(static_cast<TypeKind>(toHeapType) == Wasm::TypeKind::Arrayref ? RTTKind::Array : RTTKind::Struct))));
@@ -2426,9 +2436,10 @@ void BBQJIT::emitRefTestOrCast(const TypedExpression& typedValue, GPRReg valueGP
             m_jit.loadPtr(Address(valueGPR, WebAssemblyFunctionBase::offsetOfRTT()), wasmScratchGPR);
         else {
             // The cell check is only needed for non-functions, as the typechecker does not allow non-Cell values for funcref casts.
-            // FIXME: We only need this check if reference has a type that could include non-cells.
-            failureCases.append(m_jit.branchIfNotCell(valueGPR, DoNotHaveTagRegisters));
-            failureCases.append(m_jit.branchIfNotType(valueGPR, JSType::WebAssemblyGCObjectType));
+            if (!typedValue.type().definitelyIsCellOrNull())
+                failureCases.append(m_jit.branchIfNotCell(valueGPR, DoNotHaveTagRegisters));
+            if (!typedValue.type().definitelyIsWasmGCObjectOrNull())
+                failureCases.append(m_jit.branchIfNotType(valueGPR, JSType::WebAssemblyGCObjectType));
             m_jit.emitLoadStructure(valueGPR, wasmScratchGPR);
             m_jit.loadPtr(Address(wasmScratchGPR, WebAssemblyGCStructure::offsetOfRTT()), wasmScratchGPR);
         }
@@ -3174,14 +3185,14 @@ void BBQJIT::emitCatchImpl(ControlData& dataCatch, const TypeDefinition& excepti
             case TypeKind::Arrayref:
             case TypeKind::Structref:
             case TypeKind::Funcref:
-            case TypeKind::Exn:
+            case TypeKind::Exnref:
             case TypeKind::Externref:
             case TypeKind::Eqref:
             case TypeKind::Anyref:
-            case TypeKind::Nullexn:
-            case TypeKind::Nullref:
-            case TypeKind::Nullfuncref:
-            case TypeKind::Nullexternref:
+            case TypeKind::Noexnref:
+            case TypeKind::Noneref:
+            case TypeKind::Nofuncref:
+            case TypeKind::Noexternref:
             case TypeKind::Rec:
             case TypeKind::Sub:
             case TypeKind::Subfinal:
@@ -3263,14 +3274,14 @@ void BBQJIT::emitCatchTableImpl(ControlData& entryData, ControlType::TryTableTar
                 case TypeKind::Arrayref:
                 case TypeKind::Structref:
                 case TypeKind::Funcref:
-                case TypeKind::Exn:
+                case TypeKind::Exnref:
                 case TypeKind::Externref:
                 case TypeKind::Eqref:
                 case TypeKind::Anyref:
-                case TypeKind::Nullexn:
-                case TypeKind::Nullref:
-                case TypeKind::Nullfuncref:
-                case TypeKind::Nullexternref:
+                case TypeKind::Noexnref:
+                case TypeKind::Noneref:
+                case TypeKind::Nofuncref:
+                case TypeKind::Noexternref:
                 case TypeKind::Rec:
                 case TypeKind::Sub:
                 case TypeKind::Subfinal:
@@ -3329,14 +3340,14 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addThrowRef(Value exception, Stack&)
 
     // Check for a null exception
     m_jit.move(CCallHelpers::TrustedImmPtr(JSValue::encode(jsNull())), wasmScratchGPR);
-    auto nullexn = m_jit.branchPtr(CCallHelpers::Equal, GPRInfo::argumentGPR1, wasmScratchGPR);
+    auto noexnref = m_jit.branchPtr(CCallHelpers::Equal, GPRInfo::argumentGPR1, wasmScratchGPR);
 
     m_jit.move(GPRInfo::wasmContextInstancePointer, GPRInfo::argumentGPR0);
     emitThrowRefImpl(m_jit);
 
-    nullexn.linkTo(m_jit.label(), &m_jit);
+    noexnref.linkTo(m_jit.label(), &m_jit);
 
-    emitThrowException(ExceptionType::NullExnReference);
+    emitThrowException(ExceptionType::NullExnrefReference);
 
     return { };
 }
@@ -5168,14 +5179,14 @@ void BBQJIT::emitMoveConst(Value constant, Location loc)
     case TypeKind::Arrayref:
     case TypeKind::Structref:
     case TypeKind::RefNull:
-    case TypeKind::Exn:
+    case TypeKind::Exnref:
     case TypeKind::Externref:
     case TypeKind::Eqref:
     case TypeKind::Anyref:
-    case TypeKind::Nullexn:
-    case TypeKind::Nullref:
-    case TypeKind::Nullfuncref:
-    case TypeKind::Nullexternref:
+    case TypeKind::Noexnref:
+    case TypeKind::Noneref:
+    case TypeKind::Nofuncref:
+    case TypeKind::Noexternref:
         m_jit.move(TrustedImm64(constant.asRef()), loc.asGPR());
         break;
     case TypeKind::F32:
@@ -5260,7 +5271,7 @@ void BBQJIT::emitMoveMemory(TypeKind type, Location src, Location dst)
         m_jit.transfer64(src.asAddress(), dst.asAddress());
         break;
     case TypeKind::I31ref:
-    case TypeKind::Exn:
+    case TypeKind::Exnref:
     case TypeKind::Externref:
     case TypeKind::Ref:
     case TypeKind::RefNull:
@@ -5269,10 +5280,10 @@ void BBQJIT::emitMoveMemory(TypeKind type, Location src, Location dst)
     case TypeKind::Arrayref:
     case TypeKind::Eqref:
     case TypeKind::Anyref:
-    case TypeKind::Nullexn:
-    case TypeKind::Nullref:
-    case TypeKind::Nullfuncref:
-    case TypeKind::Nullexternref:
+    case TypeKind::Noexnref:
+    case TypeKind::Noneref:
+    case TypeKind::Nofuncref:
+    case TypeKind::Noexternref:
         m_jit.transfer64(src.asAddress(), dst.asAddress());
         break;
     case TypeKind::V128:
@@ -5295,7 +5306,7 @@ void BBQJIT::emitMoveRegister(TypeKind type, Location src, Location dst)
     case TypeKind::I32:
     case TypeKind::I31ref:
     case TypeKind::I64:
-    case TypeKind::Exn:
+    case TypeKind::Exnref:
     case TypeKind::Externref:
     case TypeKind::Ref:
     case TypeKind::RefNull:
@@ -5304,10 +5315,10 @@ void BBQJIT::emitMoveRegister(TypeKind type, Location src, Location dst)
     case TypeKind::Structref:
     case TypeKind::Eqref:
     case TypeKind::Anyref:
-    case TypeKind::Nullexn:
-    case TypeKind::Nullref:
-    case TypeKind::Nullfuncref:
-    case TypeKind::Nullexternref:
+    case TypeKind::Noexnref:
+    case TypeKind::Noneref:
+    case TypeKind::Nofuncref:
+    case TypeKind::Noexternref:
         m_jit.move(src.asGPR(), dst.asGPR());
         break;
     case TypeKind::F32:
@@ -5343,17 +5354,17 @@ void BBQJIT::emitLoad(TypeKind type, Location src, Location dst)
     case TypeKind::I31ref:
     case TypeKind::Ref:
     case TypeKind::RefNull:
-    case TypeKind::Exn:
+    case TypeKind::Exnref:
     case TypeKind::Externref:
     case TypeKind::Funcref:
     case TypeKind::Arrayref:
     case TypeKind::Structref:
     case TypeKind::Eqref:
     case TypeKind::Anyref:
-    case TypeKind::Nullexn:
-    case TypeKind::Nullref:
-    case TypeKind::Nullfuncref:
-    case TypeKind::Nullexternref:
+    case TypeKind::Noexnref:
+    case TypeKind::Noneref:
+    case TypeKind::Nofuncref:
+    case TypeKind::Noexternref:
         m_jit.load64(src.asAddress(), dst.asGPR());
         break;
     case TypeKind::V128:
@@ -5382,14 +5393,14 @@ Location BBQJIT::materializeToGPR(Value value, std::optional<ScratchScope<1, 0>>
         case TypeKind::Structref:
         case TypeKind::Arrayref:
         case TypeKind::Funcref:
-        case TypeKind::Exn:
+        case TypeKind::Exnref:
         case TypeKind::Externref:
         case TypeKind::Eqref:
         case TypeKind::Anyref:
-        case TypeKind::Nullexn:
-        case TypeKind::Nullref:
-        case TypeKind::Nullfuncref:
-        case TypeKind::Nullexternref:
+        case TypeKind::Noexnref:
+        case TypeKind::Noneref:
+        case TypeKind::Nofuncref:
+        case TypeKind::Noexternref:
         case TypeKind::I64:
             m_jit.move(TrustedImm64(value.asI64()), result.asGPR());
             return result;
@@ -5468,7 +5479,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCallRef(const TypeDefinition& origin
             auto calleeTmp = calleeInstance;
             m_jit.loadPtr(Address(calleePtr, WebAssemblyFunctionBase::offsetOfBoxedWasmCalleeLoadLocation()), calleeTmp);
             m_jit.loadPtr(Address(calleeTmp), calleeTmp);
-            m_jit.storeWasmCalleeCallee(calleeTmp);
+            m_jit.storeWasmCalleeToCalleeCallFrame(calleeTmp);
         }
 
         m_jit.loadPtr(MacroAssembler::Address(calleePtr, WebAssemblyFunctionBase::offsetOfInstance()), calleeInstance);

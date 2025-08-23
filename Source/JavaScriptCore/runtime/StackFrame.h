@@ -33,14 +33,28 @@
 #include "WasmIndexOrName.h"
 #include "WriteBarrier.h"
 #include <limits.h>
+#include <wtf/Variant.h>
 
 namespace JSC {
 
 class CodeBlock;
 class JSObject;
 
+struct JSFrameData {
+    WriteBarrier<JSCell> callee;
+    WriteBarrier<CodeBlock> codeBlock;
+    BytecodeIndex bytecodeIndex;
+};
+
+struct WasmFrameData {
+    Wasm::IndexOrName functionIndexOrName;
+    size_t functionIndex { 0 };
+};
+
 class StackFrame {
 public:
+    using FrameData = Variant<JSFrameData, WasmFrameData>;
+
     StackFrame(VM&, JSCell* owner, JSCell* callee);
     StackFrame(VM&, JSCell* owner, JSCell* callee, CodeBlock*, BytecodeIndex);
     StackFrame(VM&, JSCell* owner, CodeBlock*, BytecodeIndex);
@@ -48,13 +62,38 @@ public:
     StackFrame(Wasm::IndexOrName, size_t functionIndex);
     StackFrame() = default;
 
-    // @forkChanges
-    JSCell * callee() const { return m_callee.get(); }
-    CodeBlock * codeBlock() const { return m_codeBlock.get(); }
-    bool isWasmFrame() const { return m_isWasmFrame; }
-    const Wasm::IndexOrName& wasmFunctionIndexOrName() const { return m_wasmFunctionIndexOrName; }
+    // @forkChanges - Bun-specific accessor methods for compatibility
+    JSCell* callee() const
+    {
+        if (auto* jsFrame = std::get_if<JSFrameData>(&m_frameData))
+            return jsFrame->callee.get();
+        return nullptr;
+    }
 
-    bool hasLineAndColumnInfo() const { return !!m_codeBlock; }
+    CodeBlock* codeBlock() const
+    {
+        if (auto* jsFrame = std::get_if<JSFrameData>(&m_frameData))
+            return jsFrame->codeBlock.get();
+        return nullptr;
+    }
+
+    bool isWasmFrame() const
+    {
+        return std::holds_alternative<WasmFrameData>(m_frameData);
+    }
+
+    const Wasm::IndexOrName& wasmFunctionIndexOrName() const
+    {
+        ASSERT(isWasmFrame());
+        return std::get<WasmFrameData>(m_frameData).functionIndexOrName;
+    }
+
+    bool hasLineAndColumnInfo() const
+    {
+        if (auto* jsFrame = std::get_if<JSFrameData>(&m_frameData))
+            return !!jsFrame->codeBlock;
+        return false;
+    }
 
     LineColumn computeLineAndColumn() const;
     String functionName(VM&) const;
@@ -63,32 +102,16 @@ public:
     String sourceURLStripped(VM&) const;
     String toString(VM&) const;
 
-    bool hasBytecodeIndex() const { return m_bytecodeIndex && !m_isWasmFrame; }
-    BytecodeIndex bytecodeIndex() const
-    {
-        ASSERT(hasBytecodeIndex());
-        return m_bytecodeIndex;
-    }
+    bool hasBytecodeIndex() const;
+    BytecodeIndex bytecodeIndex() const;
 
     template<typename Visitor>
-    void visitAggregate(Visitor& visitor)
-    {
-        if (m_callee)
-            visitor.append(m_callee);
-        if (m_codeBlock)
-            visitor.append(m_codeBlock);
-    }
+    void visitAggregate(Visitor&);
 
-    bool isMarked(VM& vm) const { return (!m_callee || vm.heap.isMarked(m_callee.get())) && (!m_codeBlock || vm.heap.isMarked(m_codeBlock.get())); }
+    bool isMarked(VM&) const;
 
 private:
-    WriteBarrier<JSCell> m_callee { };
-    WriteBarrier<CodeBlock> m_codeBlock { };
-    Wasm::IndexOrName m_wasmFunctionIndexOrName;
-    size_t m_wasmFunctionIndex { 0 };
-    BytecodeIndex m_bytecodeIndex;
-    bool m_isWasmFrame { false };
+    FrameData m_frameData { JSFrameData { } };
 };
 
 } // namespace JSC
-

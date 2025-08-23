@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <wtf/Platform.h>
 namespace WebCore {
 
 struct WEBCORE_EXPORT QuirksData {
@@ -101,7 +102,6 @@ struct WEBCORE_EXPORT QuirksData {
     bool needsGMailOverflowScrollQuirk : 1 { false };
     bool needsGoogleMapsScrollingQuirk : 1 { false };
     bool needsGoogleTranslateScrollingQuirk : 1 { false };
-    bool needsIPadSkypeOverflowScrollQuirk : 1 { false };
     bool needsPreloadAutoQuirk : 1 { false };
     bool needsScriptToEvaluateBeforeRunningScriptFromURLQuirk : 1 { false };
     bool needsYouTubeMouseOutQuirk : 1 { false };
@@ -187,6 +187,8 @@ struct WEBCORE_EXPORT QuirksData {
     bool shouldDisableEndFullscreenEventWhenEnteringPictureInPictureFromFullscreenQuirk : 1 { false };
 #endif
 
+    bool needsNavigatorUserAgentDataQuirk : 1 { false };
+    bool needsCustomUserAgentData : 1 { false };
     bool needsNowPlayingFullscreenSwapQuirk : 1 { false };
     bool needsWebKitMediaTextTrackDisplayQuirk : 1 { false };
     bool needsMediaRewriteRangeRequestQuirk : 1 { false };

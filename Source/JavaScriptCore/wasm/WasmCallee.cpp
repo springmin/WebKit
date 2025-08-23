@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2024 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2025 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,7 +36,7 @@
 #include "LLIntThunks.h"
 #include "NativeCalleeRegistry.h"
 #include "PCToCodeOriginMap.h"
-#include "VMInspector.h"
+#include "VMManager.h"
 #include "WasmCallingConvention.h"
 #include "WasmModuleInformation.h"
 #include "WebAssemblyBuiltin.h"
@@ -78,8 +78,7 @@ Callee::Callee(Wasm::CompilationMode compilationMode, FunctionSpaceIndex index, 
 void Callee::reportToVMsForDestruction()
 {
     // We don't know which VMs a Module has ever run on so we just report to all of them.
-    Locker locker(VMInspector::singleton().getLock());
-    VMInspector::singleton().iterate([&] (VM& vm) {
+    VMManager::forEachVM([&] (VM& vm) {
         vm.heap.reportWasmCalleePendingDestruction(Ref(*this));
         return IterationStatus::Continue;
     });
@@ -236,12 +235,9 @@ IPIntCallee::IPIntCallee(FunctionIPIntMetadataGenerator& generator, FunctionSpac
     , m_signatures(WTFMove(generator.m_signatures))
     , m_bytecode(generator.m_bytecode.data() + generator.m_bytecodeOffset)
     , m_bytecodeEnd(m_bytecode + (generator.m_bytecode.size() - generator.m_bytecodeOffset - 1))
-    , m_metadataVector(WTFMove(generator.m_metadata))
-    , m_metadata(m_metadataVector.span().data())
+    , m_metadata(WTFMove(generator.m_metadata))
     , m_argumINTBytecode(WTFMove(generator.m_argumINTBytecode))
-    , m_argumINTBytecodePointer(m_argumINTBytecode.span().data())
     , m_uINTBytecode(WTFMove(generator.m_uINTBytecode))
-    , m_uINTBytecodePointer(m_uINTBytecode.span().data())
     , m_highestReturnStackOffset(generator.m_highestReturnStackOffset)
     , m_localSizeToAlloc(roundUpToMultipleOf<2>(generator.m_numLocals))
     , m_numRethrowSlotsToAlloc(generator.m_numAlignedRethrowSlots)

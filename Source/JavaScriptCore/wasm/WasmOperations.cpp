@@ -346,10 +346,10 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalArguments, bool, (void* sp,
         case TypeKind::Arrayref:
         case TypeKind::Eqref:
         case TypeKind::Anyref:
-        case TypeKind::Nullexn:
-        case TypeKind::Nullref:
-        case TypeKind::Nullfuncref:
-        case TypeKind::Nullexternref:
+        case TypeKind::Noexnref:
+        case TypeKind::Noneref:
+        case TypeKind::Nofuncref:
+        case TypeKind::Noexternref:
         case TypeKind::I31ref:
         case TypeKind::Rec:
         case TypeKind::Sub:
@@ -360,7 +360,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalArguments, bool, (void* sp,
         case TypeKind::Ref:
         case TypeKind::Externref:
         case TypeKind::Funcref:
-        case TypeKind::Exn:
+        case TypeKind::Exnref:
         case TypeKind::I32: {
             if (wasmParam.isStackArgument()) {
                 uint64_t raw = *access.operator()<UCPURegister>(cfr, wasmParam.offsetFromSP() + sizeof(CallerFrameAndPC));
@@ -1624,7 +1624,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmStructNewEmpty, EncodedJSValue, (
     assertCalleeIsReferenced(callFrame, instance);
     VM& vm = instance->vm();
     NativeCallFrameTracer tracer(vm, callFrame);
-    WebAssemblyGCStructure* structure = instance->gcObjectStructure(typeIndex).get();
+    WebAssemblyGCStructure* structure = instance->gcObjectStructure(typeIndex);
     auto* result = JSWebAssemblyStruct::tryCreate(vm, structure);
     if (!result) [[unlikely]]
         return JSValue::encode(jsNull());
@@ -1835,7 +1835,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmArrayNewEmpty, EncodedJSValue, (J
     NativeCallFrameTracer tracer(vm, callFrame);
 
     ASSERT(typeIndex < instance->module().moduleInformation().typeCount());
-    WebAssemblyGCStructure* structure = instance->gcObjectStructure(typeIndex).get();
+    WebAssemblyGCStructure* structure = instance->gcObjectStructure(typeIndex);
     auto* array = JSWebAssemblyArray::tryCreate(vm, structure, size);
     if (!array) [[unlikely]]
         return JSValue::encode(jsNull());

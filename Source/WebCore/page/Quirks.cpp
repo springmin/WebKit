@@ -537,16 +537,6 @@ bool Quirks::needsGMailOverflowScrollQuirk() const
 #endif
 }
 
-// web.skype.com webkit.org/b/275941
-bool Quirks::needsIPadSkypeOverflowScrollQuirk() const
-{
-#if PLATFORM(IOS_FAMILY)
-    return needsQuirks() && m_quirksData.needsIPadSkypeOverflowScrollQuirk;
-#else
-    return false;
-#endif
-}
-
 // FIXME: Remove after the site is fixed, <rdar://problem/50374311>
 // youtube.com rdar://49582231
 bool Quirks::needsYouTubeOverflowScrollQuirk() const
@@ -1192,6 +1182,7 @@ bool Quirks::requiresUserGestureToPauseInPictureInPicture() const
 }
 
 // bbc.co.uk: rdar://126494734
+// bbc.com: rdar://157499149
 bool Quirks::returnNullPictureInPictureElementDuringFullscreenChange() const
 {
     return needsQuirks() && m_quirksData.returnNullPictureInPictureElementDuringFullscreenChangeQuirk;
@@ -1896,6 +1887,16 @@ bool Quirks::needsLimitedMatroskaSupport() const
 #endif
 }
 
+bool Quirks::needsCustomUserAgentData() const
+{
+    return needsQuirks() && m_quirksData.needsCustomUserAgentData;
+}
+
+bool Quirks::needsNavigatorUserAgentDataQuirk() const
+{
+    return needsQuirks() && m_quirksData.needsNavigatorUserAgentDataQuirk;
+}
+
 bool Quirks::needsNowPlayingFullscreenSwapQuirk() const
 {
     return needsQuirks() && m_quirksData.needsNowPlayingFullscreenSwapQuirk;
@@ -2096,18 +2097,6 @@ static void handleRalphLaurenQuirks(QuirksData& quirksData, const URL& quirksURL
     quirksData.shouldIgnoreAriaForFastPathContentObservationCheckQuirk = true;
 }
 
-static void handleSkypeQuirks(QuirksData& quirksData, const URL& quirksURL, const String& quirksDomainString, const URL& documentURL)
-{
-    UNUSED_PARAM(quirksDomainString);
-    UNUSED_PARAM(documentURL);
-    auto topDocumentHost = quirksURL.host();
-    if (topDocumentHost != "web.skype.com"_s)
-        return;
-
-    // web.skype.com webkit.org/b/275941
-    quirksData.needsIPadSkypeOverflowScrollQuirk = true;
-}
-
 static void handleSlackQuirks(QuirksData& quirksData, const URL&, const String& quirksDomainString, const URL&)
 {
     if (quirksDomainString != "slack.com"_s)
@@ -2180,6 +2169,18 @@ static void handleICloudQuirks(QuirksData& quirksData, const URL& quirksURL, con
 #endif
 }
 #endif
+
+static void handleTMobileQuirks(QuirksData& quirksData, const URL& quirksURL, const String& quirksDomainString, const URL& documentURL)
+{
+    UNUSED_PARAM(quirksDomainString);
+    UNUSED_PARAM(documentURL);
+    auto topDocumentHost = quirksURL.host();
+    if (topDocumentHost != "digits.t-mobile.com")
+        return;
+
+    quirksData.needsNavigatorUserAgentDataQuirk = true;
+    quirksData.needsCustomUserAgentData = true;
+}
 
 #if PLATFORM(MAC)
 static void handleCEACStateGovQuirks(QuirksData& quirksData, const URL& quirksURL, const String& quirksDomainString, const URL& documentURL)
@@ -2399,8 +2400,9 @@ static void handleBBCQuirks(QuirksData& quirksData, const URL& quirksURL, const 
     UNUSED_PARAM(quirksURL);
     UNUSED_PARAM(documentURL);
 
-    if (quirksDomainString == "bbc.co.uk"_s) {
+    if (quirksDomainString == "bbc.co.uk"_s || quirksDomainString == "bbc.com"_s) {
         // bbc.co.uk rdar://126494734
+        // bbc.com rdar://157499149
         quirksData.returnNullPictureInPictureElementDuringFullscreenChangeQuirk = true;
     }
 }
@@ -2509,7 +2511,7 @@ static void handleGoogleQuirks(QuirksData& quirksData, const URL& quirksURL, con
         quirksData.needsDeferKeyDownAndKeyPressTimersUntilNextEditingCommandQuirk = startsWithLettersIgnoringASCIICase(quirksURL.path(), "/spreadsheets/"_s);
     } else if (topDocumentHost == "mail.google.com"_s) {
         // mail.google.com rdar://49403416
-        quirksData.needsGMailOverflowScrollQuirk =true;
+        quirksData.needsGMailOverflowScrollQuirk = true;
     } else if (topDocumentHost == "translate.google.com"_s) {
         // translate.google.com rdar://106539018
         quirksData.needsGoogleTranslateScrollingQuirk = true;
@@ -2995,6 +2997,7 @@ void Quirks::determineRelevantQuirks()
         { "digitaltrends"_s, &handleDigitalTrendsQuirks },
         { "steampowered"_s, &handleSteamQuirks },
 #endif
+        { "t-mobile"_s, &handleTMobileQuirks },
         { "descript"_s, &handleDescriptQuirks },
 #if PLATFORM(IOS_FAMILY)
         { "disneyplus"_s, &handleDisneyPlusQuirks },
@@ -3041,16 +3044,13 @@ void Quirks::determineRelevantQuirks()
         { "ralphlauren"_s, &handleRalphLaurenQuirks },
 #endif
 #if ENABLE(VIDEO_PRESENTATION_MODE)
-        { "reddit"_s, & handleRedditQuirks },
+        { "reddit"_s, &handleRedditQuirks },
 #endif
         { "sfusd"_s, &handleSFUSDQuirks },
 #if PLATFORM(IOS_FAMILY)
         { "slack"_s, &handleSlackQuirks },
 #endif
         { "sharepoint"_s, &handleSharePointQuirks },
-#if PLATFORM(IOS_FAMILY)
-        { "skype"_s, &handleSkypeQuirks },
-#endif
         { "soundcloud"_s, &handleSoundCloudQuirks },
 #if ENABLE(TOUCH_EVENTS)
         { "soylent"_s, &handleSoylentQuirks },

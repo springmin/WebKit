@@ -254,9 +254,7 @@ struct CompositionHighlight;
 struct CompositionUnderline;
 struct ContactInfo;
 struct ContactsRequestData;
-#if ENABLE(DNR_ON_RULE_MATCHED_DEBUG)
 struct ContentRuleListMatchedRule;
-#endif
 struct ContentRuleListResults;
 struct CryptoKeyData;
 struct DataDetectorElementInfo;
@@ -685,6 +683,7 @@ public:
     using Identifier = WebPageProxyIdentifier;
 
     Identifier identifier() const { return m_identifier; }
+    static RefPtr<WebPageProxy> fromIdentifier(std::optional<Identifier>);
     WebCore::PageIdentifier webPageIDInMainFrameProcess() const { return m_webPageID; }
     WebCore::PageIdentifier identifierInSiteIsolatedProcess() const { return webPageIDInMainFrameProcess(); }
     WebCore::PageIdentifier webPageIDInProcess(const WebProcessProxy&) const;
@@ -2618,7 +2617,7 @@ public:
     void takeSnapshotForTargetedElement(const API::TargetedElementInfo&, CompletionHandler<void(std::optional<WebCore::ShareableBitmapHandle>&&)>&&);
 
     void requestTextExtraction(WebCore::TextExtraction::Request&&, CompletionHandler<void(WebCore::TextExtraction::Item&&)>&&);
-    void handleTextExtractionInteraction(WebCore::TextExtraction::Interaction&&, CompletionHandler<void(bool)>&&);
+    void handleTextExtractionInteraction(WebCore::TextExtraction::Interaction&&, CompletionHandler<void(bool, String&&)>&&);
 
     void hasVideoInPictureInPictureDidChange(bool);
 
@@ -2896,9 +2895,6 @@ private:
 
 #if ENABLE(CONTENT_EXTENSIONS)
     void contentRuleListNotification(URL&&, WebCore::ContentRuleListResults&&);
-#endif
-
-#if ENABLE(DNR_ON_RULE_MATCHED_DEBUG)
     void contentRuleListMatchedRule(WebCore::ContentRuleListMatchedRule&&);
 #endif
 

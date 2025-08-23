@@ -63,6 +63,7 @@
 #include <wtf/Logger.h>
 #include <wtf/ObjectIdentifier.h>
 #include <wtf/Observer.h>
+#include <wtf/Platform.h>
 #include <wtf/RobinHoodHashMap.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/UniqueRef.h>
@@ -1983,6 +1984,7 @@ public:
     void invalidateDOMCookieCache();
 
     void detachFromFrame();
+    void willBeDisconnectedFromFrame(Document&);
 
     PermissionsPolicy permissionsPolicy() const;
 
@@ -2478,7 +2480,7 @@ private:
 
     WeakHashSet<Element, WeakPtrImplWithEventTargetData> m_associatedFormControls;
 
-    std::unique_ptr<OrientationNotifier> m_orientationNotifier;
+    const std::unique_ptr<OrientationNotifier> m_orientationNotifier;
     mutable RefPtr<Logger> m_logger;
     RefPtr<StringCallback> m_consoleMessageListener;
 
