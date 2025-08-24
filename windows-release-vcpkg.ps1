@@ -41,6 +41,42 @@ Write-Host "Cleaned PATH: $env:PATH"
 (Get-Command link).Path
 clang-cl.exe --version
 
+# Detect LLVM installation for ASAN support
+$ASANLibPath = $null
+$ClangPath = (Get-Command clang-cl -ErrorAction SilentlyContinue).Path
+if ($ClangPath) {
+    $LLVMRoot = Split-Path (Split-Path $ClangPath)
+    $LLVMLib = Join-Path $LLVMRoot "lib"
+    $ClangLib = Join-Path $LLVMLib "clang"
+    
+    # Find clang version directory (e.g., "19" or "19.1.7")
+    if (Test-Path $ClangLib) {
+        $ClangVersion = Get-ChildItem $ClangLib | Select-Object -First 1
+        $ASANLibPath = Join-Path $ClangVersion.FullName "lib\windows"
+        
+        if (Test-Path $ASANLibPath) {
+            Write-Host ":: Found ASAN libraries at $ASANLibPath"
+            
+            # Set environment variables for the linker to find ASAN libraries
+            $env:LIB = "$ASANLibPath;$env:LIB"
+            $env:LINK = "/LIBPATH:`"$ASANLibPath`" $env:LINK"
+            
+            # Also set for CMake
+            $env:CMAKE_PREFIX_PATH = "$LLVMRoot;$env:CMAKE_PREFIX_PATH"
+            
+            # For ASAN builds, we need to link the ASAN runtime explicitly
+            if ($Configuration -eq "ASAN") {
+                $env:LDFLAGS = "/LIBPATH:`"$ASANLibPath`" -fsanitize=address $env:LDFLAGS"
+                $env:CFLAGS = "-fsanitize=address $env:CFLAGS"
+                $env:CXXFLAGS = "-fsanitize=address $env:CXXFLAGS"
+            }
+        } else {
+            Write-Warning "ASAN library path not found at $ASANLibPath"
+            $ASANLibPath = $null
+        }
+    }
+}
+
 $env:CC = "clang-cl"
 $env:CXX = "clang-cl"
 
@@ -164,12 +200,35 @@ $CmakeArgs = @(
 
 # Add sanitizer flags if enabled
 if ($EnableSanitizers) {
+    # For ASAN on Windows with Clang, we need to:
+    # 1. Use -fsanitize=address for compilation (already in AsanFlags)
+    # 2. Link against the ASAN runtime libraries
+    # 3. Use dynamic CRT (/MD) - already configured
+    
+    Write-Host ":: Configuring ASAN build with linker flags"
+    
     $CmakeArgs += "-DENABLE_SANITIZERS=address"
-    # Add ASAN linker flags for both Release and Debug configurations
-    $CmakeArgs += "-DCMAKE_EXE_LINKER_FLAGS_RELEASE=-fsanitize=address"
-    $CmakeArgs += "-DCMAKE_SHARED_LINKER_FLAGS_RELEASE=-fsanitize=address"
-    $CmakeArgs += "-DCMAKE_EXE_LINKER_FLAGS_DEBUG=-fsanitize=address"
-    $CmakeArgs += "-DCMAKE_SHARED_LINKER_FLAGS_DEBUG=-fsanitize=address"
+    
+    if ($ASANLibPath) {
+        # Set up linking flags with explicit ASAN library path
+        # The compiler flags already have -fsanitize=address from AsanFlags
+        # We just need to ensure the linker can find the ASAN runtime
+        
+        $ASANLinkFlags = "/LIBPATH:`"$ASANLibPath`""
+        
+        # Add linker flags with ASAN library path
+        $CmakeArgs += "-DCMAKE_EXE_LINKER_FLAGS=$ASANLinkFlags"
+        $CmakeArgs += "-DCMAKE_SHARED_LINKER_FLAGS=$ASANLinkFlags"
+        $CmakeArgs += "-DCMAKE_MODULE_LINKER_FLAGS=$ASANLinkFlags"
+        
+        # Skip CMake's compiler test since it doesn't inherit our linker flags properly
+        $CmakeArgs += "-DCMAKE_C_COMPILER_WORKS=1"
+        $CmakeArgs += "-DCMAKE_CXX_COMPILER_WORKS=1"
+        
+        Write-Host ":: ASAN libraries configured at $ASANLibPath"
+    } else {
+        Write-Warning "ASAN library path not found - build may fail during linking"
+    }
 }
 
 # Run CMake
