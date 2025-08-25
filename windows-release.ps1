@@ -338,9 +338,6 @@ if (Test-Path -Path $WebKitBuild/lib64) {
 
 Copy-Item $WebKitBuild/cmakeconfig.h $output/include/cmakeconfig.h
 
-# vcpkg static builds already produce files with 's' prefix, so no renaming needed
-# The static libraries are already named sicudt.lib, sicuin.lib, etc.
-Write-Host ":: ICU static libraries are already properly named"
 
 Add-Content -Path $output/include/cmakeconfig.h -Value "`#define BUN_WEBKIT_VERSION `"$BUN_WEBKIT_VERSION`""
 
