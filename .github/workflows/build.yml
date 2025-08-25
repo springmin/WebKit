@@ -379,6 +379,14 @@ jobs:
           $env:GITHUB_SHA = "${{ github.sha }}"
           $env:PACKAGE_JSON_ARCH = "${{matrix.package_json_arch}}"
           $env:GITHUB_REPOSITORY = "${{ github.repository }}"
+          
+          # Explicitly set architecture to avoid detection issues
+          if ("${{matrix.package_json_arch}}" -eq "arm64") {
+            $env:BUILD_ARM64 = "1"
+          } else {
+            $env:BUILD_ARM64 = "0"
+          }
+          
           ./windows-release.ps1
       - uses: actions/upload-artifact@v4
         with:
