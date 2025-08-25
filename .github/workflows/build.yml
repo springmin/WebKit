@@ -363,14 +363,24 @@ jobs:
           
           # Install Ruby manually on ARM64 (Scoop's Ruby fails on ARM64)
           if ($isARM64) {
+            Write-Host "Starting Ruby installation for ARM64..."
             $rubyUrl = "https://github.com/oneclick/rubyinstaller2/releases/download/RubyInstaller-3.3.6-1/rubyinstaller-devkit-3.3.6-1-x64.exe"
             $rubyExe = "$env:TEMP\ruby.exe"
+            
+            Write-Host "Downloading Ruby installer..."
             Invoke-WebRequest -Uri $rubyUrl -OutFile $rubyExe
+            
+            Write-Host "Installing Ruby (this may take several minutes on ARM64)..."
             Start-Process -FilePath $rubyExe -ArgumentList "/VERYSILENT", "/NORESTART", "/DIR=C:\Ruby33-x64" -Wait
+            
+            Write-Host "Ruby installation completed"
             echo "C:\Ruby33-x64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+            Write-Host "Ruby added to PATH"
           } else {
             # x64 can use Scoop's Ruby
+            Write-Host "Installing Ruby via Scoop..."
             scoop install ruby
+            Write-Host "Ruby installation completed"
           }
           
           # Install vcpkg
