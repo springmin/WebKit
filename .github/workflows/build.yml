@@ -324,7 +324,14 @@ jobs:
             scoop install ninja
             scoop install python
             scoop install perl
-            scoop install llvm-arm64
+            
+            # LLVM ARM64 has pre_install script issues in Scoop, install manually
+            Write-Host "Installing LLVM ARM64 manually..."
+            $llvmUrl = "https://github.com/llvm/llvm-project/releases/download/llvmorg-19.1.4/LLVM-19.1.4-woa64.exe"
+            $llvmExe = "$env:TEMP\llvm-installer.exe"
+            Invoke-WebRequest -Uri $llvmUrl -OutFile $llvmExe
+            Start-Process -FilePath $llvmExe -ArgumentList "/S", "/D=C:\LLVM" -Wait
+            echo "C:\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           } else {
             # Use x64 packages
             scoop install cmake
