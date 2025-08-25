@@ -50,6 +50,7 @@ asm (
     "movl %esp, %eax" "\n"
     "addl $4, %eax" "\n"
     "ret" "\n"
+    ".previous" "\n"
 );
 
 #elif CPU(X86_64) && OS(WINDOWS)
@@ -79,6 +80,7 @@ asm (
     "movq  %rsp, %rax" "\n"
     "addq $8, %rax" "\n" // Account for return address.
     "ret" "\n"
+    ".previous" "\n"
 );
 
 #elif CPU(ARM64E)
@@ -91,6 +93,7 @@ asm (
     "pacibsp" "\n"
     "mov x0, sp" "\n"
     "retab" "\n"
+    ".previous" "\n"
 );
 
 #elif CPU(ARM64)
@@ -102,6 +105,7 @@ asm (
 
     "mov x0, sp" "\n"
     "ret" "\n"
+    ".previous" "\n"
 );
 
 #elif CPU(ARM_THUMB2)
@@ -115,6 +119,7 @@ asm (
 
     "mov r0, sp" "\n"
     "bx  lr" "\n"
+    ".previous" "\n"
 );
 
 #elif CPU(MIPS)
@@ -130,6 +135,7 @@ asm (
     "jr   $ra" "\n"
     "nop" "\n"
     ".set pop" "\n"
+    ".previous" "\n"
 );
 
 #elif CPU(RISCV64)
@@ -140,7 +146,8 @@ asm (
 
      "mv x10, sp" "\n"
      "ret" "\n"
- );
+     ".previous" "\n"
+);
 
 #elif CPU(LOONGARCH64)
 asm (
@@ -150,7 +157,8 @@ asm (
 
      "move $r4, $r3" "\n"
      "jr   $r1" "\n"
- );
+     ".previous" "\n"
+);
 
 #else
 #error "Unsupported platform: need implementation of currentStackPointer."
