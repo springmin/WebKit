@@ -18,6 +18,8 @@ if ($InstallDependencies) {
     if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
         Write-Host "  Installing Scoop package manager..."
         Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+        # Refresh environment to make scoop available in current session
+        $env:PATH = "$env:USERPROFILE\scoop\shims;" + $env:PATH
     }
     
     # Install required tools via scoop
@@ -131,6 +133,12 @@ try {
 } catch { }
 if (-not $MakeExe) {
     Write-Host "make not found, installing via scoop..."
+    # Ensure scoop is available
+    if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
+        Write-Host "Scoop not found, installing..."
+        Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+        $env:PATH = "$env:USERPROFILE\scoop\shims;" + $env:PATH
+    }
     scoop install make
     $MakeExe = (Get-Command make).Path
 }
