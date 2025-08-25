@@ -327,7 +327,7 @@ jobs:
             scoop install make
             
             # Install LLVM ARM64 - ignore pre_install script error
-            scoop install llvm-arm64 -ErrorAction Continue
+            scoop install llvm-arm64 2>$null || $true
             
             # Add LLVM to PATH manually since pre_install might have failed
             $llvmPath = "$env:USERPROFILE\scoop\apps\llvm-arm64\current\bin"

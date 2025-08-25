@@ -176,8 +176,6 @@ if ($UseVcpkg) {
 set(VCPKG_TARGET_ARCHITECTURE $vcpkgArch)
 set(VCPKG_CRT_LINKAGE static)
 set(VCPKG_LIBRARY_LINKAGE static)
-set(VCPKG_CMAKE_SYSTEM_NAME Windows)
-set(VCPKG_PLATFORM_TOOLSET ClangCL)
 "@
             Set-Content -Path $TripletFile -Value $TripletContent
             Write-Host "Created custom triplet: $TripletFile"
