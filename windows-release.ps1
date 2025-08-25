@@ -17,9 +17,12 @@ if ($InstallDependencies) {
     # Check if scoop is installed
     if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
         Write-Host "  Installing Scoop package manager..."
+        Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
         Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
         # Refresh environment to make scoop available in current session
         $env:PATH = "$env:USERPROFILE\scoop\shims;" + $env:PATH
+        # Install aria2 for faster downloads
+        scoop install aria2
     }
     
     # Install required tools via scoop
@@ -136,8 +139,10 @@ if (-not $MakeExe) {
     # Ensure scoop is available
     if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
         Write-Host "Scoop not found, installing..."
+        Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
         Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
         $env:PATH = "$env:USERPROFILE\scoop\shims;" + $env:PATH
+        scoop install aria2
     }
     scoop install make
     $MakeExe = (Get-Command make).Path
