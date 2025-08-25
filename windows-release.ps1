@@ -3,43 +3,10 @@ param(
     # and i really really really really do not want to break anything
     #
     # you almost certainly need this to build locally
-    [switch][bool]$ExtraEffortPathManagement = $false,
-    
-    # Install dependencies automatically (useful for CI)
-    [switch][bool]$InstallDependencies = $false
+    [switch][bool]$ExtraEffortPathManagement = $false
 )
 $ErrorActionPreference = "Stop"
 
-# Install dependencies if requested (for CI/fresh environments)
-if ($InstallDependencies) {
-    Write-Host ":: Installing build dependencies"
-    
-    # Check if scoop is installed
-    if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
-        Write-Host "  Installing Scoop package manager..."
-        Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
-        Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
-        # Refresh environment to make scoop available in current session
-        $env:PATH = "$env:USERPROFILE\scoop\shims;" + $env:PATH
-        # Install aria2 for faster downloads
-        scoop install aria2
-    }
-    
-    # Install required tools via scoop
-    $RequiredTools = @("cmake", "ninja", "python", "ruby", "perl", "make")
-    foreach ($tool in $RequiredTools) {
-        if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) {
-            Write-Host "  Installing $tool..."
-            scoop install $tool
-        }
-    }
-    
-    # Install vcpkg if not present
-    if (-not (Test-Path "C:\Users\$env:USERNAME\scoop\apps\vcpkg")) {
-        Write-Host "  Installing vcpkg..."
-        scoop install vcpkg
-    }
-}
 
 # Set up MSVC environment variables. This is taken from Bun's 'scripts\env.ps1'
 # Check for ARM64 environment
@@ -129,24 +96,8 @@ foreach ($path in $CleanPaths) {
 $env:PATH = $FinalPaths -join ";"
 Write-Host "Cleaned PATH: $env:PATH"
 
-# Find make executable
-$MakeExe = $null
-try {
-    $MakeExe = (Get-Command make -ErrorAction SilentlyContinue).Path
-} catch { }
-if (-not $MakeExe) {
-    Write-Host "make not found, installing via scoop..."
-    # Ensure scoop is available
-    if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
-        Write-Host "Scoop not found, installing..."
-        Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
-        Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
-        $env:PATH = "$env:USERPROFILE\scoop\shims;" + $env:PATH
-        scoop install aria2
-    }
-    scoop install make
-    $MakeExe = (Get-Command make).Path
-}
+# Get make executable (should be available from dependency installation)
+$MakeExe = (Get-Command make -ErrorAction Stop).Path
 
 # Keep a copy of PATH with Perl for later use (some WebKit scripts need it)
 $PathWithPerl = $env:PATH
