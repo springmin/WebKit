@@ -132,15 +132,17 @@ if ($UseVcpkg) {
         
         if (-not (Test-Path $TripletFile)) {
             $vcpkgArch = if ($isARM64) { "arm64" } else { "x64" }
+            # Base the custom triplet on the standard Windows triplet
             $TripletContent = @"
 set(VCPKG_TARGET_ARCHITECTURE $vcpkgArch)
 set(VCPKG_CRT_LINKAGE static)
 set(VCPKG_LIBRARY_LINKAGE static)
-set(VCPKG_CMAKE_SYSTEM_NAME Windows)
-set(VCPKG_PLATFORM_TOOLSET v143)
 
-# Force ICU to build as static libraries with all components
-set(VCPKG_CMAKE_CONFIGURE_OPTIONS -DBUILD_SHARED_LIBS=OFF)
+# Use the default Windows settings for everything else
+if(PORT MATCHES "icu")
+    # Force ICU to build as static libraries
+    set(VCPKG_CMAKE_CONFIGURE_OPTIONS -DBUILD_SHARED_LIBS=OFF)
+endif()
 "@
             Set-Content -Path $TripletFile -Value $TripletContent
             Write-Host "Created custom triplet: $TripletFile"
@@ -243,7 +245,8 @@ $CmakeArch = if ($isARM64) { "ARM64" } else { "X64" }
 $VcpkgToolchain = if ($UseVcpkg) { 
     "-DCMAKE_TOOLCHAIN_FILE=$VcpkgRoot/scripts/buildsystems/vcpkg.cmake",
     "-DVCPKG_TARGET_TRIPLET=$triplet",
-    "-DVCPKG_OVERLAY_TRIPLETS=$VcpkgRoot/triplets/community"
+    "-DVCPKG_OVERLAY_TRIPLETS=$VcpkgRoot/triplets/community",
+    "-DVCPKG_MANIFEST_MODE=OFF"  # We already installed packages manually
 } else { @() }
 
 # Detect Ruby installation (WinGet or Scoop)
