@@ -792,11 +792,8 @@ IGNORE_GCC_WARNINGS_END
 #if USE(BUN_JSC_ADDITIONS)
         if (m_isBuiltinFunction) {
             const auto isDefaultPromiseForBun = [&]() -> bool {
-                if (auto* provider = m_scopeNode->source().provider()) {
-                    const String& sourceURL = provider->sourceURL();
-                    if (!sourceURL.isNull() && !sourceURL.isEmpty())
-                        return sourceURL == "node:fs/promises"_s;
-                }
+                if (auto* provider = m_scopeNode->source().provider())
+                    return !provider->sourceURL().isEmpty();
                 return false;
             };
             isInternalPromise = !functionNode->ident().string().startsWith("defaultAsync"_s) && !isDefaultPromiseForBun();
