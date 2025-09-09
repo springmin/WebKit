@@ -505,9 +505,9 @@ void Interpreter::getAsyncStackTrace(JSCell* owner, Vector<StackFrame>& results,
                 // If a CodeBlock doesn't already exist, the stack trace will only show the filename and won't show line column
                 if (CodeBlock* codeBlock = executable->codeBlockForCall()) {
                     BytecodeIndex bytecodeIndex = computeBytecodeIndex(codeBlock, currentGenerator);
-                    results.append(StackFrame(vm, owner, asyncFunction, codeBlock, bytecodeIndex));
+                    results.append(StackFrame(vm, owner, asyncFunction, codeBlock, bytecodeIndex, /* isAsyncFrame */ true));
                 } else
-                    results.append(StackFrame(vm, owner, asyncFunction, /* isAsyncFrameWithoutCodeBlock */ true));
+                    results.append(StackFrame(vm, owner, asyncFunction, /* isAsyncFrame */ true));
             }
         }
         currentGenerator = getParentGenerator(currentGenerator);
@@ -619,6 +619,10 @@ void Interpreter::getStackTrace(JSCell* owner, Vector<StackFrame>& results, size
         } else if (!!visitor->codeBlock())
 #else
         } else if (!!visitor->codeBlock() && !visitor->codeBlock()->unlinkedCodeBlock()->isBuiltinFunction())
+#endif
+#if USE(BUN_JSC_ADDITIONS)
+            // FIXME: Remove this BUN_JSC_ADDITIONS when https://github.com/WebKit/WebKit/pull/50288 has been merged
+            if (!isAsyncFunctionWrapperParseMode(visitor->codeBlock()->unlinkedCodeBlock()->parseMode()))
 #endif
             results.append(StackFrame(vm, owner, visitor->callee().asCell(), visitor->codeBlock(), visitor->bytecodeIndex()));
         else
