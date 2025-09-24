@@ -42,6 +42,7 @@
 namespace WebCore {
 
 enum class SerializationSeparatorType : uint8_t { None, Space, Comma, Slash };
+enum class SerializationCoalescingType : uint8_t { None, Minimal };
 
 // Types that specialize TreatAsTupleLike or TreatAsRangeLike can specialize this to
 // indicate how to serialize the gaps between elements.
@@ -53,6 +54,10 @@ template<> inline constexpr ASCIILiteral SerializationSeparatorStringForType<Ser
 template<> inline constexpr ASCIILiteral SerializationSeparatorStringForType<SerializationSeparatorType::Slash> = " / "_s;
 
 template<typename T> inline constexpr ASCIILiteral SerializationSeparatorString = SerializationSeparatorStringForType<SerializationSeparator<T>>;
+
+// Types that specialize TreatAsTupleLike and have size 2 or 4 can specialize this to
+// indicate how to serialize identical elements.
+template<typename> inline constexpr SerializationCoalescingType SerializationCoalescing = SerializationCoalescingType::None;
 
 // Helper to define a simple `get()` implementation for a single value `name`.
 #define DEFINE_TYPE_WRAPPER_GET(t, name) \
@@ -109,15 +114,33 @@ template<typename T> inline constexpr ASCIILiteral SerializationSeparatorString 
     DEFINE_TUPLE_LIKE_CONFORMANCE(t, numberOfArguments) \
     template<> inline constexpr WebCore::SerializationSeparatorType WebCore::SerializationSeparator<t> = WebCore::SerializationSeparatorType::Space;
 
+// Helper to define a tuple-like conformance and that the type should be serialized as coalescing and space separated.
+#define DEFINE_COALESCING_SPACE_SEPARATED_TUPLE_LIKE_CONFORMANCE(t, numberOfArguments) \
+    static_assert(numberOfArguments == 2 || numberOfArguments == 4); \
+    DEFINE_SPACE_SEPARATED_TUPLE_LIKE_CONFORMANCE(t, numberOfArguments) \
+    template<> inline constexpr WebCore::SerializationCoalescingType WebCore::SerializationCoalescing<t> = WebCore::SerializationCoalescingType::Minimal;
+
 // Helper to define a tuple-like conformance and that the type should be serialized as comma separated.
 #define DEFINE_COMMA_SEPARATED_TUPLE_LIKE_CONFORMANCE(t, numberOfArguments) \
     DEFINE_TUPLE_LIKE_CONFORMANCE(t, numberOfArguments) \
     template<> inline constexpr WebCore::SerializationSeparatorType WebCore::SerializationSeparator<t> = WebCore::SerializationSeparatorType::Comma;
 
+// Helper to define a tuple-like conformance and that the type should be serialized as coalescing and comma separated.
+#define DEFINE_COALESCING_COMMA_SEPARATED_TUPLE_LIKE_CONFORMANCE(t, numberOfArguments) \
+    static_assert(numberOfArguments == 2 || numberOfArguments == 4); \
+    DEFINE_COMMA_SEPARATED_TUPLE_LIKE_CONFORMANCE(t, numberOfArguments) \
+    template<> inline constexpr WebCore::SerializationCoalescingType WebCore::SerializationCoalescing<t> = WebCore::SerializationCoalescingType::Minimal;
+
 // Helper to define a tuple-like conformance and that the type should be serialized as slash separated.
 #define DEFINE_SLASH_SEPARATED_TUPLE_LIKE_CONFORMANCE(t, numberOfArguments) \
     DEFINE_TUPLE_LIKE_CONFORMANCE(t, numberOfArguments) \
     template<> inline constexpr WebCore::SerializationSeparatorType WebCore::SerializationSeparator<t> = WebCore::SerializationSeparatorType::Slash;
+
+// Helper to define a tuple-like conformance and that the type should be serialized as coalescing and slash separated.
+#define DEFINE_COALESCING_SLASH_SEPARATED_TUPLE_LIKE_CONFORMANCE(t, numberOfArguments) \
+    static_assert(numberOfArguments == 2 || numberOfArguments == 4); \
+    DEFINE_SLASH_SEPARATED_TUPLE_LIKE_CONFORMANCE(t, numberOfArguments) \
+    template<> inline constexpr WebCore::SerializationCoalescingType WebCore::SerializationCoalescing<t> = WebCore::SerializationCoalescingType::Minimal;
 
 // Helper to define a tuple-like conformance based on the type being extended.
 #define DEFINE_TUPLE_LIKE_CONFORMANCE_FOR_TYPE_EXTENDER(t) \
@@ -340,6 +363,12 @@ template<typename T> struct SpaceSeparatedFixedVector {
         return Container::map(std::forward<SizedRange>(range), std::forward<Mapper>(mapper));
     }
 
+    template<std::invocable<size_t> Generator>
+    static SpaceSeparatedFixedVector createWithSizeFromGenerator(size_t size, NOESCAPE Generator&& generator)
+    {
+        return Container::createWithSizeFromGenerator(size, std::forward<Generator>(generator));
+    }
+
     const_iterator begin() const { return value.begin(); }
     const_iterator end() const { return value.end(); }
     const_reverse_iterator rbegin() const { return value.rbegin(); }
@@ -393,6 +422,12 @@ template<typename T> struct CommaSeparatedFixedVector {
     static CommaSeparatedFixedVector map(SizedRange&& range, NOESCAPE Mapper&& mapper)
     {
         return Container::map(std::forward<SizedRange>(range), std::forward<Mapper>(mapper));
+    }
+
+    template<std::invocable<size_t> Generator>
+    static CommaSeparatedFixedVector createWithSizeFromGenerator(size_t size, NOESCAPE Generator&& generator)
+    {
+        return Container::createWithSizeFromGenerator(size, std::forward<Generator>(generator));
     }
 
     const_iterator begin() const { return value.begin(); }
@@ -449,6 +484,12 @@ template<typename T> struct SpaceSeparatedRefCountedFixedVector {
         return Container::map(size, std::forward<SizedRange>(range), std::forward<Mapper>(mapper));
     }
 
+    template<std::invocable<size_t> Generator>
+    static SpaceSeparatedRefCountedFixedVector createWithSizeFromGenerator(size_t size, NOESCAPE Generator&& generator)
+    {
+        return Container::createWithSizeFromGenerator(size, std::forward<Generator>(generator));
+    }
+
     const_iterator begin() const { return value->begin(); }
     const_iterator end() const { return value->end(); }
     const_reverse_iterator rbegin() const { return value->rbegin(); }
@@ -499,6 +540,12 @@ template<typename T> struct CommaSeparatedRefCountedFixedVector {
     {
         auto size = range.size();
         return Container::map(size, std::forward<SizedRange>(range), std::forward<Mapper>(mapper));
+    }
+
+    template<std::invocable<size_t> Generator>
+    static CommaSeparatedRefCountedFixedVector createWithSizeFromGenerator(size_t size, NOESCAPE Generator&& generator)
+    {
+        return Container::createWithSizeFromGenerator(size, std::forward<Generator>(generator));
     }
 
     const_iterator begin() const { return value->begin(); }
@@ -792,6 +839,7 @@ template<size_t I, typename T> decltype(auto) get(const MinimallySerializingSpac
 
 template<typename T> inline constexpr auto TreatAsTupleLike<MinimallySerializingSpaceSeparatedPair<T>> = true;
 template<typename T> inline constexpr auto SerializationSeparator<MinimallySerializingSpaceSeparatedPair<T>> = SerializationSeparatorType::Space;
+template<typename T> inline constexpr auto SerializationCoalescing<MinimallySerializingSpaceSeparatedPair<T>> = SerializationCoalescingType::Minimal;
 
 // Wraps a fixed size list of elements of a single type, semantically marking them as serializing as "comma separated".
 template<typename T, size_t N> struct CommaSeparatedArray {
@@ -992,6 +1040,7 @@ template<size_t I, typename T> decltype(auto) get(const MinimallySerializingSpac
 
 template<typename T> inline constexpr auto TreatAsTupleLike<MinimallySerializingSpaceSeparatedPoint<T>> = true;
 template<typename T> inline constexpr auto SerializationSeparator<MinimallySerializingSpaceSeparatedPoint<T>> = SerializationSeparatorType::Space;
+template<typename T> inline constexpr auto SerializationCoalescing<MinimallySerializingSpaceSeparatedPoint<T>> = SerializationCoalescingType::Minimal;
 
 // Wraps a pair of elements of a single type representing a size, semantically marking them as serializing as "space separated" and "minimally serializing".
 template<typename T> struct MinimallySerializingSpaceSeparatedSize {
@@ -1028,6 +1077,7 @@ template<size_t I, typename T> decltype(auto) get(const MinimallySerializingSpac
 
 template<typename T> inline constexpr auto TreatAsTupleLike<MinimallySerializingSpaceSeparatedSize<T>> = true;
 template<typename T> inline constexpr auto SerializationSeparator<MinimallySerializingSpaceSeparatedSize<T>> = SerializationSeparatorType::Space;
+template<typename T> inline constexpr auto SerializationCoalescing<MinimallySerializingSpaceSeparatedSize<T>> = SerializationCoalescingType::Minimal;
 
 // Wraps a quad of elements of a single type representing the edges of a rect, semantically marking them as serializing as "space separated".
 template<typename T> struct SpaceSeparatedRectEdges : RectEdges<T> {
@@ -1150,6 +1200,7 @@ template<size_t I, typename T> decltype(auto) get(const MinimallySerializingSpac
 
 template<typename T> inline constexpr auto TreatAsTupleLike<MinimallySerializingSpaceSeparatedRectEdges<T>> = true;
 template<typename T> inline constexpr auto SerializationSeparator<MinimallySerializingSpaceSeparatedRectEdges<T>> = SerializationSeparatorType::Space;
+template<typename T> inline constexpr auto SerializationCoalescing<MinimallySerializingSpaceSeparatedRectEdges<T>> = SerializationCoalescingType::Minimal;
 
 template<typename T> struct MinimallySerializingSpaceSeparatedRectCorners : RectCorners<T> {
     using value_type = T;
@@ -1186,6 +1237,7 @@ template<size_t I, typename T> decltype(auto) get(const MinimallySerializingSpac
 
 template<typename T> inline constexpr auto TreatAsTupleLike<MinimallySerializingSpaceSeparatedRectCorners<T>> = true;
 template<typename T> inline constexpr auto SerializationSeparator<MinimallySerializingSpaceSeparatedRectCorners<T>> = SerializationSeparatorType::Space;
+template<typename T> inline constexpr auto SerializationCoalescing<MinimallySerializingSpaceSeparatedRectCorners<T>> = SerializationCoalescingType::Minimal;
 
 // MARK: - Logging
 

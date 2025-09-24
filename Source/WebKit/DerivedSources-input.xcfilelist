@@ -52,6 +52,7 @@ $(PROJECT_DIR)/GPUProcess/graphics/RemoteGraphicsContextGLInitializationState.se
 $(PROJECT_DIR)/GPUProcess/graphics/RemoteImageBuffer.messages.in
 $(PROJECT_DIR)/GPUProcess/graphics/RemoteImageBufferSet.messages.in
 $(PROJECT_DIR)/GPUProcess/graphics/RemoteRenderingBackend.messages.in
+$(PROJECT_DIR)/GPUProcess/graphics/RemoteSnapshotRecorder.messages.in
 $(PROJECT_DIR)/GPUProcess/graphics/WebGPU/RemoteAdapter.messages.in
 $(PROJECT_DIR)/GPUProcess/graphics/WebGPU/RemoteBindGroup.messages.in
 $(PROJECT_DIR)/GPUProcess/graphics/WebGPU/RemoteBindGroupLayout.messages.in
@@ -108,7 +109,6 @@ $(PROJECT_DIR)/GPUProcess/media/RemoteMediaSourceProxy.messages.in
 $(PROJECT_DIR)/GPUProcess/media/RemoteRemoteCommandListenerProxy.messages.in
 $(PROJECT_DIR)/GPUProcess/media/RemoteSourceBufferProxy.messages.in
 $(PROJECT_DIR)/GPUProcess/media/RemoteTextTrackProxy.messages.in
-$(PROJECT_DIR)/GPUProcess/media/RemoteTrackInfo.serialization.in
 $(PROJECT_DIR)/GPUProcess/media/RemoteVideoFrameObjectHeap.messages.in
 $(PROJECT_DIR)/GPUProcess/media/RemoteVideoTrackProxy.messages.in
 $(PROJECT_DIR)/GPUProcess/media/TextTrackPrivateRemoteConfiguration.serialization.in

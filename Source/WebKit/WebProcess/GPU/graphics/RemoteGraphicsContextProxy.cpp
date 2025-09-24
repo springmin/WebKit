@@ -32,6 +32,7 @@
 #include "RemoteGraphicsContextMessages.h"
 #include "RemoteImageBufferProxy.h"
 #include "RemoteRenderingBackendProxy.h"
+#include "RemoteSnapshotRecorderMessages.h"
 #include "SharedVideoFrame.h"
 #include "StreamClientConnection.h"
 #include "WebProcess.h"
@@ -765,8 +766,13 @@ void RemoteGraphicsContextProxy::appendStateChangeItemIfNecessary()
         if (auto packedColor = fillBrush.packedColor())
             send(Messages::RemoteGraphicsContext::SetFillPackedColor(*packedColor));
         else if (RefPtr pattern = fillBrush.pattern()) {
-            recordResourceUse(pattern->tileImage());
-            send(Messages::RemoteGraphicsContext::SetFillPattern(pattern->tileImage().imageIdentifier(), pattern->parameters()));
+            if (RefPtr image = pattern->tileNativeImage()) {
+                if (recordResourceUse(*image))
+                    send(Messages::RemoteGraphicsContext::SetFillPatternNativeImage(image->renderingResourceIdentifier(), pattern->parameters()));
+            } else if (RefPtr buffer = pattern->tileImageBuffer()) {
+                if (recordResourceUse(*buffer))
+                    send(Messages::RemoteGraphicsContext::SetFillPatternImageBuffer(buffer->renderingResourceIdentifier(), pattern->parameters()));
+            }
         } else if (RefPtr gradient = fillBrush.gradient()) {
             if (auto identifier = recordResourceUse(*gradient))
                 send(Messages::RemoteGraphicsContext::SetFillCachedGradient(*identifier, fillBrush.gradientSpaceTransform()));
@@ -784,8 +790,13 @@ void RemoteGraphicsContextProxy::appendStateChangeItemIfNecessary()
             } else
                 send(Messages::RemoteGraphicsContext::SetStrokePackedColor(*packedColor));
         } else if (RefPtr pattern = strokeBrush.pattern()) {
-            recordResourceUse(pattern->tileImage());
-            send(Messages::RemoteGraphicsContext::SetStrokePattern(pattern->tileImage().imageIdentifier(), pattern->parameters()));
+            if (RefPtr image = pattern->tileNativeImage()) {
+                if (recordResourceUse(*image))
+                    send(Messages::RemoteGraphicsContext::SetStrokePatternNativeImage(image->renderingResourceIdentifier(), pattern->parameters()));
+            } else if (RefPtr buffer = pattern->tileImageBuffer()) {
+                if (recordResourceUse(*buffer))
+                    send(Messages::RemoteGraphicsContext::SetStrokePatternImageBuffer(buffer->renderingResourceIdentifier(), pattern->parameters()));
+            }
         } else if (RefPtr gradient = strokeBrush.gradient()) {
             if (auto identifier = recordResourceUse(*gradient))
                 send(Messages::RemoteGraphicsContext::SetStrokeCachedGradient(*identifier, strokeBrush.gradientSpaceTransform()));
@@ -884,6 +895,9 @@ void RemoteGraphicsContextProxy::abandon()
     disconnect();
     m_renderingBackend = nullptr;
 }
+
+// Instantiate the send() helper for the few subclass messages here to avoid listing it in the header.
+template void RemoteGraphicsContextProxy::send<Messages::RemoteSnapshotRecorder::DrawSnapshotFrame>(Messages::RemoteSnapshotRecorder::DrawSnapshotFrame&&);
 
 }
 

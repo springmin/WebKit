@@ -38,6 +38,7 @@
 #include "SystemSettings.h"
 #endif
 
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_BEGIN
 #include <skia/ports/SkFontScanner_FreeType.h>
 
 #if OS(ANDROID)
@@ -48,6 +49,7 @@
 #else
 #include <skia/ports/SkFontMgr_fontconfig.h>
 #endif
+WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
 
 namespace WebCore {
 
@@ -145,7 +147,13 @@ RefPtr<Font> FontCache::systemFallbackForCharacterCluster(const FontDescription&
 
     auto features = computeFeatures(description, { });
     auto [syntheticBold, syntheticOblique] = computeSynthesisProperties(*typeface, description, { });
-    FontPlatformData alternateFontData(WTFMove(typeface), description.computedSize(), syntheticBold, syntheticOblique, description.orientation(), description.widthVariant(), description.textRenderingMode(), WTFMove(features));
+
+    // @font-face size-adjust does not affect fallback font sizes, but font-size-adjust does.
+    // We initialize FontPlatformData with the computed size, then apply font-size-adjust if required.
+    auto size = description.computedSize();
+    FontPlatformData alternateFontData(WTFMove(typeface), size, syntheticBold, syntheticOblique, description.orientation(), description.widthVariant(), description.textRenderingMode(), WTFMove(features));
+    alternateFontData.updateSizeWithFontSizeAdjust(description.fontSizeAdjust(), size);
+
     return fontForPlatformData(alternateFontData);
 }
 

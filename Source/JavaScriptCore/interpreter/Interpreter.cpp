@@ -59,6 +59,7 @@
 #include "JSModuleRecord.h"
 #include "JSObject.h"
 #include "JSPromise.h"
+#include "JSPromiseAllContext.h"
 #include "JSRemoteFunction.h"
 #include "JSString.h"
 #include "JSWebAssemblyException.h"
@@ -461,20 +462,36 @@ void Interpreter::getAsyncStackTrace(JSCell* owner, Vector<StackFrame>& results,
 
     VM& vm = this->vm();
 
-    auto getParentGenerator = [&](JSGenerator* gen) -> JSGenerator* {
-        JSValue contextValue = gen->internalField(static_cast<unsigned>(JSGenerator::Field::Context)).get();
-        JSPromise* awaitedPromise = jsDynamicCast<JSPromise*>(contextValue);
-        if (awaitedPromise && awaitedPromise->status(vm) == JSPromise::Status::Pending) {
-            JSValue reactionsValue = awaitedPromise->internalField(JSPromise::Field::ReactionsOrResult).get();
+    auto getContextValueFromPromise = [&](JSPromise* promise) -> JSValue {
+        if (promise && promise->status(vm) == JSPromise::Status::Pending) {
+            JSValue reactionsValue = promise->internalField(JSPromise::Field::ReactionsOrResult).get();
             if (JSObject* reactions = jsDynamicCast<JSObject*>(reactionsValue)) {
-                Structure* structure = reactions->structure();
-                unsigned attributes;
-                PropertyOffset offset = structure->getConcurrently(vm.propertyNames->builtinNames().contextPrivateName().impl(), attributes);
-                if (offset != invalidOffset && !(attributes & (PropertyAttribute::Accessor | PropertyAttribute::CustomAccessorOrValue))) {
-                    JSValue contextFieldValue = reactions->getDirect(offset);
-                    if (auto* resultGenerator = jsDynamicCast<JSGenerator*>(contextFieldValue))
-                        return resultGenerator;
-                }
+                Structure* reactionsStructure = reactions->structure();
+                unsigned contextFieldAttributes;
+                PropertyOffset contextOffset = reactionsStructure->getConcurrently(vm.propertyNames->builtinNames().contextPrivateName().impl(), contextFieldAttributes);
+                if (contextOffset != invalidOffset && !(contextFieldAttributes & (PropertyAttribute::Accessor | PropertyAttribute::CustomAccessorOrValue)))
+                    return reactions->getDirect(contextOffset);
+            }
+        }
+        return JSValue();
+    };
+
+    auto getParentGenerator = [&](JSGenerator* gen) -> JSGenerator* {
+        JSValue generatorContext = gen->internalField(static_cast<unsigned>(JSGenerator::Field::Context)).get();
+        JSPromise* awaitedPromise = jsDynamicCast<JSPromise*>(generatorContext);
+        JSValue promiseContext = getContextValueFromPromise(awaitedPromise);
+
+        // handle simple `await`
+        if (auto* generator = jsDynamicCast<JSGenerator*>(promiseContext))
+            return generator;
+
+        // handle `Promise.all`
+        if (auto* promiseAllContext = jsDynamicCast<JSPromiseAllContext*>(promiseContext)) {
+            JSValue promiseValue = promiseAllContext->promise();
+            if (auto* promise = jsDynamicCast<JSPromise*>(promiseValue)) {
+                JSValue promiseContext = getContextValueFromPromise(promise);
+                if (auto* generator = jsDynamicCast<JSGenerator*>(promiseContext))
+                    return generator;
             }
         }
         return nullptr;
@@ -755,13 +772,14 @@ public:
     UnwindFunctor(VM& vm, CallFrame*& callFrame, Exception* exception, JSValue thrownValue, CodeBlock*& codeBlock, CatchInfo& handler, JSRemoteFunction*& seenRemoteFunction)
         : m_vm(vm)
         , m_callFrame(callFrame)
-        , m_exception(exception)
         , m_isTermination(vm.isTerminationException(exception))
         , m_codeBlock(codeBlock)
         , m_handler(handler)
         , m_seenRemoteFunction(seenRemoteFunction)
-    {
 #if ENABLE(WEBASSEMBLY)
+        , m_exception(exception)
+    {
+
         if (!m_isTermination) {
             if (JSWebAssemblyException* wasmException = jsDynamicCast<JSWebAssemblyException*>(thrownValue)) {
                 m_catchableFromWasm = true;
@@ -777,10 +795,12 @@ public:
             if (!m_wasmTag)
                 m_wasmTag = &Wasm::Tag::jsExceptionTag();
         }
-#else
-        UNUSED_PARAM(thrownValue);
-#endif
     }
+#else
+    {
+        UNUSED_PARAM(thrownValue);
+    }
+#endif
 
     IterationStatus operator()(StackVisitor& visitor) const
     {
@@ -916,16 +936,16 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
     VM& m_vm;
     CallFrame*& m_callFrame;
-    Exception* m_exception;
     bool m_isTermination;
     CodeBlock*& m_codeBlock;
     CatchInfo& m_handler;
+    JSRemoteFunction*& m_seenRemoteFunction;
+
 #if ENABLE(WEBASSEMBLY)
+    Exception* m_exception;
     mutable RefPtr<const Wasm::Tag> m_wasmTag;
     bool m_catchableFromWasm { false };
 #endif
-
-    JSRemoteFunction*& m_seenRemoteFunction;
 };
 
 // Replace an exception which passes across a marshalling boundary with a TypeError for its handler's global object.

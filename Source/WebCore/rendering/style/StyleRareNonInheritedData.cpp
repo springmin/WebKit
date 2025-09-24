@@ -31,7 +31,6 @@
 #include "StyleImage.h"
 #include "StylePrimitiveNumericTypes+Logging.h"
 #include "StyleResolver.h"
-#include "StyleTextEdge.h"
 #include <wtf/PointerComparison.h>
 #include <wtf/RefPtr.h>
 #include <wtf/text/TextStream.h>
@@ -95,9 +94,9 @@ StyleRareNonInheritedData::StyleRareNonInheritedData()
     , viewTimelineNames(RenderStyle::initialViewTimelineNames())
     // timelineScope
     , scrollbarGutter(RenderStyle::initialScrollbarGutter())
-    // scrollSnapType
-    // scrollSnapAlign
-    // scrollSnapStop
+    , scrollSnapType(RenderStyle::initialScrollSnapType())
+    , scrollSnapAlign(RenderStyle::initialScrollSnapAlign())
+    , scrollSnapStop(RenderStyle::initialScrollSnapStop())
     , pseudoElementNameArgument(nullAtom())
     , anchorNames(RenderStyle::initialAnchorNames())
     , anchorScope(RenderStyle::initialAnchorScope())

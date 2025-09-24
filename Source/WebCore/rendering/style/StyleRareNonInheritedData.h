@@ -60,7 +60,8 @@
 #include <WebCore/StyleScrollBehavior.h>
 #include <WebCore/StyleScrollMargin.h>
 #include <WebCore/StyleScrollPadding.h>
-#include <WebCore/StyleScrollSnapPoints.h>
+#include <WebCore/StyleScrollSnapAlign.h>
+#include <WebCore/StyleScrollSnapType.h>
 #include <WebCore/StyleScrollTimelines.h>
 #include <WebCore/StyleScrollbarGutter.h>
 #include <WebCore/StyleSelfAlignmentData.h>
@@ -68,7 +69,6 @@
 #include <WebCore/StyleShapeMargin.h>
 #include <WebCore/StyleShapeOutside.h>
 #include <WebCore/StyleTextDecorationThickness.h>
-#include <WebCore/StyleTextEdge.h>
 #include <WebCore/StyleTranslate.h>
 #include <WebCore/StyleViewTimelineInsets.h>
 #include <WebCore/StyleViewTimelines.h>
@@ -103,7 +103,6 @@ class StyleResolver;
 class StyleTransformData;
 class WillChangeData;
 
-struct LengthSize;
 struct StyleMarqueeData;
 
 namespace Style {
@@ -218,9 +217,9 @@ public:
 
     Style::ScrollbarGutter scrollbarGutter;
 
-    ScrollSnapType scrollSnapType;
-    ScrollSnapAlign scrollSnapAlign;
-    ScrollSnapStop scrollSnapStop { ScrollSnapStop::Normal };
+    Style::ScrollSnapType scrollSnapType;
+    Style::ScrollSnapAlign scrollSnapAlign;
+    ScrollSnapStop scrollSnapStop;
 
     AtomString pseudoElementNameArgument;
 

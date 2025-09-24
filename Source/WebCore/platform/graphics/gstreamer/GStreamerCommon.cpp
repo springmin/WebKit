@@ -121,15 +121,15 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(WebCoreLogObserver);
 
 static GstClockTime s_webkitGstInitTime;
 
-WARN_UNUSED_RETURN GstPad* webkitGstGhostPadFromStaticTemplate(GstStaticPadTemplate* staticPadTemplate, ASCIILiteral name, GstPad* target)
+WARN_UNUSED_RETURN GstPad* webkitGstGhostPadFromStaticTemplate(GstStaticPadTemplate* staticPadTemplate, CStringView name, GstPad* target)
 {
     GstPad* pad;
     GRefPtr padTemplate = gst_static_pad_template_get(staticPadTemplate);
 
     if (target)
-        pad = gst_ghost_pad_new_from_template(name.characters(), target, padTemplate.get());
+        pad = gst_ghost_pad_new_from_template(name.utf8(), target, padTemplate.get());
     else
-        pad = gst_ghost_pad_new_no_target_from_template(name.characters(), padTemplate.get());
+        pad = gst_ghost_pad_new_no_target_from_template(name.utf8(), padTemplate.get());
 
     return pad;
 }
@@ -295,7 +295,7 @@ std::optional<TrackID> parseStreamId(StringView stringId)
     return parseIntegerAllowingTrailingJunk<TrackID>(stringId.substring(position + 1));
 }
 
-StringView capsMediaType(const GstCaps* caps)
+CStringView capsMediaType(const GstCaps* caps)
 {
     ASSERT(caps);
     GstStructure* structure = gst_caps_get_structure(caps, 0);
@@ -320,7 +320,7 @@ bool doCapsHaveType(const GstCaps* caps, ASCIILiteral type)
         GST_WARNING("Failed to get MediaType");
         return false;
     }
-    return mediaType.startsWith(type);
+    return mediaType.toString().startsWith(type);
 }
 
 bool areEncryptedCaps(const GstCaps* caps)
@@ -389,7 +389,6 @@ bool ensureGStreamerInitialized()
         argv[0] = g_strdup(FileSystem::currentExecutableName().data());
         for (unsigned i = 0; i < parameters.size(); i++)
             argv[i + 1] = g_strdup(parameters[i].utf8().data());
-        WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
         GUniqueOutPtr<GError> error;
         isGStreamerInitialized = gst_init_check(&argc, &argv, &error.outPtr());
@@ -403,6 +402,7 @@ bool ensureGStreamerInitialized()
             if (!disableFastMalloc || !strcmp(disableFastMalloc, "0"))
                 gst_allocator_set_default(GST_ALLOCATOR(g_object_new(gst_allocator_fast_malloc_get_type(), nullptr)));
         }
+        WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
 #if USE(GSTREAMER_MPEGTS)
         if (isGStreamerInitialized)
@@ -509,6 +509,7 @@ void registerWebKitGStreamerElements()
         if (auto factory = adoptGRef(gst_element_factory_find("isofmp4mux")))
             gst_plugin_feature_set_rank(GST_PLUGIN_FEATURE_CAST(factory.get()), GST_RANK_PRIMARY + 1);
 
+        WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN // GLib port
         // The VAAPI plugin is not much maintained anymore and prone to rendering issues. In the
         // mid-term we will leverage the new stateless VA decoders. Disable the legacy plugin,
         // unless the WEBKIT_GST_ENABLE_LEGACY_VAAPI environment variable is set to 1.
@@ -518,6 +519,7 @@ void registerWebKitGStreamerElements()
             if (auto vaapiPlugin = adoptGRef(gst_registry_find_plugin(registry, "vaapi")))
                 gst_registry_remove_plugin(registry, vaapiPlugin.get());
         }
+        WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
 
         // Make sure the quirks are created as early as possible.
         [[maybe_unused]] auto& quirksManager = GStreamerQuirksManager::singleton();
@@ -1161,13 +1163,7 @@ static ASCIILiteral webrtcIceTcpCandidateTypeName(int value)
 #endif // USE(GSTREAMER_WEBRTC)
 
 template<typename T>
-std::optional<T> gstStructureGet(const GstStructure* structure, ASCIILiteral key)
-{
-    return gstStructureGet<T>(structure, StringView { key });
-}
-
-template<typename T>
-std::optional<T> gstStructureGet(const GstStructure* structure, StringView key)
+std::optional<T> gstStructureGet(const GstStructure* structure, CStringView key)
 {
     if (!structure) {
         ASSERT_NOT_REACHED_WITH_MESSAGE("tried to access a field of a null GstStructure");
@@ -1175,25 +1171,24 @@ std::optional<T> gstStructureGet(const GstStructure* structure, StringView key)
     }
 
     T value;
-    auto strKey = key.toStringWithoutCopying();
     if constexpr(std::is_same_v<T, int>) {
-        if (gst_structure_get_int(structure, strKey.ascii().data(), &value))
+        if (gst_structure_get_int(structure, key.utf8(), &value))
             return value;
     } else if constexpr(std::is_same_v<T, int64_t>) {
-        if (gst_structure_get_int64(structure, strKey.ascii().data(), &value))
+        if (gst_structure_get_int64(structure, key.utf8(), &value))
             return value;
     } else if constexpr(std::is_same_v<T, unsigned>) {
-        if (gst_structure_get_uint(structure, strKey.ascii().data(), &value))
+        if (gst_structure_get_uint(structure, key.utf8(), &value))
             return value;
     } else if constexpr(std::is_same_v<T, uint64_t>) {
-        if (gst_structure_get_uint64(structure, strKey.ascii().data(), &value))
+        if (gst_structure_get_uint64(structure, key.utf8(), &value))
             return value;
     } else if constexpr(std::is_same_v<T, double>) {
-        if (gst_structure_get_double(structure, strKey.ascii().data(), &value))
+        if (gst_structure_get_double(structure, key.utf8(), &value))
             return value;
     } else if constexpr(std::is_same_v<T, bool>) {
         gboolean gstValue;
-        if (gst_structure_get_boolean(structure, strKey.ascii().data(), &gstValue)) {
+        if (gst_structure_get_boolean(structure, key.utf8(), &gstValue)) {
             value = gstValue;
             return value;
         }
@@ -1202,60 +1197,45 @@ std::optional<T> gstStructureGet(const GstStructure* structure, StringView key)
     return std::nullopt;
 }
 
-template std::optional<int> gstStructureGet(const GstStructure*, ASCIILiteral key);
-template std::optional<int64_t> gstStructureGet(const GstStructure*, ASCIILiteral key);
-template std::optional<unsigned> gstStructureGet(const GstStructure*, ASCIILiteral key);
-template std::optional<uint64_t> gstStructureGet(const GstStructure*, ASCIILiteral key);
-template std::optional<double> gstStructureGet(const GstStructure*, ASCIILiteral key);
-template std::optional<bool> gstStructureGet(const GstStructure*, ASCIILiteral key);
+template std::optional<int> gstStructureGet(const GstStructure*, CStringView key);
+template std::optional<int64_t> gstStructureGet(const GstStructure*, CStringView key);
+template std::optional<unsigned> gstStructureGet(const GstStructure*, CStringView key);
+template std::optional<uint64_t> gstStructureGet(const GstStructure*, CStringView key);
+template std::optional<double> gstStructureGet(const GstStructure*, CStringView key);
+template std::optional<bool> gstStructureGet(const GstStructure*, CStringView key);
 
-template std::optional<int> gstStructureGet(const GstStructure*, StringView key);
-template std::optional<int64_t> gstStructureGet(const GstStructure*, StringView key);
-template std::optional<unsigned> gstStructureGet(const GstStructure*, StringView key);
-template std::optional<uint64_t> gstStructureGet(const GstStructure*, StringView key);
-template std::optional<double> gstStructureGet(const GstStructure*, StringView key);
-template std::optional<bool> gstStructureGet(const GstStructure*, StringView key);
-
-StringView gstStructureGetString(const GstStructure* structure, ASCIILiteral key)
+CStringView gstStructureGetString(const GstStructure* structure, CStringView key)
 {
     if (!structure) {
         ASSERT_NOT_REACHED_WITH_MESSAGE("tried to access a field of a null GstStructure");
         return { };
     }
 
-    return gstStructureGetString(structure, StringView { key });
+    const GValue* value = gst_structure_get_value(structure, key.utf8());
+    if (!value || !G_VALUE_HOLDS_STRING(value))
+        return { };
+    return CStringView::unsafeFromUTF8(g_value_get_string(value));
 }
 
-StringView gstStructureGetString(const GstStructure* structure, StringView key)
+CStringView gstStructureGetName(const GstStructure* structure)
 {
     if (!structure) {
         ASSERT_NOT_REACHED_WITH_MESSAGE("tried to access a field of a null GstStructure");
         return { };
     }
 
-    auto utf8String = key.utf8();
-    return StringView::fromLatin1(gst_structure_get_string(structure, utf8String.data()));
-}
-
-StringView gstStructureGetName(const GstStructure* structure)
-{
-    if (!structure) {
-        ASSERT_NOT_REACHED_WITH_MESSAGE("tried to access a field of a null GstStructure");
-        return { };
-    }
-
-    return StringView::fromLatin1(gst_structure_get_name(structure));
+    return CStringView::unsafeFromUTF8(gst_structure_get_name(structure));
 }
 
 template<typename T>
-Vector<T> gstStructureGetArray(const GstStructure* structure, ASCIILiteral key)
+Vector<T> gstStructureGetArray(const GstStructure* structure, CStringView key)
 {
     static_assert(std::is_same_v<T, int> || std::is_same_v<T, int64_t> || std::is_same_v<T, unsigned>
         || std::is_same_v<T, uint64_t> || std::is_same_v<T, double> || std::is_same_v<T, const GstStructure*>);
     Vector<T> result;
     if (!structure)
         return result;
-    const GValue* array = gst_structure_get_value(structure, key.characters());
+    const GValue* array = gst_structure_get_value(structure, key.utf8());
     if (!GST_VALUE_HOLDS_ARRAY (array))
         return result;
     unsigned size = gst_value_array_get_size(array);
@@ -1277,20 +1257,20 @@ Vector<T> gstStructureGetArray(const GstStructure* structure, ASCIILiteral key)
     return result;
 }
 
-template Vector<const GstStructure*> gstStructureGetArray(const GstStructure*, ASCIILiteral key);
+template Vector<const GstStructure*> gstStructureGetArray(const GstStructure*, CStringView key);
 
 template<typename T>
-Vector<T> gstStructureGetList(const GstStructure* structure, ASCIILiteral key)
+Vector<T> gstStructureGetList(const GstStructure* structure, CStringView key)
 {
     static_assert(std::is_same_v<T, int> || std::is_same_v<T, int64_t> || std::is_same_v<T, unsigned>
         || std::is_same_v<T, uint64_t> || std::is_same_v<T, double> || std::is_same_v<T, const GstStructure*>);
     Vector<T> result;
     if (!structure)
         return result;
-    const GValue* list = gst_structure_get_value(structure, key.characters());
+    const GValue* list = gst_structure_get_value(structure, key.utf8());
     RELEASE_ASSERT(GST_VALUE_HOLDS_LIST(list));
     if (!GST_VALUE_HOLDS_LIST(list)) {
-        GST_WARNING("Structure field %s does not hold a list", key.characters());
+        GST_WARNING("Structure field %s does not hold a list", key.utf8());
         return result;
     }
     unsigned size = gst_value_list_get_size(list);
@@ -1317,12 +1297,12 @@ Vector<T> gstStructureGetList(const GstStructure* structure, ASCIILiteral key)
     return result;
 }
 
-template Vector<int> gstStructureGetList(const GstStructure*, ASCIILiteral key);
-template Vector<int64_t> gstStructureGetList(const GstStructure*, ASCIILiteral key);
-template Vector<unsigned> gstStructureGetList(const GstStructure*, ASCIILiteral key);
-template Vector<uint64_t> gstStructureGetList(const GstStructure*, ASCIILiteral key);
-template Vector<double> gstStructureGetList(const GstStructure*, ASCIILiteral key);
-template Vector<const GstStructure*> gstStructureGetList(const GstStructure*, ASCIILiteral key);
+template Vector<int> gstStructureGetList(const GstStructure*, CStringView key);
+template Vector<int64_t> gstStructureGetList(const GstStructure*, CStringView key);
+template Vector<unsigned> gstStructureGetList(const GstStructure*, CStringView key);
+template Vector<uint64_t> gstStructureGetList(const GstStructure*, CStringView key);
+template Vector<double> gstStructureGetList(const GstStructure*, CStringView key);
+template Vector<const GstStructure*> gstStructureGetList(const GstStructure*, CStringView key);
 
 static RefPtr<JSON::Value> gstStructureToJSON(const GstStructure*);
 

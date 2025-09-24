@@ -48,6 +48,7 @@
 #include "StylePrimitiveNumericTypes+Evaluation.h"
 #include <wtf/Range.h>
 #include <wtf/Scope.h>
+#include <wtf/SetForScope.h>
 #include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
@@ -241,6 +242,7 @@ std::optional<LayoutUnit> RenderGrid::availableSpaceForGutters(Style::GridTrackS
 
 void RenderGrid::computeTrackSizesForDefiniteSize(Style::GridTrackSizingDirection direction, LayoutUnit availableSpace, GridLayoutState& gridLayoutState)
 {
+    auto autoMarginResolutionScope = SetForScope(m_isComputingTrackSizes, true);
     m_trackSizingAlgorithm.run(direction, numTracks(direction), SizingOperation::TrackSizing, availableSpace, gridLayoutState);
     ASSERT(m_trackSizingAlgorithm.tracksAreWiderThanMinTrackBreadth());
 }
@@ -696,7 +698,7 @@ LayoutUnit RenderGrid::gridGap(Style::GridTrackSizingDirection direction, std::o
         return downcast<RenderGrid>(parent())->gridGap(parentDirection);
     }
 
-    return Style::evaluate(gap, availableSize.value_or(0_lu));
+    return Style::evaluate(gap, availableSize.value_or(0_lu), 1.0f /* FIXME FIND ZOOM */);
 }
 
 LayoutUnit RenderGrid::gridGap(Style::GridTrackSizingDirection direction) const
@@ -832,6 +834,7 @@ void RenderGrid::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, Layo
 
 void RenderGrid::computeTrackSizesForIndefiniteSize(GridTrackSizingAlgorithm& algorithm, Style::GridTrackSizingDirection direction, GridLayoutState& gridLayoutState, LayoutUnit* minIntrinsicSize, LayoutUnit* maxIntrinsicSize) const
 {
+    auto autoMarginResolutionScope = SetForScope(m_isComputingTrackSizes, true);
     algorithm.run(direction, numTracks(direction), SizingOperation::IntrinsicSizeComputation, std::nullopt, gridLayoutState);
 
     size_t numberOfTracks = algorithm.tracks(direction).size();
@@ -895,13 +898,13 @@ unsigned RenderGrid::computeAutoRepeatTracksCount(Style::GridTrackSizingDirectio
                     : adjustContentBoxLogicalHeightForBoxSizing(maxSizeValue);
             },
             [&](const Style::MaximumSize::Percentage& percentageMaxSize) -> std::optional<LayoutUnit> {
-                auto maxSizeValue = Style::evaluate(percentageMaxSize, containingBlockAvailableSize());
+                auto maxSizeValue = Style::evaluate(percentageMaxSize, containingBlockAvailableSize(), 1.0f /* FIXME FIND ZOOM */);
                 return isRowAxis
                     ? adjustContentBoxLogicalWidthForBoxSizing(maxSizeValue)
                     : adjustContentBoxLogicalHeightForBoxSizing(maxSizeValue);
             },
             [&](const Style::MaximumSize::Calc& calcMaxSize) -> std::optional<LayoutUnit> {
-                auto maxSizeValue = Style::evaluate(calcMaxSize, containingBlockAvailableSize());
+                auto maxSizeValue = Style::evaluate(calcMaxSize, containingBlockAvailableSize(), 1.0f /* FIXME FIND ZOOM */);
                 return isRowAxis
                     ? adjustContentBoxLogicalWidthForBoxSizing(maxSizeValue)
                     : adjustContentBoxLogicalHeightForBoxSizing(maxSizeValue);
@@ -927,13 +930,13 @@ unsigned RenderGrid::computeAutoRepeatTracksCount(Style::GridTrackSizingDirectio
                     : adjustContentBoxLogicalHeightForBoxSizing(minSizeValue);
             },
             [&](const Style::MinimumSize::Percentage& percentageMinSize) -> std::optional<LayoutUnit> {
-                auto minSizeValue = Style::evaluate(percentageMinSize, containingBlockAvailableSize());
+                auto minSizeValue = Style::evaluate(percentageMinSize, containingBlockAvailableSize(), 1.0f /* FIXME FIND ZOOM */);
                 return isRowAxis
                     ? adjustContentBoxLogicalWidthForBoxSizing(minSizeValue)
                     : adjustContentBoxLogicalHeightForBoxSizing(minSizeValue);
             },
             [&](const Style::MinimumSize::Calc& calcMinSize) -> std::optional<LayoutUnit> {
-                auto minSizeValue = Style::evaluate(calcMinSize, containingBlockAvailableSize());
+                auto minSizeValue = Style::evaluate(calcMinSize, containingBlockAvailableSize(), 1.0f /* FIXME FIND ZOOM */);
                 return isRowAxis
                     ? adjustContentBoxLogicalWidthForBoxSizing(minSizeValue)
                     : adjustContentBoxLogicalHeightForBoxSizing(minSizeValue);
@@ -966,8 +969,8 @@ unsigned RenderGrid::computeAutoRepeatTracksCount(Style::GridTrackSizingDirectio
 
         auto contributingTrackSize = [&] {
             if (hasDefiniteMaxTrackSizingFunction && hasDefiniteMinTrackSizingFunction)
-                return std::max(Style::evaluate(minTrackSizingFunction.length(), *availableSize), Style::evaluate(maxTrackSizingFunction.length(), *availableSize));
-            return hasDefiniteMaxTrackSizingFunction ? Style::evaluate(maxTrackSizingFunction.length(), *availableSize) : Style::evaluate(minTrackSizingFunction.length(), *availableSize);
+                return std::max(Style::evaluate(minTrackSizingFunction.length(), *availableSize, 1.0f /* FIXME FIND ZOOM */), Style::evaluate(maxTrackSizingFunction.length(), *availableSize, 1.0f /* FIXME FIND ZOOM */));
+            return hasDefiniteMaxTrackSizingFunction ? Style::evaluate(maxTrackSizingFunction.length(), *availableSize, 1.0f /* FIXME FIND ZOOM */) : Style::evaluate(minTrackSizingFunction.length(), *availableSize, 1.0f /* FIXME FIND ZOOM */);
         };
         autoRepeatTracksSize += contributingTrackSize();
     }
@@ -982,7 +985,7 @@ unsigned RenderGrid::computeAutoRepeatTracksCount(Style::GridTrackSizingDirectio
     for (const auto& track : trackSizes) {
         bool hasDefiniteMaxTrackBreadth = track.maxTrackBreadth().isLength() && !track.maxTrackBreadth().isContentSized();
         ASSERT(hasDefiniteMaxTrackBreadth || (track.minTrackBreadth().isLength() && !track.minTrackBreadth().isContentSized()));
-        tracksSize += Style::evaluate(hasDefiniteMaxTrackBreadth ? track.maxTrackBreadth().length() : track.minTrackBreadth().length(), availableSize.value());
+        tracksSize += Style::evaluate(hasDefiniteMaxTrackBreadth ? track.maxTrackBreadth().length() : track.minTrackBreadth().length(), availableSize.value(), 1.0f /* FIXME FIND ZOOM */);
     }
 
     // Add gutters as if auto repeat tracks were only repeated once. Gaps between different repetitions will be added later when

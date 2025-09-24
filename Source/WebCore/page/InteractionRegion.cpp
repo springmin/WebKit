@@ -289,20 +289,8 @@ static bool colorIsChallengingToHighlight(const Color& color)
 
 static bool styleIsChallengingToHighlight(const RenderStyle& style)
 {
-    auto fillPaintType = style.fill().type;
-
-    if (fillPaintType == Style::SVGPaintType::None) {
-        auto strokePaintType = style.stroke().type;
-        if (strokePaintType != Style::SVGPaintType::RGBColor && strokePaintType != Style::SVGPaintType::CurrentColor)
-            return false;
-
-        return colorIsChallengingToHighlight(style.colorResolvingCurrentColor(style.stroke().color));
-    }
-
-    if (fillPaintType != Style::SVGPaintType::RGBColor && fillPaintType != Style::SVGPaintType::CurrentColor)
-        return false;
-
-    return colorIsChallengingToHighlight(style.colorResolvingCurrentColor(style.fill().color));
+    auto color = (style.fill().isNone() ? style.stroke() : style.fill()).tryColor();
+    return color && colorIsChallengingToHighlight(style.colorResolvingCurrentColor(*color));
 }
 
 static bool isGuardContainer(const Element& element)
@@ -690,7 +678,7 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(const Render
             }
 
             // Expand the interaction region by the width of the CSS border, if necessary.
-            const auto rectOffset = RenderThemeCocoa::inflateRectForInteractionRegion(regionRenderer, rect);
+            const auto rectOffset = RenderThemeCocoa::inflateRectForInteractionRegion(*regionRendererBox, rect);
             if (clipPath && !rectOffset.isZero())
                 clipPath->translate(rectOffset);
         } else

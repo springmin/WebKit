@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include <WebCore/Length.h>
 #include <WebCore/RenderStyleConstants.h>
 #include <WebCore/StyleBlockEllipsis.h>
 #include <WebCore/StyleColor.h>
@@ -37,13 +36,14 @@
 #include <WebCore/StyleHyphenateLimitLines.h>
 #include <WebCore/StyleImageOrNone.h>
 #include <WebCore/StyleLineBoxContain.h>
+#include <WebCore/StyleLineFitEdge.h>
 #include <WebCore/StyleListStyleType.h>
 #include <WebCore/StyleOrphans.h>
 #include <WebCore/StyleQuotes.h>
 #include <WebCore/StyleScrollbarColor.h>
 #include <WebCore/StyleStrokeMiterlimit.h>
 #include <WebCore/StyleStrokeWidth.h>
-#include <WebCore/StyleTextEdge.h>
+#include <WebCore/StyleTextBoxEdge.h>
 #include <WebCore/StyleTextEmphasisStyle.h>
 #include <WebCore/StyleTextIndent.h>
 #include <WebCore/StyleTextShadow.h>
@@ -134,10 +134,9 @@ public:
     Style::TextIndent textIndent;
     Style::TextUnderlineOffset textUnderlineOffset;
 
-    TextEdge textBoxEdge;
-    TextEdge lineFitEdge;
-    
-    Length wordSpacing;
+    Style::TextBoxEdge textBoxEdge;
+    Style::LineFitEdge lineFitEdge;
+
     Style::StrokeMiterlimit miterLimit;
 
     DataRef<Style::CustomPropertyData> customProperties;
@@ -188,6 +187,7 @@ public:
     PREFERRED_TYPE(bool) unsigned hasVisitedLinkAutoCaretColor : 1;
     PREFERRED_TYPE(bool) unsigned hasAutoAccentColor : 1;
     PREFERRED_TYPE(bool) unsigned effectiveInert : 1;
+    PREFERRED_TYPE(bool) unsigned effectivelyTransparent : 1;
     PREFERRED_TYPE(bool) unsigned isInSubtreeWithBlendMode : 1;
     PREFERRED_TYPE(bool) unsigned isForceHidden : 1;
     PREFERRED_TYPE(ContentVisibility) unsigned usedContentVisibility : 2;

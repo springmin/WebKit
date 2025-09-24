@@ -206,10 +206,12 @@ static WebCore::IntDegrees deviceOrientationForUIInterfaceOrientation(UIInterfac
     [_scrollView setBaseScrollViewDelegate:self];
     [_scrollView setBouncesZoom:YES];
 
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     if ([_scrollView respondsToSelector:@selector(_setAvoidsJumpOnInterruptedBounce:)]) {
         [_scrollView setTracksImmediatelyWhileDecelerating:NO];
         [_scrollView _setAvoidsJumpOnInterruptedBounce:YES];
     }
+ALLOW_DEPRECATED_DECLARATIONS_END
 
     _scrollViewDefaultAllowedTouchTypes = [_scrollView panGestureRecognizer].allowedTouchTypes;
 
@@ -224,6 +226,11 @@ static WebCore::IntDegrees deviceOrientationForUIInterfaceOrientation(UIInterfac
     [_contentView setFrame:bounds];
     [_scrollView addSubview:_contentView.get()];
     [_scrollView addSubview:[_contentView unscaledView]];
+
+#if PLATFORM(VISION)
+    if ([[CARemoteExternalEffect class] respondsToSelector:@selector(rcp_requiresTwoHandedInteractionProcessorEffect)])
+        [_scrollView _requestRemoteEffects:@[[CARemoteExternalEffect rcp_requiresTwoHandedInteractionProcessorEffect]] forKey:@"input"];
+#endif
 }
 
 - (void)_setObscuredInsetsInternal:(UIEdgeInsets)obscuredInsets

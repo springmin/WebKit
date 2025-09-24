@@ -120,6 +120,7 @@
 #include <JavaScriptCore/RegularExpression.h>
 #include <wtf/HexNumber.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/SystemTracing.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/TextStream.h>
@@ -670,10 +671,12 @@ bool LocalFrame::requestDOMPasteAccess(DOMPasteAccessCategory pasteAccessCategor
     return false;
 }
 
-void LocalFrame::setPrinting(bool printing, const FloatSize& pageSize, const FloatSize& originalPageSize, float maximumShrinkRatio, AdjustViewSize shouldAdjustViewSize)
+void LocalFrame::setPrinting(bool printing, FloatSize pageSize, FloatSize originalPageSize, float maximumShrinkRatio, AdjustViewSize shouldAdjustViewSize, NotifyUIProcess notifyUIProcess)
 {
     if (!view() || !document())
         return;
+
+    Frame::setPrinting(printing, pageSize, originalPageSize, maximumShrinkRatio, shouldAdjustViewSize, notifyUIProcess);
 
     RefPtr document = m_doc;
     // In setting printing, we should not validate resources already cached for the document.
@@ -699,18 +702,15 @@ void LocalFrame::setPrinting(bool printing, const FloatSize& pageSize, const Flo
     }
 
     // Subframes of the one we're printing don't lay out to the page size.
-    for (RefPtr child = tree().firstChild(); child; child = child->tree().nextSibling()) {
-        if (RefPtr localFrame = dynamicDowncast<LocalFrame>(child.get()))
-            localFrame->setPrinting(printing, FloatSize(), FloatSize(), 0, shouldAdjustViewSize);
-    }
+    for (RefPtr child = tree().firstChild(); child; child = child->tree().nextSibling())
+        child->setPrinting(printing, FloatSize(), FloatSize(), 0, shouldAdjustViewSize);
 }
 
 bool LocalFrame::shouldUsePrintingLayout() const
 {
     // Only top frame being printed should be fit to page size.
     // Subframes should be constrained by parents only.
-    SUPPRESS_UNCOUNTED_LOCAL auto* parent = dynamicDowncast<LocalFrame>(tree().parent());
-    return m_doc->printing() && (!parent || !parent->m_doc->printing());
+    return isPrinting() && (!tree().parent() || !tree().parent()->isPrinting());
 }
 
 FloatSize LocalFrame::resizePageRectsKeepingRatio(const FloatSize& originalSize, const FloatSize& expectedSize)
@@ -735,6 +735,10 @@ FloatSize LocalFrame::resizePageRectsKeepingRatio(const FloatSize& originalSize,
 
 const UserContentProvider* LocalFrame::userContentProvider() const
 {
+    RefPtr document = this->document();
+    RefPtr documentLoader = document ? document->loader() : nullptr;
+    if (RefPtr userContentProvider = documentLoader ? documentLoader->preferences().userContentProvider : nullptr)
+        return userContentProvider.get();
     if (RefPtr page = this->page())
         return page->protectedUserContentProviderForFrame().ptr();
     return nullptr;
@@ -742,6 +746,10 @@ const UserContentProvider* LocalFrame::userContentProvider() const
 
 UserContentProvider* LocalFrame::userContentProvider()
 {
+    RefPtr document = this->document();
+    RefPtr documentLoader = document ? document->loader() : nullptr;
+    if (RefPtr userContentProvider = documentLoader ? documentLoader->preferences().userContentProvider : nullptr)
+        return userContentProvider.get();
     if (RefPtr page = this->page())
         return page->protectedUserContentProviderForFrame().ptr();
     return nullptr;

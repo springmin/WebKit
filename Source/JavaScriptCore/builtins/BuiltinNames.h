@@ -216,6 +216,7 @@ namespace JSC {
     macro(asyncContext) \
     macro(wrapForValidIteratorCreate) \
     macro(asyncFromSyncIteratorCreate) \
+    macro(promiseAllContextCreate) \
     macro(regExpStringIteratorCreate) \
     macro(iteratorHelperCreate) \
     macro(syncIterator) \

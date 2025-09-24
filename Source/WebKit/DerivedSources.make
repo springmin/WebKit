@@ -282,6 +282,7 @@ MESSAGE_RECEIVERS = \
 	GPUProcess/graphics/RemoteImageBuffer \
 	GPUProcess/graphics/RemoteImageBufferSet \
 	GPUProcess/graphics/RemoteRenderingBackend \
+	GPUProcess/graphics/RemoteSnapshotRecorder \
 	GPUProcess/graphics/WebGPU/RemoteAdapter \
 	GPUProcess/graphics/WebGPU/RemoteBindGroup \
 	GPUProcess/graphics/WebGPU/RemoteBindGroupLayout \
@@ -603,7 +604,6 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	GPUProcess/media/InitializationSegmentInfo.serialization.in \
 	GPUProcess/media/MediaDescriptionInfo.serialization.in \
 	GPUProcess/media/RemoteMediaPlayerProxyConfiguration.serialization.in \
-	GPUProcess/media/RemoteTrackInfo.serialization.in \
 	GPUProcess/media/TextTrackPrivateRemoteConfiguration.serialization.in \
 	GPUProcess/media/TrackPrivateRemoteConfiguration.serialization.in \
 	GPUProcess/media/VideoTrackPrivateRemoteConfiguration.serialization.in \

@@ -47,8 +47,8 @@ struct GreaterThanOrSameSizeAsStyleRareInheritedData : public RefCounted<Greater
     Style::TextEmphasisStyle textEmphasisStyle;
     Style::TextIndent textIndent;
     Style::TextUnderlineOffset offset;
-    TextEdge textEdges[2];
-    Length length;
+    Style::TextBoxEdge textBoxEdge;
+    Style::LineFitEdge lineFitEdge;
     void* customPropertyDataRefs[1];
     unsigned bitfields[7];
     short pagedMediaShorts[2];
@@ -141,6 +141,7 @@ StyleRareInheritedData::StyleRareInheritedData()
     , hasVisitedLinkAutoCaretColor(true)
     , hasAutoAccentColor(true)
     , effectiveInert(false)
+    , effectivelyTransparent(false)
     , isInSubtreeWithBlendMode(false)
     , isForceHidden(false)
     , usedContentVisibility(static_cast<unsigned>(ContentVisibility::Visible))
@@ -244,6 +245,7 @@ inline StyleRareInheritedData::StyleRareInheritedData(const StyleRareInheritedDa
     , hasVisitedLinkAutoCaretColor(o.hasVisitedLinkAutoCaretColor)
     , hasAutoAccentColor(o.hasAutoAccentColor)
     , effectiveInert(o.effectiveInert)
+    , effectivelyTransparent(o.effectivelyTransparent)
     , isInSubtreeWithBlendMode(o.isInSubtreeWithBlendMode)
     , isForceHidden(o.isForceHidden)
     , usedContentVisibility(o.usedContentVisibility)
@@ -313,7 +315,6 @@ bool StyleRareInheritedData::operator==(const StyleRareInheritedData& o) const
         && textUnderlineOffset == o.textUnderlineOffset
         && textBoxEdge == o.textBoxEdge
         && lineFitEdge == o.lineFitEdge
-        && wordSpacing == o.wordSpacing
         && miterLimit == o.miterLimit
         && widows == o.widows
         && orphans == o.orphans
@@ -378,6 +379,7 @@ bool StyleRareInheritedData::operator==(const StyleRareInheritedData& o) const
         && usedTouchActions == o.usedTouchActions
         && eventListenerRegionTypes == o.eventListenerRegionTypes
         && effectiveInert == o.effectiveInert
+        && effectivelyTransparent == o.effectivelyTransparent
         && usedContentVisibility == o.usedContentVisibility
         && insideDefaultButton == o.insideDefaultButton
         && insideSubmitButton == o.insideSubmitButton
@@ -437,7 +439,6 @@ void StyleRareInheritedData::dumpDifferences(TextStream& ts, const StyleRareInhe
     LOG_IF_DIFFERENT(textBoxEdge);
     LOG_IF_DIFFERENT(lineFitEdge);
 
-    LOG_IF_DIFFERENT(wordSpacing);
     LOG_IF_DIFFERENT(miterLimit);
 
     LOG_IF_DIFFERENT(widows);
@@ -501,6 +502,8 @@ void StyleRareInheritedData::dumpDifferences(TextStream& ts, const StyleRareInhe
     LOG_IF_DIFFERENT_WITH_CAST(bool, hasVisitedLinkAutoCaretColor);
     LOG_IF_DIFFERENT_WITH_CAST(bool, hasAutoAccentColor);
     LOG_IF_DIFFERENT_WITH_CAST(bool, effectiveInert);
+    LOG_IF_DIFFERENT_WITH_CAST(bool, effectivelyTransparent);
+
     LOG_IF_DIFFERENT_WITH_CAST(bool, isInSubtreeWithBlendMode);
     LOG_IF_DIFFERENT_WITH_CAST(bool, isForceHidden);
     LOG_IF_DIFFERENT_WITH_CAST(bool, autoRevealsWhenFound);

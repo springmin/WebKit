@@ -407,6 +407,9 @@ public:
 
     std::optional<RemoteUserInputEventData> userInputEventDataForRemoteFrame(const RemoteFrame*, const IntPoint&);
 
+    WEBCORE_EXPORT void updateMouseEventTargetAfterLayoutIfNeeded();
+    WEBCORE_EXPORT void scheduleMouseEventTargetUpdateAfterLayout();
+
 private:
 #if ENABLE(DRAG_SUPPORT)
     static DragState& dragState();
@@ -614,6 +617,7 @@ private:
 
 #if ENABLE(FULLSCREEN_API)
     bool isKeyEventAllowedInFullScreen(const PlatformKeyboardEvent&) const;
+    void holdEscKeyEventTimerFired();
 #endif
 
 #if ENABLE(CURSOR_VISIBILITY)
@@ -624,6 +628,8 @@ private:
 
     void clearLatchedState();
     void clearElementUnderMouse();
+
+    bool isElementAnAncestorOfLastElementUnderMouse(Element*) const;
 
     bool shouldSendMouseEventsToInactiveWindows() const;
 
@@ -643,6 +649,8 @@ private:
 #if ENABLE(IMAGE_ANALYSIS)
     DeferrableOneShotTimer m_textRecognitionHoverTimer;
 #endif
+    Timer m_mouseEventTargetUpdateTimer;
+    Timer m_mouseEventTargetFinalUpdateTimer;
     const UniqueRef<AutoscrollController> m_autoscrollController;
     SingleThreadWeakPtr<RenderLayer> m_resizeLayer;
 
@@ -671,6 +679,7 @@ private:
     RefPtr<Element> m_capturingMouseEventsElement;
     RefPtr<Element> m_elementUnderMouse;
     RefPtr<Element> m_lastElementUnderMouse;
+    Vector<WeakPtr<Element, WeakPtrImplWithEventTargetData>, 32> m_ancestorsOfLastElementUnderMouse;
     RefPtr<LocalFrame> m_lastMouseMoveEventSubframe;
     SingleThreadWeakPtr<Scrollbar> m_lastScrollbarUnderMouse;
     Cursor m_currentMouseCursor;
@@ -697,6 +706,10 @@ private:
 
 #if ENABLE(CURSOR_VISIBILITY)
     Timer m_autoHideCursorTimer;
+#endif
+
+#if ENABLE(FULLSCREEN_API)
+    Timer m_holdEscKeyEventTimer;
 #endif
 
 #if ENABLE(DRAG_SUPPORT)

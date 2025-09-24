@@ -219,12 +219,8 @@ struct FontSizeAdjust;
 struct GridTrackList;
 struct ImageOrientation;
 struct Length;
-struct LengthSize;
 struct NameScope;
-struct ScrollSnapAlign;
-struct ScrollSnapType;
 struct TabSize;
-struct TextEdge;
 struct TransformOperationData;
 
 template<typename> class FontTaggedSettings;
@@ -282,6 +278,7 @@ struct HyphenateLimitLines;
 struct ImageOrNone;
 struct InsetEdge;
 struct LineWidth;
+struct LineFitEdge;
 struct ListStyleType;
 struct MarginEdge;
 struct MaskBorder;
@@ -327,6 +324,8 @@ struct Scale;
 struct ScopedName;
 struct ScrollMarginEdge;
 struct ScrollPaddingEdge;
+struct ScrollSnapAlign;
+struct ScrollSnapType;
 struct ScrollTimelines;
 struct ScrollbarColor;
 struct ScrollbarGutter;
@@ -334,6 +333,7 @@ struct ShapeMargin;
 struct ShapeOutside;
 struct StrokeMiterlimit;
 struct StrokeWidth;
+struct TextBoxEdge;
 struct TextDecorationThickness;
 struct TextEmphasisStyle;
 struct TextIndent;
@@ -735,8 +735,8 @@ public:
     inline TextJustify textJustify() const;
 
     inline TextBoxTrim textBoxTrim() const;
-    TextEdge textBoxEdge() const;
-    TextEdge lineFitEdge() const;
+    inline Style::TextBoxEdge textBoxEdge() const;
+    inline Style::LineFitEdge lineFitEdge() const;
 
     inline OptionSet<MarginTrimType> marginTrim() const;
 
@@ -853,8 +853,11 @@ public:
     OptionSet<HangingPunctuation> hangingPunctuation() const;
 
     inline Style::WebkitTextStrokeWidth textStrokeWidth() const;
+
     inline Style::Opacity opacity() const;
     inline bool hasOpacity() const;
+    inline bool isEffectivelyTransparent() const; // This or any ancestor has opacity 0.
+
     inline StyleAppearance appearance() const;
     inline StyleAppearance usedAppearance() const;
 
@@ -1151,8 +1154,8 @@ public:
     inline bool scrollPaddingEqual(const RenderStyle&) const;
 
     bool hasSnapPosition() const;
-    ScrollSnapType scrollSnapType() const;
-    const ScrollSnapAlign& scrollSnapAlign() const;
+    inline const Style::ScrollSnapType& scrollSnapType() const;
+    inline const Style::ScrollSnapAlign& scrollSnapAlign() const;
     ScrollSnapStop scrollSnapStop() const;
     bool scrollSnapDataEquivalent(const RenderStyle&) const;
 
@@ -1375,8 +1378,8 @@ public:
     inline void setTextJustify(TextJustify);
 
     inline void setTextBoxTrim(TextBoxTrim);
-    void setTextBoxEdge(TextEdge);
-    void setLineFitEdge(TextEdge);
+    inline void setTextBoxEdge(Style::TextBoxEdge);
+    inline void setLineFitEdge(Style::LineFitEdge);
 
     inline void setMarginTrim(OptionSet<MarginTrimType>);
 
@@ -1650,6 +1653,7 @@ public:
     inline void setEventListenerRegionTypes(OptionSet<EventListenerRegionType>);
 
     inline void setEffectiveInert(bool);
+    inline void setIsEffectivelyTransparent(bool);
 
     void setScrollMarginTop(Style::ScrollMarginEdge&&);
     void setScrollMarginBottom(Style::ScrollMarginEdge&&);
@@ -1661,9 +1665,9 @@ public:
     void setScrollPaddingLeft(Style::ScrollPaddingEdge&&);
     void setScrollPaddingRight(Style::ScrollPaddingEdge&&);
 
-    void setScrollSnapType(ScrollSnapType);
-    void setScrollSnapAlign(const ScrollSnapAlign&);
-    void setScrollSnapStop(ScrollSnapStop);
+    inline void setScrollSnapType(Style::ScrollSnapType&&);
+    inline void setScrollSnapAlign(Style::ScrollSnapAlign&&);
+    inline void setScrollSnapStop(ScrollSnapStop);
 
     inline void setScrollbarColor(Style::ScrollbarColor&&);
     inline void setScrollbarGutter(Style::ScrollbarGutter&&);
@@ -1982,8 +1986,8 @@ public:
     static inline Style::PageSize initialPageSize();
     static inline Style::TextIndent initialTextIndent();
     static constexpr TextBoxTrim initialTextBoxTrim();
-    static TextEdge initialTextBoxEdge();
-    static TextEdge initialLineFitEdge();
+    static constexpr Style::TextBoxEdge initialTextBoxEdge();
+    static constexpr Style::LineFitEdge initialLineFitEdge();
     static constexpr LengthType zeroLength();
     static constexpr Style::Widows initialWidows();
     static constexpr Style::Orphans initialOrphans();
@@ -2131,9 +2135,9 @@ public:
     static inline Style::ScrollMarginEdge initialScrollMargin();
     static inline Style::ScrollPaddingEdge initialScrollPadding();
 
-    static ScrollSnapType initialScrollSnapType();
-    static ScrollSnapAlign initialScrollSnapAlign();
-    static ScrollSnapStop initialScrollSnapStop();
+    static constexpr Style::ScrollSnapType initialScrollSnapType();
+    static constexpr Style::ScrollSnapAlign initialScrollSnapAlign();
+    static constexpr ScrollSnapStop initialScrollSnapStop();
 
     static inline Style::ProgressTimelineAxes initialScrollTimelineAxes();
     static inline Style::ProgressTimelineNames initialScrollTimelineNames();

@@ -141,11 +141,8 @@ ReferencedSVGResources::SVGElementIdentifierAndTagPairs ReferencedSVGResources::
 
     if (style.hasPositionedMask()) {
         // FIXME: We should support all the values in the CSS mask property, but for now just use the first mask-image if it's a reference.
-        RefPtr maskImage = style.maskLayers().first().image().tryStyleImage();
-        auto maskImageURL = maskImage ? maskImage->url() : Style::URL::none();
-
-        if (!maskImageURL.isNone()) {
-            auto resourceID = SVGURIReference::fragmentIdentifierFromIRIString(maskImageURL, document);
+        if (RefPtr maskImage = style.maskLayers().first().image().tryStyleImage()) {
+            auto resourceID = SVGURIReference::fragmentIdentifierFromIRIString(maskImage->url(), document);
             if (!resourceID.isEmpty())
                 referencedResources.append({ resourceID, { SVGNames::maskTag } });
         }
@@ -153,33 +150,33 @@ ReferencedSVGResources::SVGElementIdentifierAndTagPairs ReferencedSVGResources::
 
     const auto& svgStyle = style.svgStyle();
     if (svgStyle.hasMarkers()) {
-        if (auto markerStartResource = svgStyle.markerStartResource(); !markerStartResource.isNone()) {
+        if (auto markerStartResource = svgStyle.markerStart(); !markerStartResource.isNone()) {
             auto resourceID = SVGURIReference::fragmentIdentifierFromIRIString(markerStartResource, document);
             if (!resourceID.isEmpty())
                 referencedResources.append({ resourceID, { SVGNames::markerTag } });
         }
 
-        if (auto markerMidResource = svgStyle.markerMidResource(); !markerMidResource.isNone()) {
+        if (auto markerMidResource = svgStyle.markerMid(); !markerMidResource.isNone()) {
             auto resourceID = SVGURIReference::fragmentIdentifierFromIRIString(markerMidResource, document);
             if (!resourceID.isEmpty())
                 referencedResources.append({ resourceID, { SVGNames::markerTag } });
         }
 
-        if (auto markerEndResource = svgStyle.markerEndResource(); !markerEndResource.isNone()) {
+        if (auto markerEndResource = svgStyle.markerEnd(); !markerEndResource.isNone()) {
             auto resourceID = SVGURIReference::fragmentIdentifierFromIRIString(markerEndResource, document);
             if (!resourceID.isEmpty())
                 referencedResources.append({ resourceID, { SVGNames::markerTag } });
         }
     }
 
-    if (svgStyle.fill().type >= Style::SVGPaintType::URINone) {
-        auto resourceID = SVGURIReference::fragmentIdentifierFromIRIString(svgStyle.fill().url, document);
+    if (auto fillURL = svgStyle.fill().tryAnyURL()) {
+        auto resourceID = SVGURIReference::fragmentIdentifierFromIRIString(*fillURL, document);
         if (!resourceID.isEmpty())
             referencedResources.append({ resourceID, { SVGNames::linearGradientTag, SVGNames::radialGradientTag, SVGNames::patternTag } });
     }
 
-    if (svgStyle.stroke().type >= Style::SVGPaintType::URINone) {
-        auto resourceID = SVGURIReference::fragmentIdentifierFromIRIString(svgStyle.stroke().url, document);
+    if (auto strokeURL = svgStyle.stroke().tryAnyURL()) {
+        auto resourceID = SVGURIReference::fragmentIdentifierFromIRIString(*strokeURL, document);
         if (!resourceID.isEmpty())
             referencedResources.append({ resourceID, { SVGNames::linearGradientTag, SVGNames::radialGradientTag, SVGNames::patternTag } });
     }

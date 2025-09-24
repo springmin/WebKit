@@ -1376,8 +1376,9 @@ public:
     void updateDisplayEDRSuppression();
 #endif
 
-    void setEnhancedSecurityEnabled(bool enabled) { m_enhancedSecurityEnabled = enabled; };
-    bool enhancedSecurityEnabled() const { return m_enhancedSecurityEnabled; };
+    // Checking hardware keyboard attached
+    void setHardwareKeyboardAttached(bool attached) { m_hardwareKeyboardAttached = attached; }
+    bool hardwareKeyboardAttached() const { return m_hardwareKeyboardAttached; }
 
 private:
     explicit Page(PageConfiguration&&);
@@ -1848,7 +1849,12 @@ private:
     bool m_modelLoadDelaysDisabledForTesting { false };
 #endif
 
-    bool m_enhancedSecurityEnabled { false };
+    // Checking hardware keyboard attached
+#if PLATFORM(IOS_FAMILY)
+    bool m_hardwareKeyboardAttached { false };
+#else
+    bool m_hardwareKeyboardAttached { true };
+#endif
 }; // class Page
 
 WTF::TextStream& operator<<(WTF::TextStream&, RenderingUpdateStep);

@@ -150,11 +150,18 @@ void RemoteGraphicsContext::setFillGradient(Ref<Gradient>&& gradient, const Affi
     context().setFillGradient(WTFMove(gradient), spaceTransform);
 }
 
-void RemoteGraphicsContext::setFillPattern(RenderingResourceIdentifier tileImageIdentifier, const PatternParameters& parameters)
+void RemoteGraphicsContext::setFillPatternNativeImage(RenderingResourceIdentifier identifier, const PatternParameters& parameters)
 {
-    auto tileImage = sourceImage(tileImageIdentifier);
+    RefPtr tileImage = resourceCache().cachedNativeImage(identifier);
     MESSAGE_CHECK(tileImage);
-    context().setFillPattern(Pattern::create(WTFMove(*tileImage), parameters));
+    context().setFillPattern(Pattern::create({ tileImage.releaseNonNull() }, parameters));
+}
+
+void RemoteGraphicsContext::setFillPatternImageBuffer(RenderingResourceIdentifier identifier, const PatternParameters& parameters)
+{
+    RefPtr tileImageBuffer = this->imageBuffer(identifier);
+    MESSAGE_CHECK(tileImageBuffer);
+    context().setFillPattern(Pattern::create({ tileImageBuffer.releaseNonNull() }, parameters));
 }
 
 void RemoteGraphicsContext::setFillRule(WindRule rule)
@@ -184,11 +191,18 @@ void RemoteGraphicsContext::setStrokeGradient(Ref<Gradient>&& gradient, const Af
     context().setStrokeGradient(WTFMove(gradient), spaceTransform);
 }
 
-void RemoteGraphicsContext::setStrokePattern(RenderingResourceIdentifier tileImageIdentifier, const PatternParameters& parameters)
+void RemoteGraphicsContext::setStrokePatternNativeImage(RenderingResourceIdentifier identifier, const PatternParameters& parameters)
 {
-    auto tileImage = sourceImage(tileImageIdentifier);
+    RefPtr tileImage = resourceCache().cachedNativeImage(identifier);
     MESSAGE_CHECK(tileImage);
-    context().setStrokePattern(Pattern::create(WTFMove(*tileImage), parameters));
+    context().setStrokePattern(Pattern::create({ tileImage.releaseNonNull() }, parameters));
+}
+
+void RemoteGraphicsContext::setStrokePatternImageBuffer(RenderingResourceIdentifier identifier, const PatternParameters& parameters)
+{
+    RefPtr tileImageBuffer = imageBuffer(identifier);
+    MESSAGE_CHECK(tileImageBuffer);
+    context().setStrokePattern(Pattern::create({ tileImageBuffer.releaseNonNull() }, parameters));
 }
 
 void RemoteGraphicsContext::setStrokePackedColorAndThickness(PackedColor::RGBA color, float thickness)
@@ -357,7 +371,11 @@ void RemoteGraphicsContext::drawFilteredImageBuffer(std::optional<RenderingResou
     RefPtr svgFilter = dynamicDowncast<SVGFilterRenderer>(filter);
 
     if (!svgFilter || !svgFilter->hasValidRenderingResourceIdentifier()) {
+#if HAVE(IOSURFACE)
+        FilterResults results(makeUnique<ImageBufferShareableAllocator>(m_sharedResourceCache->resourceOwner(), &m_sharedResourceCache->ioSurfacePool()));
+#else
         FilterResults results(makeUnique<ImageBufferShareableAllocator>(m_sharedResourceCache->resourceOwner()));
+#endif
         drawFilteredImageBufferInternal(sourceImageIdentifier, sourceImageRect, filter, results);
         return;
     }
@@ -369,7 +387,11 @@ void RemoteGraphicsContext::drawFilteredImageBuffer(std::optional<RenderingResou
     cachedSVGFilter->mergeEffects(svgFilter->effects());
 
     auto& results = cachedSVGFilter->ensureResults([&]() {
+#if HAVE(IOSURFACE)
+        auto allocator = makeUnique<ImageBufferShareableAllocator>(m_sharedResourceCache->resourceOwner(), &m_sharedResourceCache->ioSurfacePool());
+#else
         auto allocator = makeUnique<ImageBufferShareableAllocator>(m_sharedResourceCache->resourceOwner());
+#endif
         return makeUnique<FilterResults>(WTFMove(allocator));
     });
 

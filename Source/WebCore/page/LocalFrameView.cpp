@@ -681,7 +681,7 @@ void LocalFrameView::applyPaginationToViewport()
         if (!columnGap.isNormal()) {
             auto* renderBox = dynamicDowncast<RenderBox>(documentOrBodyRenderer);
             if (auto* containerForPaginationGap = renderBox ? renderBox : documentOrBodyRenderer->containingBlock())
-                pagination.gap = Style::evaluate(columnGap, containerForPaginationGap->contentBoxLogicalWidth()).toUnsigned();
+                pagination.gap = Style::evaluate(columnGap, containerForPaginationGap->contentBoxLogicalWidth(), 1.0f /* FIXME FIND ZOOM */).toUnsigned();
         }
     }
     setPagination(pagination);
@@ -886,7 +886,7 @@ void LocalFrameView::updateSnapOffsets()
     CheckedPtr rootRenderer = documentElement ? documentElement->renderBox() : nullptr;
 
     const RenderStyle* styleToUse = nullptr;
-    if (rootRenderer && rootRenderer->style().scrollSnapType().strictness != ScrollSnapStrictness::None)
+    if (rootRenderer && !rootRenderer->style().scrollSnapType().isNone())
         styleToUse = &rootRenderer->style();
 
     if (!styleToUse || !documentElement) {
@@ -2467,7 +2467,7 @@ std::pair<FixedContainerEdges, WeakElementEdges> LocalFrameView::fixedContainerE
         if (!border->isVisible())
             return samplingRect;
 
-        auto borderWidth = Style::evaluate(border->width());
+        auto borderWidth = Style::evaluate(border->width(), 1.0f /* FIXME FIND ZOOM */);
         if (borderWidth > thinBorderWidth)
             return samplingRect;
 
@@ -4539,6 +4539,7 @@ void LocalFrameView::performPostLayoutTasks()
     resnapAfterLayout();
 
     m_frame->document()->scheduleDeferredAXObjectCacheUpdate();
+    m_frame->eventHandler().scheduleMouseEventTargetUpdateAfterLayout();
 }
 
 void LocalFrameView::dequeueScrollableAreaForScrollAnchoringUpdate(ScrollableArea& scrollableArea)

@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "InPlaceInterpreter.h"
 #include "LLIntCommon.h"
 #include "StructureID.h"
 #include <wtf/Assertions.h>

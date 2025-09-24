@@ -312,14 +312,8 @@ void WKPageLoadHTMLStringWithUserData(WKPageRef pageRef, WKStringRef htmlStringR
 void WKPageLoadAlternateHTMLString(WKPageRef pageRef, WKStringRef htmlStringRef, WKURLRef baseURLRef, WKURLRef unreachableURLRef)
 {
     CRASH_IF_SUSPENDED;
-    WKPageLoadAlternateHTMLStringWithUserData(pageRef, htmlStringRef, baseURLRef, unreachableURLRef, nullptr);
-}
-
-void WKPageLoadAlternateHTMLStringWithUserData(WKPageRef pageRef, WKStringRef htmlStringRef, WKURLRef baseURLRef, WKURLRef unreachableURLRef, WKTypeRef userDataRef)
-{
-    CRASH_IF_SUSPENDED;
     String string = toWTFString(htmlStringRef);
-    toProtectedImpl(pageRef)->loadAlternateHTML(dataReferenceFrom(string), encodingOf(string), URL { toWTFString(baseURLRef) }, URL { toWTFString(unreachableURLRef) }, toProtectedImpl(userDataRef).get());
+    toProtectedImpl(pageRef)->loadAlternateHTML(dataReferenceFrom(string), encodingOf(string), URL { toWTFString(baseURLRef) }, URL { toWTFString(unreachableURLRef) }, nullptr);
 }
 
 void WKPageLoadPlainTextString(WKPageRef pageRef, WKStringRef plainTextStringRef)
@@ -332,14 +326,6 @@ void WKPageLoadPlainTextStringWithUserData(WKPageRef pageRef, WKStringRef plainT
 {
     CRASH_IF_SUSPENDED;
     loadString(pageRef, plainTextStringRef, "text/plain"_s, aboutBlankURL().string(), userDataRef);
-}
-
-void WKPageLoadWebArchiveData(WKPageRef, WKDataRef)
-{
-}
-
-void WKPageLoadWebArchiveDataWithUserData(WKPageRef, WKDataRef, WKTypeRef)
-{
 }
 
 void WKPageStopLoading(WKPageRef pageRef)
@@ -458,8 +444,7 @@ void WKPageUpdateWebsitePolicies(WKPageRef pageRef, WKWebsitePoliciesRef website
     CRASH_IF_SUSPENDED;
     RELEASE_ASSERT_WITH_MESSAGE(!toProtectedImpl(websitePoliciesRef)->websiteDataStore(), "Setting WebsitePolicies.websiteDataStore is only supported during WKFramePolicyListenerUseWithPolicies().");
     RELEASE_ASSERT_WITH_MESSAGE(!toProtectedImpl(websitePoliciesRef)->userContentController(), "Setting WebsitePolicies.userContentController is only supported during WKFramePolicyListenerUseWithPolicies().");
-    auto data = toProtectedImpl(websitePoliciesRef)->data();
-    toProtectedImpl(pageRef)->updateWebsitePolicies(WTFMove(data));
+    toProtectedImpl(pageRef)->updateWebsitePolicies(*toProtectedImpl(websitePoliciesRef));
 }
 
 WKStringRef WKPageCopyTitle(WKPageRef pageRef)

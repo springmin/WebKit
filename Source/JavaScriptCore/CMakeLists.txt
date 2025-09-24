@@ -596,15 +596,28 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     builtins/BuiltinNames.h
     builtins/BuiltinUtils.h
 
+    bytecode/AccessCase.h
+    bytecode/AccessCaseSnippetParams.h
+    bytecode/AdaptiveInferredPropertyValueWatchpointBase.h
     bytecode/ArithProfile.h
     bytecode/ArrayAllocationProfile.h
     bytecode/ArrayProfile.h
+    bytecode/BytecodeBasicBlock.h
     bytecode/BytecodeConventions.h
+    bytecode/BytecodeDumper.h
+    bytecode/BytecodeGeneratorification.h
+    bytecode/BytecodeGraph.h
     bytecode/BytecodeIndex.h
     bytecode/BytecodeIntrinsicRegistry.h
+    bytecode/BytecodeLivenessAnalysis.h
+    bytecode/BytecodeLivenessAnalysisInlines.h
+    bytecode/BytecodeOperandsForCheckpoint.h
+    bytecode/BytecodeRewriter.h
+    bytecode/BytecodeUseDef.h
     bytecode/CallEdge.h
     bytecode/CallLinkInfo.h
     bytecode/CallLinkInfoBase.h
+    bytecode/CallLinkStatus.h
     bytecode/CallMode.h
     bytecode/CallVariant.h
     bytecode/CallVariantInlines.h
@@ -613,24 +626,55 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     bytecode/CheckPrivateBrandVariant.h
     bytecode/CodeBlock.h
     bytecode/CodeBlockHash.h
+    bytecode/CodeBlockInlines.h
+    bytecode/CodeBlockJettisoningWatchpoint.h
+    bytecode/CodeBlockWithJITType.h
     bytecode/CodeOrigin.h
     bytecode/CodeType.h
+    bytecode/ComplexGetStatus.h
     bytecode/DFGExitProfile.h
     bytecode/DataFormat.h
+    bytecode/DeferredCompilationCallback.h
+    bytecode/DeferredSourceDump.h
+    bytecode/DeleteByStatus.h
+    bytecode/DeleteByVariant.h
     bytecode/DirectEvalCodeCache.h
+    bytecode/EvalCodeBlock.h
+    bytecode/EvalCodeBlockInlines.h
     bytecode/ExecutableInfo.h
     bytecode/ExecutionCounter.h
+    bytecode/ExitFlag.h
     bytecode/ExitKind.h
     bytecode/ExitingInlineKind.h
     bytecode/ExitingJITType.h
     bytecode/ExpressionInfo.h
     bytecode/ExpressionInfoInlines.h
+    bytecode/Fits.h
+    bytecode/FullBytecodeLiveness.h
+    bytecode/FullCodeOrigin.h
+    bytecode/FunctionCodeBlock.h
+    bytecode/FunctionCodeBlockInlines.h
+    bytecode/GetByIdMetadata.h
+    bytecode/GetByStatus.h
+    bytecode/GetByVariant.h
+    bytecode/GetterSetterAccessCase.h
+    bytecode/GlobalCodeBlock.h
     bytecode/HandlerInfo.h
     bytecode/ICStatusMap.h
+    bytecode/ICStatusUtils.h
+    bytecode/InByStatus.h
+    bytecode/InByVariant.h
+    bytecode/InlineAccess.h
+    bytecode/InlineCacheCompiler.h
     bytecode/InlineCallFrame.h
+    bytecode/InlineCallFrameSet.h
+    bytecode/InstanceOfAccessCase.h
+    bytecode/InstanceOfStatus.h
+    bytecode/InstanceOfVariant.h
     bytecode/Instruction.h
     bytecode/InstructionStream.h
     bytecode/InternalFunctionAllocationProfile.h
+    bytecode/IntrinsicGetterAccessCase.h
     bytecode/IterationModeMetadata.h
     bytecode/JumpTable.h
     bytecode/LLIntPrototypeLoadAdaptiveStructureWatchpoint.h
@@ -639,35 +683,63 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     bytecode/LineColumn.h
     bytecode/LinkTimeConstant.h
     bytecode/MetadataTable.h
+    bytecode/MethodOfGettingAValueProfile.h
+    bytecode/ModuleNamespaceAccessCase.h
+    bytecode/ModuleProgramCodeBlock.h
+    bytecode/ModuleProgramCodeBlockInlines.h
     bytecode/ObjectAllocationProfile.h
+    bytecode/ObjectAllocationProfileInlines.h
     bytecode/ObjectPropertyCondition.h
+    bytecode/ObjectPropertyConditionSet.h
     bytecode/Opcode.h
+    bytecode/OpcodeInlines.h
     bytecode/OpcodeSize.h
     bytecode/Operands.h
+    bytecode/OperandsInlines.h
+    bytecode/ParseHash.h
+    bytecode/PolyProtoAccessChain.h
+    bytecode/PreciseJumpTargets.h
+    bytecode/PreciseJumpTargetsInlines.h
+    bytecode/ProgramCodeBlock.h
+    bytecode/ProgramCodeBlockInlines.h
     bytecode/PropertyCondition.h
+    bytecode/ProxyableAccessCase.h
     bytecode/PutByIdFlags.h
+    bytecode/PutByStatus.h
+    bytecode/PutByVariant.h
+    bytecode/RecordedStatuses.h
+    bytecode/ReduceWhitespace.h
+    bytecode/Repatch.h
+    bytecode/RepatchInlines.h
     bytecode/SetPrivateBrandStatus.h
     bytecode/SetPrivateBrandVariant.h
+    bytecode/SharedJITStubSet.h
     bytecode/SourceID.h
     bytecode/SpeculatedType.h
     bytecode/StructureSet.h
+    bytecode/StructureStubClearingWatchpoint.h
+    bytecode/StructureStubInfo.h
+    bytecode/StubInfoSummary.h
     bytecode/SuperSampler.h
+    bytecode/TerminatedCodeOrigin.h
     bytecode/ToThisStatus.h
+    bytecode/TrackedReferences.h
     bytecode/TypeLocation.h
-    bytecode/UnlinkedModuleProgramCodeBlockInlines.h
-    bytecode/UnlinkedModuleProgramCodeBlock.h
-    bytecode/UnlinkedProgramCodeBlock.h
-    bytecode/UnlinkedProgramCodeBlockInlines.h
-    bytecode/UnlinkedMetadataTable.h
+    bytecode/UnlinkedCodeBlock.h
+    bytecode/UnlinkedCodeBlockGenerator.h
+    bytecode/UnlinkedEvalCodeBlock.h
+    bytecode/UnlinkedEvalCodeBlockInlines.h
+    bytecode/UnlinkedFunctionCodeBlock.h
+    bytecode/UnlinkedFunctionCodeBlockInlines.h
     bytecode/UnlinkedFunctionExecutable.h
     bytecode/UnlinkedFunctionExecutableInlines.h
-    bytecode/UnlinkedFunctionCodeBlockInlines.h
-    bytecode/UnlinkedFunctionCodeBlock.h
-    bytecode/UnlinkedEvalCodeBlockInlines.h
-    bytecode/UnlinkedEvalCodeBlock.h
-    bytecode/UnlinkedCodeBlockGenerator.h
-    bytecode/UnlinkedCodeBlock.h
     bytecode/UnlinkedGlobalCodeBlock.h
+    bytecode/UnlinkedMetadataTable.h
+    bytecode/UnlinkedMetadataTableInlines.h
+    bytecode/UnlinkedModuleProgramCodeBlock.h
+    bytecode/UnlinkedModuleProgramCodeBlockInlines.h
+    bytecode/UnlinkedProgramCodeBlock.h
+    bytecode/UnlinkedProgramCodeBlockInlines.h
     bytecode/ValueProfile.h
     bytecode/ValueRecovery.h
     bytecode/VariableWriteFireDetail.h
@@ -695,21 +767,28 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     heap/AbstractSlotVisitor.h
     heap/AbstractSlotVisitorInlines.h
     heap/AlignedMemoryAllocator.h
+    heap/AllocatingScope.h
     heap/AllocationFailureMode.h
     heap/Allocator.h
-    heap/AllocatorInlines.h
     heap/AllocatorForMode.h
+    heap/AllocatorInlines.h
+    heap/AtomIndices.h
     heap/BlockDirectory.h
     heap/BlockDirectoryBits.h
     heap/BlockDirectoryInlines.h
+    heap/BunV8HeapSnapshotBuilder.h
     heap/CellAttributes.h
     heap/CellContainer.h
     heap/CellContainerInlines.h
     heap/CellState.h
+    heap/CodeBlockSet.h
+    heap/CodeBlockSetInlines.h
+    heap/CollectingScope.h
     heap/CollectionScope.h
     heap/CollectorPhase.h
     heap/CompleteSubspace.h
     heap/CompleteSubspaceInlines.h
+    heap/ConservativeRoots.h
     heap/ConstraintConcurrency.h
     heap/ConstraintParallelism.h
     heap/ConstraintVolatility.h
@@ -726,16 +805,22 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     heap/GCAssertions.h
     heap/GCConductor.h
     heap/GCDeferralContext.h
+    heap/GCDeferralContextInlines.h
     heap/GCIncomingRefCounted.h
     heap/GCIncomingRefCountedInlines.h
     heap/GCIncomingRefCountedSet.h
+    heap/GCIncomingRefCountedSetInlines.h
     heap/GCLogging.h
     heap/GCMemoryOperations.h
     heap/GCOwnedDataScope.h
     heap/GCRequest.h
     heap/GCSegmentedArray.h
+    heap/GCSegmentedArrayInlines.h
+    heap/GCTypeMap.h
+    heap/GigacageAlignedMemoryAllocator.h
     heap/Handle.h
     heap/HandleBlock.h
+    heap/HandleBlockInlines.h
     heap/HandleForward.h
     heap/HandleSet.h
     heap/HandleTypes.h
@@ -745,47 +830,70 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     heap/HeapCellInlines.h
     heap/HeapCellType.h
     heap/HeapFinalizerCallback.h
+    heap/HeapHelperPool.h
     heap/HeapInlines.h
+    heap/HeapIterationScope.h
     heap/HeapObserver.h
+    heap/HeapProfiler.h
+    heap/HeapSnapshot.h
     heap/HeapSnapshotBuilder.h
     heap/HeapSubspaceTypes.h
+    heap/HeapUtil.h
     heap/IncrementalSweeper.h
     heap/IsoCellSet.h
+    heap/IsoCellSetInlines.h
     heap/IsoHeapCellType.h
     heap/IsoInlinedHeapCellType.h
     heap/IsoInlinedHeapCellTypeInlines.h
     heap/IsoSubspace.h
     heap/IsoSubspaceInlines.h
+    heap/JITStubRoutineSet.h
     heap/LocalAllocator.h
     heap/LocalAllocatorInlines.h
     heap/MachineStackMarker.h
     heap/MarkStack.h
+    heap/MarkStackMergingConstraint.h
     heap/MarkedBlock.h
     heap/MarkedBlockInlines.h
     heap/MarkedBlockSet.h
     heap/MarkedSpace.h
+    heap/MarkedSpaceInlines.h
     heap/MarkingConstraint.h
     heap/MarkingConstraintExecutorPair.h
+    heap/MarkingConstraintSet.h
+    heap/MarkingConstraintSolver.h
+    heap/MutatorScheduler.h
     heap/MutatorState.h
     heap/PackedCellPtr.h
+    heap/ParallelSourceAdapter.h
     heap/PreciseAllocation.h
     heap/PreciseSubspace.h
+    heap/PreventCollectionScope.h
     heap/RegisterState.h
+    heap/ReleaseHeapAccessScope.h
     heap/RootMarkReason.h
     heap/RunningScope.h
     heap/SimpleMarkingConstraint.h
     heap/SlotVisitor.h
     heap/SlotVisitorInlines.h
     heap/SlotVisitorMacros.h
+    heap/SpaceTimeMutatorScheduler.h
+    heap/StochasticSpaceTimeMutatorScheduler.h
+    heap/StopIfNecessaryTimer.h
     heap/Strong.h
     heap/StrongForward.h
     heap/StrongInlines.h
     heap/StructureAlignedMemoryAllocator.h
     heap/Subspace.h
     heap/SubspaceInlines.h
+    heap/SweepingScope.h
+    heap/SynchronousStopTheWorldMutatorScheduler.h
     heap/Synchronousness.h
     heap/TinyBloomFilter.h
     heap/VerifierSlotVisitor.h
+    heap/VerifierSlotVisitorInlines.h
+    heap/VerifierSlotVisitorScope.h
+    heap/VisitCounter.h
     heap/VisitRaceKey.h
     heap/Weak.h
     heap/WeakBlock.h
@@ -794,6 +902,8 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     heap/WeakInlines.h
     heap/WeakSet.h
     heap/WeakSetInlines.h
+    heap/WriteBarrierSupport.h
+    
 
     inspector/AsyncStackTrace.h
     inspector/ConsoleMessage.h
@@ -812,16 +922,20 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     inspector/InspectorFrontendRouter.h
     inspector/InspectorProtocolTypes.h
     inspector/InspectorTarget.h
+    inspector/JSGlobalObjectConsoleClient.h
+    inspector/JSGlobalObjectDebugger.h
+    inspector/JSGlobalObjectInspectorController.h
+    inspector/JSInjectedScriptHost.h
+    inspector/JSInjectedScriptHostPrototype.h
+    inspector/JSJavaScriptCallFrame.h
+    inspector/JSJavaScriptCallFramePrototype.h
+    inspector/JavaScriptCallFrame.h
     inspector/PerGlobalObjectWrapperWorld.h
     inspector/ScriptArguments.h
     inspector/ScriptCallFrame.h
     inspector/ScriptCallStack.h
     inspector/ScriptCallStackFactory.h
-
-    inspector/JSGlobalObjectInspectorController.h
-    runtime/JSGlobalObjectDebuggable.h
-    inspector/JSGlobalObjectDebugger.h
-
+    inspector/ScriptFunctionCall.h
     inspector/agents/InspectorAgent.h
     inspector/agents/InspectorAuditAgent.h
     inspector/agents/InspectorConsoleAgent.h
@@ -830,20 +944,34 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     inspector/agents/InspectorRuntimeAgent.h
     inspector/agents/InspectorScriptProfilerAgent.h
     inspector/agents/InspectorTargetAgent.h
-
+    inspector/agents/JSGlobalObjectAuditAgent.h
+    inspector/agents/JSGlobalObjectDebuggerAgent.h
+    inspector/agents/JSGlobalObjectRuntimeAgent.h
+    inspector/augmentable/AlternateDispatchableAgent.h
+    inspector/augmentable/AugmentableInspectorController.h
     inspector/augmentable/AugmentableInspectorControllerClient.h
-
     inspector/remote/RemoteAutomationTarget.h
     inspector/remote/RemoteConnectionToTarget.h
     inspector/remote/RemoteControllableTarget.h
     inspector/remote/RemoteInspectionTarget.h
     inspector/remote/RemoteInspector.h
+    inspector/remote/RemoteInspectorConstants.h
+    inspector/remote/cocoa/RemoteInspectorXPCConnection.h
+    inspector/remote/glib/RemoteInspectorServer.h
+    inspector/remote/glib/RemoteInspectorUtils.h
+    inspector/remote/socket/RemoteInspectorConnectionClient.h
+    inspector/remote/socket/RemoteInspectorMessageParser.h
+    inspector/remote/socket/RemoteInspectorServer.h
+    inspector/remote/socket/RemoteInspectorSocket.h
+    inspector/remote/socket/RemoteInspectorSocketEndpoint.h
 
     interpreter/CachedCall.h
     interpreter/CalleeBits.h
     interpreter/CLoopStack.h
     interpreter/CallFrame.h
     interpreter/CallFrameInlines.h
+    interpreter/CheckpointOSRExitSideState.h
+    interpreter/CLoopStackInlines.h
     interpreter/EntryFrame.h
     interpreter/FrameTracers.h
     interpreter/Interpreter.h
@@ -938,36 +1066,67 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     profiler/ProfilerProfiledBytecodes.h
     profiler/ProfilerUID.h
 
-    runtime/AggregateError.h
     runtime/AbstractModuleRecord.h
+    runtime/AggregateError.h
+    runtime/AggregateErrorConstructor.h
+    runtime/AggregateErrorConstructorInlines.h
+    runtime/AggregateErrorPrototype.h
+    runtime/AggregateErrorPrototypeInlines.h
     runtime/ArgList.h
     runtime/ArgumentsMode.h
     runtime/ArityCheckMode.h
-    runtime/ArrayConstructor.h
     runtime/ArrayBuffer.h
     runtime/ArrayBufferSharingMode.h
     runtime/ArrayBufferView.h
+    runtime/ArrayConstructor.h
+    runtime/ArrayConstructorInlines.h
     runtime/ArrayConventions.h
+    runtime/ArrayIteratorPrototype.h
+    runtime/ArrayIteratorPrototypeInlines.h
     runtime/ArrayPrototype.h
+    runtime/ArrayPrototypeInlines.h
     runtime/ArrayStorage.h
     runtime/ArrayStorageInlines.h
     runtime/AssertInvariants.h
     runtime/AsyncDisposableStackConstructor.h
     runtime/AsyncDisposableStackPrototype.h
     runtime/AsyncDisposableStackPrototypeInlines.h
+    runtime/AsyncFromSyncIteratorPrototype.h
+    runtime/AsyncFromSyncIteratorPrototypeInlines.h
+    runtime/AsyncFunctionConstructor.h
+    runtime/AsyncFunctionConstructorInlines.h
+    runtime/AsyncFunctionPrototype.h
+    runtime/AsyncFunctionPrototypeInlines.h
+    runtime/AsyncGeneratorFunctionConstructor.h
+    runtime/AsyncGeneratorFunctionPrototype.h
+    runtime/AsyncGeneratorFunctionPrototypeInlines.h
+    runtime/AsyncGeneratorPrototype.h
+    runtime/AsyncGeneratorPrototypeInlines.h
     runtime/AsyncIteratorPrototype.h
+    runtime/AsyncIteratorPrototypeInlines.h
+    runtime/AtomicsObject.h
     runtime/AuxiliaryBarrier.h
     runtime/AuxiliaryBarrierInlines.h
     runtime/BasicBlockLocation.h
     runtime/BatchedTransitionOptimizer.h
     runtime/BigInt64Array.h
+    runtime/BigIntConstructor.h
+    runtime/BigIntConstructorInlines.h
     runtime/BigIntObject.h
+    runtime/BigIntObjectInlines.h
     runtime/BigIntPrototype.h
+    runtime/BigIntPrototypeInlines.h
+    runtime/BigInteger.h
     runtime/BigUint64Array.h
+    runtime/BooleanConstructor.h
+    runtime/BooleanConstructorInlines.h
     runtime/BooleanObject.h
+    runtime/BooleanObjectInlines.h
     runtime/BooleanPrototype.h
+    runtime/BooleanPrototypeInlines.h
     runtime/BrandedStructure.h
     runtime/BufferMemoryHandle.h
+    runtime/BundlePath.h
     runtime/Butterfly.h
     runtime/ButterflyInlines.h
     runtime/BytecodeCacheError.h
@@ -976,23 +1135,29 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/CacheableIdentifier.h
     runtime/CacheableIdentifierInlines.h
     runtime/CachedBytecode.h
+    runtime/CachedSpecialPropertyAdaptiveStructureWatchpoint.h
     runtime/CachedTypes.h
     runtime/CagedBarrierPtr.h
     runtime/CallData.h
     runtime/CatchScope.h
     runtime/CellSize.h
     runtime/ClassInfo.h
+    runtime/ClonedArguments.h
     runtime/CodeCache.h
-    parser/Parser.h
-    parser/ModuleScopeData.h
     runtime/CodeSpecializationKind.h
     runtime/CommonIdentifiers.h
+    runtime/CommonSlowPaths.h
+    runtime/CommonSlowPathsInlines.h
     runtime/CompilationResult.h
     runtime/Completion.h
+    runtime/ConcatKeyAtomStringCache.h
+    runtime/ConcatKeyAtomStringCacheInlines.h
     runtime/Concurrency.h
     runtime/ConcurrentJSLock.h
     runtime/ConfigFile.h
     runtime/ConsoleClient.h
+    runtime/ConsoleObject.h
+    runtime/ConsoleObjectInlines.h
     runtime/ConsoleTypes.h
     runtime/ConstantMode.h
     runtime/ConstructAbility.h
@@ -1000,11 +1165,19 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/ConstructorKind.h
     runtime/ControlFlowProfiler.h
     runtime/CustomGetterSetter.h
+    runtime/CustomGetterSetterInlines.h
     runtime/DOMAnnotation.h
     runtime/DOMAttributeGetterSetter.h
+    runtime/DOMAttributeGetterSetterInlines.h
     runtime/DataView.h
+    runtime/DateConstructor.h
+    runtime/DateConstructorInlines.h
+    runtime/DateConversion.h
     runtime/DateInstance.h
     runtime/DateInstanceCache.h
+    runtime/DateInstanceInlines.h
+    runtime/DatePrototype.h
+    runtime/DatePrototypeInlines.h
     runtime/DeferTermination.h
     runtime/DeferredWorkTimer.h
     runtime/DeferredWorkTimerInlines.h
@@ -1018,46 +1191,72 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/DisposableStackConstructor.h
     runtime/DisposableStackPrototype.h
     runtime/DisposableStackPrototypeInlines.h
+    runtime/DoublePredictionFuzzerAgent.h
     runtime/DumpContext.h
     runtime/ECMAMode.h
     runtime/EnsureStillAliveHere.h
     runtime/EnumerationMode.h
     runtime/Error.h
     runtime/ErrorConstructor.h
+    runtime/ErrorConstructorInlines.h
     runtime/ErrorHandlingScope.h
     runtime/ErrorInstance.h
     runtime/ErrorInstanceInlines.h
     runtime/ErrorPrototype.h
+    runtime/ErrorPrototypeInlines.h
     runtime/ErrorType.h
     runtime/EvalExecutable.h
+    runtime/EvalExecutableInlines.h
     runtime/Exception.h
     runtime/ExceptionEventLocation.h
     runtime/ExceptionExpectation.h
+    runtime/ExceptionFuzz.h
     runtime/ExceptionHelpers.h
     runtime/ExceptionScope.h
     runtime/ExecutableBase.h
     runtime/ExecutableBaseInlines.h
+    runtime/FileBasedFuzzerAgent.h
+    runtime/FileBasedFuzzerAgentBase.h
+    runtime/FinalizationRegistryConstructor.h
+    runtime/FinalizationRegistryConstructorInlines.h
+    runtime/FinalizationRegistryPrototype.h
+    runtime/FinalizationRegistryPrototypeInlines.h
     runtime/Float16Array.h
     runtime/Float32Array.h
     runtime/Float64Array.h
     runtime/Forward.h
     runtime/FunctionConstructor.h
+    runtime/FunctionConstructorInlines.h
     runtime/FunctionExecutable.h
+    runtime/FunctionExecutableDump.h
+    runtime/FunctionExecutableInlines.h
     runtime/FunctionHasExecutedCache.h
     runtime/FunctionPrototype.h
+    runtime/FunctionPrototypeInlines.h
     runtime/FunctionRareData.h
     runtime/FuzzerAgent.h
+    runtime/FuzzerPredictions.h
     runtime/Gate.h
+    runtime/GeneratorFunctionConstructor.h
+    runtime/GeneratorFunctionConstructorInlines.h
+    runtime/GeneratorFunctionPrototype.h
+    runtime/GeneratorFunctionPrototypeInlines.h
+    runtime/GeneratorPrototype.h
+    runtime/GeneratorPrototypeInlines.h
     runtime/GenericArgumentsImpl.h
+    runtime/GenericArgumentsImplInlines.h
     runtime/GenericOffset.h
     runtime/GenericTypedArrayView.h
     runtime/GenericTypedArrayViewInlines.h
     runtime/GetPutInfo.h
-    runtime/GetterSetter.h
     runtime/GetVM.h
+    runtime/GetterSetter.h
+    runtime/GetterSetterInlines.h
     runtime/GlobalExecutable.h
     runtime/GlobalObjectMethodTable.h
+    runtime/HasOwnPropertyCache.h
     runtime/HashMapHelper.h
+    runtime/ISO8601.h
     runtime/Identifier.h
     runtime/IdentifierInlines.h
     runtime/ImplementationVisibility.h
@@ -1065,28 +1264,81 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/IndexingHeader.h
     runtime/IndexingHeaderInlines.h
     runtime/IndexingType.h
+    runtime/IndirectEvalExecutable.h
     runtime/InferredValue.h
+    runtime/InferredValueInlines.h
     runtime/InitializeThreading.h
     runtime/InlineAttribute.h
     runtime/Int16Array.h
     runtime/Int32Array.h
     runtime/Int8Array.h
+    runtime/InternalFieldTuple.h
     runtime/InternalFunction.h
+    runtime/InternalFunctionInlines.h
+    runtime/IntlCache.h
+    runtime/IntlCollator.h
+    runtime/IntlCollatorConstructor.h
+    runtime/IntlCollatorPrototype.h
+    runtime/IntlDateTimeFormat.h
+    runtime/IntlDateTimeFormatConstructor.h
+    runtime/IntlDateTimeFormatInlines.h
+    runtime/IntlDateTimeFormatPrototype.h
+    runtime/IntlDisplayNames.h
+    runtime/IntlDisplayNamesConstructor.h
+    runtime/IntlDisplayNamesPrototype.h
+    runtime/IntlDurationFormat.h
+    runtime/IntlDurationFormatConstructor.h
+    runtime/IntlDurationFormatPrototype.h
+    runtime/IntlListFormat.h
+    runtime/IntlListFormatConstructor.h
+    runtime/IntlListFormatPrototype.h
+    runtime/IntlLocale.h
+    runtime/IntlLocaleConstructor.h
+    runtime/IntlLocalePrototype.h
+    runtime/IntlNumberFormat.h
+    runtime/IntlNumberFormatConstructor.h
+    runtime/IntlNumberFormatInlines.h
+    runtime/IntlNumberFormatPrototype.h
+    runtime/IntlObject.h
+    runtime/IntlObjectInlines.h
+    runtime/IntlPluralRules.h
+    runtime/IntlPluralRulesConstructor.h
+    runtime/IntlPluralRulesPrototype.h
+    runtime/IntlRelativeTimeFormat.h
+    runtime/IntlRelativeTimeFormatConstructor.h
+    runtime/IntlRelativeTimeFormatPrototype.h
+    runtime/IntlSegmentIterator.h
+    runtime/IntlSegmentIteratorPrototype.h
+    runtime/IntlSegmenter.h
+    runtime/IntlSegmenterConstructor.h
+    runtime/IntlSegmenterPrototype.h
+    runtime/IntlSegments.h
+    runtime/IntlSegmentsPrototype.h
+    runtime/IntlWorkaround.h
     runtime/Intrinsic.h
     runtime/IterationKind.h
     runtime/IteratorOperations.h
     runtime/JSArray.h
-    runtime/JSArrayInlines.h
     runtime/JSArrayBuffer.h
+    runtime/JSArrayBufferConstructor.h
     runtime/JSArrayBufferPrototype.h
+    runtime/JSArrayBufferPrototypeInlines.h
     runtime/JSArrayBufferView.h
     runtime/JSArrayBufferViewInlines.h
+    runtime/JSArrayInlines.h
     runtime/JSArrayIterator.h
     runtime/JSAsyncDisposableStack.h
     runtime/JSAsyncDisposableStackInlines.h
     runtime/JSAsyncFromSyncIterator.h
+    runtime/JSAsyncFromSyncIteratorInlines.h
+    runtime/JSAsyncFunction.h
+    runtime/JSAsyncFunctionInlines.h
+    runtime/JSAsyncGenerator.h
+    runtime/JSAsyncGeneratorFunction.h
+    runtime/JSAsyncGeneratorFunctionInlines.h
     runtime/JSBigInt.h
     runtime/JSBoundFunction.h
+    runtime/JSBoundFunctionInlines.h
     runtime/JSCBytecodeCacheVersion.h
     runtime/JSCConfig.h
     runtime/JSCInlines.h
@@ -1098,26 +1350,41 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/JSCast.h
     runtime/JSCell.h
     runtime/JSCellButterfly.h
+    runtime/JSCellButterflyInlines.h
     runtime/JSCellInlines.h
     runtime/JSCustomGetterFunction.h
+    runtime/JSCustomGetterFunctionInlines.h
     runtime/JSCustomSetterFunction.h
+    runtime/JSCustomSetterFunctionInlines.h
     runtime/JSDataView.h
-    runtime/JSDateMath.h
+    runtime/JSDataViewPrototype.h
     runtime/JSDateMath-v8.h
+    runtime/JSDateMath.h
     runtime/JSDestructibleObject.h
     runtime/JSDestructibleObjectHeapCellType.h
     runtime/JSDisposableStack.h
     runtime/JSDisposableStackInlines.h
     runtime/JSExportMacros.h
+    runtime/JSFinalizationRegistry.h
+    runtime/JSFloat16Array.h
+    runtime/JSFloat32Array.h
+    runtime/JSFloat64Array.h
     runtime/JSFunction.h
     runtime/JSFunctionInlines.h
     runtime/JSGenerator.h
+    runtime/JSGeneratorFunction.h
+    runtime/JSGeneratorFunctionInlines.h
     runtime/JSGenericTypedArrayView.h
+    runtime/JSGenericTypedArrayViewConstructor.h
+    runtime/JSGenericTypedArrayViewConstructorInlines.h
     runtime/JSGenericTypedArrayViewInlines.h
     runtime/JSGenericTypedArrayViewPrototype.h
+    runtime/JSGenericTypedArrayViewPrototypeFunctions.h
     runtime/JSGenericTypedArrayViewPrototypeInlines.h
     runtime/JSGlobalLexicalEnvironment.h
+    runtime/JSGlobalLexicalEnvironmentInlines.h
     runtime/JSGlobalObject.h
+    runtime/JSGlobalObjectDebuggable.h
     runtime/JSGlobalObjectFunctions.h
     runtime/JSGlobalObjectInlines.h
     runtime/JSGlobalProxy.h
@@ -1128,80 +1395,148 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/JSInternalFieldObjectImpl.h
     runtime/JSInternalFieldObjectImplInlines.h
     runtime/JSInternalPromise.h
+    runtime/JSInternalPromiseConstructor.h
+    runtime/JSInternalPromisePrototype.h
     runtime/JSIterator.h
     runtime/JSIteratorConstructor.h
     runtime/JSIteratorHelper.h
+    runtime/JSIteratorHelperPrototype.h
+    runtime/JSIteratorHelperPrototypeInlines.h
     runtime/JSIteratorPrototype.h
+    runtime/JSIteratorPrototypeInlines.h
     runtime/JSLexicalEnvironment.h
+    runtime/JSLexicalEnvironmentInlines.h
     runtime/JSLock.h
     runtime/JSMap.h
     runtime/JSMapInlines.h
     runtime/JSMapIterator.h
-    runtime/MapIteratorPrototype.h
-    runtime/MapIteratorPrototypeInlines.h
+    runtime/JSMapIteratorInlines.h
     runtime/JSMicrotask.h
+    runtime/JSModuleEnvironment.h
+    runtime/JSModuleEnvironmentInlines.h
     runtime/JSModuleLoader.h
+    runtime/JSModuleLoaderInlines.h
+    runtime/JSModuleNamespaceObject.h
+    runtime/JSModuleNamespaceObjectInlines.h
     runtime/JSModuleRecord.h
     runtime/JSNativeStdFunction.h
+    runtime/JSNativeStdFunctionInlines.h
     runtime/JSONAtomStringCache.h
+    runtime/JSONAtomStringCacheInlines.h
     runtime/JSONObject.h
+    runtime/JSONObjectInlines.h
     runtime/JSObject.h
     runtime/JSObjectInlines.h
     runtime/JSPromise.h
+    runtime/JSPromiseAllContext.h
+    runtime/JSPromiseAllContextInlines.h
     runtime/JSPromiseConstructor.h
+    runtime/JSPromisePrototype.h
     runtime/JSPropertyNameEnumerator.h
+    runtime/JSPropertyNameEnumeratorInlines.h
+    runtime/JSRawJSONObject.h
     runtime/JSRegExpStringIterator.h
+    runtime/JSRegExpStringIteratorInlines.h
     runtime/JSRemoteFunction.h
+    runtime/JSRemoteFunctionInlines.h
     runtime/JSRunLoopTimer.h
     runtime/JSScope.h
     runtime/JSScriptFetchParameters.h
+    runtime/JSScriptFetchParametersInlines.h
     runtime/JSScriptFetcher.h
+    runtime/JSScriptFetcherInlines.h
     runtime/JSSegmentedVariableObject.h
     runtime/JSSet.h
     runtime/JSSetInlines.h
     runtime/JSSetIterator.h
     runtime/JSSetIteratorInlines.h
-    runtime/SetIteratorPrototype.h
-    runtime/SetIteratorPrototypeInlines.h
     runtime/JSSourceCode.h
+    runtime/JSSourceCodeInlines.h
     runtime/JSString.h
     runtime/JSStringInlines.h
+    runtime/JSStringIterator.h
+    runtime/JSStringIteratorInlines.h
+    runtime/JSStringJoiner.h
     runtime/JSSymbolTableObject.h
+    runtime/JSTemplateObjectDescriptor.h
+    runtime/JSTemplateObjectDescriptorInlines.h
     runtime/JSType.h
     runtime/JSTypeInfo.h
+    runtime/JSTypedArrayConstructors.h
+    runtime/JSTypedArrayPrototypes.h
+    runtime/JSTypedArrayViewConstructor.h
+    runtime/JSTypedArrayViewPrototype.h
     runtime/JSTypedArrays.h
+    runtime/JSUint16Array.h
+    runtime/JSUint32Array.h
+    runtime/JSUint8Array.h
+    runtime/JSUint8ClampedArray.h
     runtime/JSWeakMap.h
     runtime/JSWeakMapInlines.h
+    runtime/JSWeakObjectRef.h
+    runtime/JSWeakObjectRefInlines.h
+    runtime/JSWeakSet.h
+    runtime/JSWeakSetInlines.h
     runtime/JSWithScope.h
     runtime/JSWrapForValidIterator.h
+    runtime/JSWrapForValidIteratorInlines.h
     runtime/JSWrapperObject.h
     runtime/KeyAtomStringCache.h
     runtime/KeyAtomStringCacheInlines.h
     runtime/LazyClassStructure.h
+    runtime/LazyClassStructureInlines.h
     runtime/LazyProperty.h
+    runtime/LazyPropertyInlines.h
     runtime/LeafExecutable.h
+    runtime/LiteralParser.h
     runtime/Lookup.h
+    runtime/MachineContext.h
     runtime/MapConstructor.h
+    runtime/MapConstructorInlines.h
+    runtime/MapIteratorPrototype.h
+    runtime/MapIteratorPrototypeInlines.h
+    runtime/MapPrototype.h
+    runtime/MapPrototypeInlines.h
     runtime/MatchResult.h
     runtime/MathCommon.h
+    runtime/MathObject.h
+    runtime/MathObjectInlines.h
     runtime/MegamorphicCache.h
     runtime/MemoryMode.h
     runtime/MemoryStatistics.h
     runtime/Microtask.h
     runtime/MicrotaskQueue.h
     runtime/MicrotaskQueueInlines.h
+    runtime/MinimumReservedZoneSize.h
     runtime/ModuleProgramExecutable.h
+    runtime/ModuleProgramExecutableInlines.h
+    runtime/NarrowingNumberPredictionFuzzerAgent.h
     runtime/NativeCallee.h
+    runtime/NativeCalleeRegistry.h
+    runtime/NativeErrorConstructor.h
+    runtime/NativeErrorConstructorInlines.h
+    runtime/NativeErrorPrototype.h
+    runtime/NativeErrorPrototypeInlines.h
     runtime/NativeExecutable.h
     runtime/NativeFunction.h
     runtime/NullGetterFunction.h
+    runtime/NullGetterFunctionInlines.h
     runtime/NullSetterFunction.h
+    runtime/NullSetterFunctionInlines.h
+    runtime/NumberConstructor.h
+    runtime/NumberConstructorInlines.h
     runtime/NumberObject.h
+    runtime/NumberPredictionFuzzerAgent.h
     runtime/NumberPrototype.h
+    runtime/NumberPrototypeInlines.h
     runtime/NumericStrings.h
+    runtime/ObjectAdaptiveStructureWatchpoint.h
     runtime/ObjectConstructor.h
+    runtime/ObjectConstructorInlines.h
     runtime/ObjectInitializationScope.h
+    runtime/ObjectPropertyChangeAdaptiveWatchpoint.h
     runtime/ObjectPrototype.h
+    runtime/ObjectPrototypeInlines.h
     runtime/Operations.h
     runtime/Options.h
     runtime/OptionsList.h
@@ -1209,10 +1544,12 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/OrderedHashTableHelper.h
     runtime/PageCount.h
     runtime/ParseInt.h
+    runtime/PredictionFileCreatingFuzzerAgent.h
     runtime/PrivateFieldPutKind.h
     runtime/PrivateName.h
     runtime/ProfilerSupport.h
     runtime/ProgramExecutable.h
+    runtime/ProgramExecutableInlines.h
     runtime/PropertyDescriptor.h
     runtime/PropertyName.h
     runtime/PropertyNameArray.h
@@ -1220,22 +1557,42 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/PropertySlot.h
     runtime/PropertyStorage.h
     runtime/PropertyTable.h
+    runtime/PropertyTableInlines.h
     runtime/Protect.h
     runtime/PrototypeKey.h
+    runtime/ProxyConstructor.h
+    runtime/ProxyConstructorInlines.h
     runtime/ProxyObject.h
+    runtime/ProxyObjectInlines.h
+    runtime/ProxyRevoke.h
+    runtime/ProxyRevokeInlines.h
     runtime/PureNaN.h
     runtime/PutDirectIndexMode.h
     runtime/PutPropertySlot.h
+    runtime/RandomizingFuzzerAgent.h
+    runtime/ReflectObject.h
+    runtime/ReflectObjectInlines.h
     runtime/RegExp.h
+    runtime/RegExpCache.h
     runtime/RegExpCachedResult.h
+    runtime/RegExpConstructor.h
+    runtime/RegExpConstructorInlines.h
     runtime/RegExpGlobalData.h
+    runtime/RegExpGlobalDataInlines.h
+    runtime/RegExpInlines.h
     runtime/RegExpKey.h
+    runtime/RegExpMatchesArray.h
     runtime/RegExpObject.h
+    runtime/RegExpObjectInlines.h
+    runtime/RegExpPrototype.h
+    runtime/RegExpPrototypeInlines.h
     runtime/RegExpStringIteratorPrototype.h
+    runtime/RegExpStringIteratorPrototypeInlines.h
     runtime/RegExpSubstringGlobalAtomCache.h
     runtime/ResourceExhaustion.h
     runtime/RuntimeFlags.h
     runtime/RuntimeType.h
+    runtime/SamplingCounter.h
     runtime/SamplingProfiler.h
     runtime/ScopeOffset.h
     runtime/ScopedArguments.h
@@ -1245,8 +1602,20 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/ScriptExecutableInlines.h
     runtime/ScriptFetchParameters.h
     runtime/ScriptFetcher.h
+    runtime/SetConstructor.h
+    runtime/SetConstructorInlines.h
+    runtime/SetIteratorPrototype.h
+    runtime/SetIteratorPrototypeInlines.h
+    runtime/SetPrototype.h
+    runtime/SetPrototypeInlines.h
+    runtime/ShadowRealmConstructor.h
+    runtime/ShadowRealmConstructorInlines.h
     runtime/ShadowRealmObject.h
+    runtime/ShadowRealmObjectInlines.h
+    runtime/ShadowRealmPrototype.h
+    runtime/ShadowRealmPrototypeInlines.h
     runtime/SideDataRepository.h
+    runtime/SimpleTypedArrayController.h
     runtime/SlowPathFunction.h
     runtime/SmallStrings.h
     runtime/SourceOrigin.h
@@ -1256,34 +1625,80 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/StackFrame.h
     runtime/StackManager.h
     runtime/StackManagerInlines.h
+    runtime/StrictEvalActivation.h
+    runtime/StrictEvalActivationInlines.h
+    runtime/StringConstructor.h
+    runtime/StringConstructorInlines.h
     runtime/StringIteratorPrototype.h
+    runtime/StringIteratorPrototypeInlines.h
     runtime/StringObject.h
+    runtime/StringObjectInlines.h
     runtime/StringPrototype.h
+    runtime/StringPrototypeInlines.h
+    runtime/StringRecursionChecker.h
     runtime/StringReplaceCache.h
+    runtime/StringReplaceCacheInlines.h
     runtime/StringSplitCache.h
+    runtime/StringSplitCacheInlines.h
     runtime/Structure.h
     runtime/StructureCache.h
     runtime/StructureChain.h
+    runtime/StructureChainInlines.h
     runtime/StructureID.h
     runtime/StructureInlines.h
     runtime/StructureRareData.h
     runtime/StructureRareDataInlines.h
     runtime/StructureTransitionTable.h
     runtime/SubspaceAccess.h
+    runtime/SuppressedError.h
+    runtime/SuppressedErrorConstructor.h
+    runtime/SuppressedErrorConstructorInlines.h
+    runtime/SuppressedErrorPrototype.h
+    runtime/SuppressedErrorPrototypeInlines.h
     runtime/Symbol.h
+    runtime/SymbolConstructor.h
+    runtime/SymbolConstructorInlines.h
+    runtime/SymbolInlines.h
     runtime/SymbolObject.h
+    runtime/SymbolObjectInlines.h
     runtime/SymbolPrototype.h
+    runtime/SymbolPrototypeInlines.h
     runtime/SymbolTable.h
+    runtime/SymbolTableInlines.h
     runtime/SymbolTableOrScopeDepth.h
     runtime/SyntheticModuleRecord.h
     runtime/TemplateObjectDescriptor.h
+    runtime/TemporalCalendar.h
+    runtime/TemporalCalendarConstructor.h
+    runtime/TemporalCalendarPrototype.h
+    runtime/TemporalDuration.h
+    runtime/TemporalDurationConstructor.h
+    runtime/TemporalDurationPrototype.h
+    runtime/TemporalInstant.h
+    runtime/TemporalInstantConstructor.h
+    runtime/TemporalInstantPrototype.h
     runtime/TemporalNow.h
     runtime/TemporalObject.h
+    runtime/TemporalPlainDate.h
+    runtime/TemporalPlainDateConstructor.h
+    runtime/TemporalPlainDatePrototype.h
+    runtime/TemporalPlainDateTime.h
+    runtime/TemporalPlainDateTimeConstructor.h
+    runtime/TemporalPlainDateTimePrototype.h
+    runtime/TemporalPlainTime.h
+    runtime/TemporalPlainTimeConstructor.h
+    runtime/TemporalPlainTimePrototype.h
+    runtime/TemporalTimeZone.h
+    runtime/TemporalTimeZoneConstructor.h
+    runtime/TemporalTimeZonePrototype.h
     runtime/TestRunnerUtils.h
     runtime/ThrowScope.h
     runtime/ToNativeFromValue.h
     runtime/TypeError.h
     runtime/TypeInfoBlob.h
+    runtime/TypeLocationCache.h
+    runtime/TypeProfiler.h
+    runtime/TypeProfilerLog.h
     runtime/TypeSet.h
     runtime/TypedArrayAdaptersForwardDeclarations.h
     runtime/TypedArrayAdaptors.h
@@ -1294,6 +1709,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/TypeofType.h
     runtime/UGPRPair.h
     runtime/Uint16Array.h
+    runtime/Uint16WithFraction.h
     runtime/Uint32Array.h
     runtime/Uint8Array.h
     runtime/Uint8ClampedArray.h
@@ -1305,14 +1721,28 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/VMTraps.h
     runtime/VMTrapsInlines.h
     runtime/VarOffset.h
+    runtime/WaiterListManager.h
     runtime/Watchdog.h
     runtime/WeakGCHashTable.h
     runtime/WeakGCMap.h
     runtime/WeakGCMapInlines.h
     runtime/WeakGCSet.h
     runtime/WeakGCSetInlines.h
+    runtime/WeakMapConstructor.h
+    runtime/WeakMapConstructorInlines.h
     runtime/WeakMapImpl.h
     runtime/WeakMapImplInlines.h
+    runtime/WeakMapPrototype.h
+    runtime/WeakMapPrototypeInlines.h
+    runtime/WeakObjectRefConstructor.h
+    runtime/WeakObjectRefConstructorInlines.h
+    runtime/WeakObjectRefPrototype.h
+    runtime/WeakObjectRefPrototypeInlines.h
+    runtime/WeakSetConstructor.h
+    runtime/WeakSetConstructorInlines.h
+    runtime/WeakSetPrototype.h
+    runtime/WeakSetPrototypeInlines.h
+    runtime/WideningNumberPredictionFuzzerAgent.h
     runtime/WrapForValidIteratorPrototype.h
     runtime/WrapForValidIteratorPrototypeInlines.h
     runtime/WriteBarrier.h
@@ -1325,8 +1755,15 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     tools/VMInspector.h
     tools/VMInspectorInlines.h
 
+    wasm/WasmBBQDisassembler.h
+    wasm/WasmBBQJIT.h
+    wasm/WasmBBQJIT32_64.h
+    wasm/WasmBBQJIT64.h
+    wasm/WasmBBQPlan.h
     wasm/WasmBaselineData.h
+    wasm/WasmBinding.h
     wasm/WasmBranchHints.h
+    wasm/WasmBranchHintsSectionParser.h
     wasm/WasmCallProfile.h
     wasm/WasmCallee.h
     wasm/WasmCalleeGroup.h
@@ -1334,49 +1771,110 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     wasm/WasmCapabilities.h
     wasm/WasmCompilationContext.h
     wasm/WasmCompilationMode.h
+    wasm/WasmConstExprGenerator.h
     wasm/WasmContext.h
     wasm/WasmCreationMode.h
+    wasm/WasmEntryPlan.h
     wasm/WasmExceptionType.h
     wasm/WasmFaultSignalHandler.h
     wasm/WasmFormat.h
     wasm/WasmFunctionIPIntMetadataGenerator.h
+    wasm/WasmFunctionParser.h
     wasm/WasmGlobal.h
     wasm/WasmHandlerInfo.h
-    wasm/WasmIPIntTierUpCounter.h
     wasm/WasmIPIntGenerator.h
+    wasm/WasmIPIntPlan.h
+    wasm/WasmIPIntSlowPaths.h
+    wasm/WasmIPIntTierUpCounter.h
+    wasm/WasmIRGeneratorHelpers.h
     wasm/WasmIndexOrName.h
     wasm/WasmInstanceAnchor.h
     wasm/WasmJS.h
     wasm/WasmLimits.h
+    wasm/WasmMachineThreads.h
     wasm/WasmMemory.h
     wasm/WasmMemoryInformation.h
+    wasm/WasmMergedProfile.h
     wasm/WasmModule.h
     wasm/WasmModuleInformation.h
     wasm/WasmName.h
     wasm/WasmNameSection.h
+    wasm/WasmNameSectionParser.h
+    wasm/WasmOMGIRGenerator.h
+    wasm/WasmOMGPlan.h
     wasm/WasmOSREntryData.h
+    wasm/WasmOSREntryPlan.h
+    wasm/WasmOpcodeCounter.h
     wasm/WasmOpcodeOrigin.h
+    wasm/WasmOperations.h
+    wasm/WasmOperationsInlines.h
+    wasm/WasmParser.h
+    wasm/WasmPlan.h
     wasm/WasmSIMDOpcodes.h
+    wasm/WasmSectionParser.h
     wasm/WasmSections.h
-    wasm/WasmTypeDefinition.h
-    wasm/WasmTypeDefinitionInlines.h
+    wasm/WasmSourceMappingURLSectionParser.h
     wasm/WasmStreamingCompiler.h
     wasm/WasmStreamingParser.h
+    wasm/WasmStreamingPlan.h
+    wasm/WasmTable.h
+    wasm/WasmTag.h
+    wasm/WasmThunks.h
     wasm/WasmTierUpCount.h
+    wasm/WasmTypeDefinition.h
+    wasm/WasmTypeDefinitionInlines.h
     wasm/WasmValueLocation.h
+    wasm/WasmWorklist.h
 
+    wasm/js/JSToWasm.h
     wasm/js/JSWebAssembly.h
+    wasm/js/JSWebAssemblyArray.h
+    wasm/js/JSWebAssemblyArrayInlines.h
+    wasm/js/JSWebAssemblyCompileError.h
+    wasm/js/JSWebAssemblyException.h
     wasm/js/JSWebAssemblyGlobal.h
+    wasm/js/JSWebAssemblyHelpers.h
     wasm/js/JSWebAssemblyInstance.h
     wasm/js/JSWebAssemblyLinkError.h
     wasm/js/JSWebAssemblyMemory.h
     wasm/js/JSWebAssemblyModule.h
+    wasm/js/JSWebAssemblyRuntimeError.h
+    wasm/js/JSWebAssemblyStruct.h
     wasm/js/JSWebAssemblyTable.h
+    wasm/js/JSWebAssemblyTag.h
+    wasm/js/WasmToJS.h
+    wasm/js/WebAssemblyArrayConstructor.h
+    wasm/js/WebAssemblyArrayPrototype.h
     wasm/js/WebAssemblyBuiltin.h
+    wasm/js/WebAssemblyBuiltinTrampoline.h
+    wasm/js/WebAssemblyCompileErrorConstructor.h
+    wasm/js/WebAssemblyCompileErrorPrototype.h
+    wasm/js/WebAssemblyCompileOptions.h
+    wasm/js/WebAssemblyExceptionConstructor.h
+    wasm/js/WebAssemblyExceptionPrototype.h
     wasm/js/WebAssemblyFunction.h
     wasm/js/WebAssemblyFunctionBase.h
+    wasm/js/WebAssemblyGCObjectBase.h
     wasm/js/WebAssemblyGCStructure.h
+    wasm/js/WebAssemblyGlobalConstructor.h
+    wasm/js/WebAssemblyGlobalPrototype.h
+    wasm/js/WebAssemblyInstanceConstructor.h
+    wasm/js/WebAssemblyInstancePrototype.h
+    wasm/js/WebAssemblyLinkErrorConstructor.h
+    wasm/js/WebAssemblyLinkErrorPrototype.h
+    wasm/js/WebAssemblyMemoryConstructor.h
+    wasm/js/WebAssemblyMemoryPrototype.h
+    wasm/js/WebAssemblyModuleConstructor.h
+    wasm/js/WebAssemblyModulePrototype.h
     wasm/js/WebAssemblyModuleRecord.h
+    wasm/js/WebAssemblyRuntimeErrorConstructor.h
+    wasm/js/WebAssemblyRuntimeErrorPrototype.h
+    wasm/js/WebAssemblyStructConstructor.h
+    wasm/js/WebAssemblyStructPrototype.h
+    wasm/js/WebAssemblyTableConstructor.h
+    wasm/js/WebAssemblyTablePrototype.h
+    wasm/js/WebAssemblyTagConstructor.h
+    wasm/js/WebAssemblyTagPrototype.h
     wasm/js/WebAssemblyWrapperFunction.h
 
     yarr/RegularExpression.h
@@ -1431,20 +1929,6 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     dfg/DFGAbstractHeap.h
     bytecode/OperandsInlines.h
     bytecode/Operands.h
-    domjit/DOMJITHeapRange.h
-    runtime/JSModuleNamespaceObject.h
-    runtime/JSModuleNamespaceObjectInlines.h
-    runtime/SamplingProfiler.h
-    runtime/GeneratorFunctionPrototype.h
-    runtime/AsyncFunctionPrototype.h
-
-    jit/Width.h
-    runtime/ClonedArguments.h
-    runtime/InternalFieldTuple.h
-    runtime/SuppressedError.h
-
-    runtime/JSModuleEnvironment.h
-    runtime/JSModuleEnvironmentInlines.h
 
     heap/BunV8HeapSnapshotBuilder.h
     heap/HeapProfiler.h

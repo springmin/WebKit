@@ -94,7 +94,6 @@ using namespace JSC;
 JSC_DECLARE_HOST_FUNCTION(makeThisTypeErrorForBuiltins);
 JSC_DECLARE_HOST_FUNCTION(makeGetterTypeErrorForBuiltins);
 JSC_DECLARE_HOST_FUNCTION(makeDOMExceptionForBuiltins);
-JSC_DECLARE_HOST_FUNCTION(isReadableByteStreamAPIEnabled);
 JSC_DECLARE_HOST_FUNCTION(createWritableStreamFromInternal);
 JSC_DECLARE_HOST_FUNCTION(getGlobalObject);
 JSC_DECLARE_HOST_FUNCTION(getInternalReadableStream);
@@ -183,11 +182,6 @@ JSC_DEFINE_HOST_FUNCTION(makeDOMExceptionForBuiltins, (JSGlobalObject* globalObj
     return JSValue::encode(value);
 }
 
-JSC_DEFINE_HOST_FUNCTION(isReadableByteStreamAPIEnabled, (JSGlobalObject*, CallFrame*))
-{
-    return JSValue::encode(jsBoolean(DeprecatedGlobalSettings::readableByteStreamAPIEnabled()));
-}
-
 JSC_DEFINE_HOST_FUNCTION(getInternalWritableStream, (JSGlobalObject*, CallFrame* callFrame))
 {
     ASSERT(callFrame);
@@ -212,7 +206,10 @@ JSC_DEFINE_HOST_FUNCTION(getInternalReadableStream, (JSGlobalObject*, CallFrame*
     auto* readableStream = jsDynamicCast<JSReadableStream*>(callFrame->uncheckedArgument(0));
     if (!readableStream) [[unlikely]]
         return JSValue::encode(jsUndefined());
-    return JSValue::encode(readableStream->wrapped().internalReadableStream());
+    RefPtr internalReadableStream = readableStream->wrapped().internalReadableStream();
+    if (!internalReadableStream) [[unlikely]]
+        return JSValue::encode(JSC::jsUndefined());
+    return JSValue::encode(*internalReadableStream);
 }
 
 JSC_DEFINE_HOST_FUNCTION(createWritableStreamFromInternal, (JSGlobalObject* globalObject, CallFrame* callFrame))
@@ -309,7 +306,6 @@ SUPPRESS_ASAN void JSDOMGlobalObject::addBuiltinGlobals(VM& vm)
         JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.streamReadablePrivateName(), jsNumber(4), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.streamWaitingPrivateName(), jsNumber(5), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.streamWritablePrivateName(), jsNumber(6), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
-        JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.readableByteStreamAPIEnabledPrivateName(), JSFunction::create(vm, this, 0, String(), isReadableByteStreamAPIEnabled, ImplementationVisibility::Public), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.isAbortSignalPrivateName(), JSFunction::create(vm, this, 1, String(), isAbortSignal, ImplementationVisibility::Public), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.getInternalReadableStreamPrivateName(), JSFunction::create(vm, this, 1, String(), getInternalReadableStream, ImplementationVisibility::Public), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),
         JSDOMGlobalObject::GlobalPropertyInfo(builtinNames.getInternalWritableStreamPrivateName(), JSFunction::create(vm, this, 1, String(), getInternalWritableStream, ImplementationVisibility::Public), PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly),

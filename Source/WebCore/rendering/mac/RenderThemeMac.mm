@@ -213,7 +213,7 @@ RenderThemeMac::RenderThemeMac()
 {
 }
 
-bool RenderThemeMac::canCreateControlPartForRenderer(const RenderObject& renderer) const
+bool RenderThemeMac::canCreateControlPartForRenderer(const RenderElement& renderer) const
 {
 #if ENABLE(FORM_CONTROL_REFRESH)
     if (renderer.settings().formControlRefreshEnabled())
@@ -250,7 +250,7 @@ bool RenderThemeMac::canCreateControlPartForRenderer(const RenderObject& rendere
         || type == StyleAppearance::SwitchTrack;
 }
 
-bool RenderThemeMac::canCreateControlPartForBorderOnly(const RenderObject& renderer) const
+bool RenderThemeMac::canCreateControlPartForBorderOnly(const RenderElement& renderer) const
 {
 #if ENABLE(FORM_CONTROL_REFRESH)
     if (renderer.settings().formControlRefreshEnabled())
@@ -263,7 +263,7 @@ bool RenderThemeMac::canCreateControlPartForBorderOnly(const RenderObject& rende
         || appearance == StyleAppearance::TextField;
 }
 
-bool RenderThemeMac::canCreateControlPartForDecorations(const RenderObject& renderer) const
+bool RenderThemeMac::canCreateControlPartForDecorations(const RenderElement& renderer) const
 {
 #if ENABLE(FORM_CONTROL_REFRESH)
     if (renderer.settings().formControlRefreshEnabled())
@@ -439,7 +439,7 @@ static Color activeButtonTextColor()
 static SRGBA<uint8_t> menuBackgroundColor()
 {
     RetainPtr offscreenRep = adoptNS([[NSBitmapImageRep alloc] initWithBitmapDataPlanes:nil pixelsWide:1 pixelsHigh:1
-        bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO colorSpaceName:NSDeviceRGBColorSpace bytesPerRow:4 bitsPerPixel:32]);
+        bitsPerSample:8 samplesPerPixel:4 hasAlpha:YES isPlanar:NO colorSpaceName:RetainPtr { NSDeviceRGBColorSpace }.get() bytesPerRow:4 bitsPerPixel:32]);
 
     {
         LocalCurrentCGContext localContext { [NSGraphicsContext graphicsContextWithBitmapImageRep:offscreenRep.get()].CGContext };
@@ -472,8 +472,8 @@ Color RenderThemeMac::systemColor(CSSValueID cssValueID, OptionSet<StyleColorOpt
         auto systemAppearanceColor = [useDarkAppearance] (Color& color, SEL selector) -> Color {
             if (!color.isValid()) {
                 LocalDefaultSystemAppearance localAppearance(useDarkAppearance);
-                auto systemColor = wtfObjCMsgSend<NSColor *>([NSColor class], selector);
-                color = semanticColorFromNSColor(systemColor);
+                RetainPtr systemColor = wtfObjCMsgSend<NSColor *>([NSColor class], selector);
+                color = semanticColorFromNSColor(systemColor.get());
             }
 
             return color;
@@ -664,8 +664,8 @@ Color RenderThemeMac::systemColor(CSSValueID cssValueID, OptionSet<StyleColorOpt
         };
 
         if (auto selector = selectCocoaColor()) {
-            if (auto color = wtfObjCMsgSend<NSColor *>([NSColor class], selector))
-                return semanticColorFromNSColor(color);
+            if (RetainPtr color = wtfObjCMsgSend<NSColor *>([NSColor class], selector))
+                return semanticColorFromNSColor(color.get());
         }
 
         auto textColorForActiveButton = [&] {
@@ -1113,7 +1113,7 @@ static void inflateControlPaintRect(StyleAppearance appearance, FloatRect& zoome
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
-void RenderThemeMac::inflateRectForControlRenderer(const RenderObject& renderer, FloatRect& rect)
+void RenderThemeMac::inflateRectForControlRenderer(const RenderElement& renderer, FloatRect& rect)
 {
 #if ENABLE(FORM_CONTROL_REFRESH)
     if (renderer.settings().formControlRefreshEnabled()) {
@@ -1148,23 +1148,23 @@ void RenderThemeMac::inflateRectForControlRenderer(const RenderObject& renderer,
     }
 }
 
-bool RenderThemeMac::controlSupportsTints(const RenderObject& o) const
+bool RenderThemeMac::controlSupportsTints(const RenderElement& renderer) const
 {
 #if ENABLE(FORM_CONTROL_REFRESH)
-    if (o.settings().formControlRefreshEnabled())
-        return RenderThemeCocoa::controlSupportsTints(o);
+    if (renderer.settings().formControlRefreshEnabled())
+        return RenderThemeCocoa::controlSupportsTints(renderer);
 #endif
     // An alternate way to implement this would be to get the appropriate cell object
     // and call the private _needRedrawOnWindowChangedKeyState method. An advantage of
     // that would be that we would match AppKit behavior more closely, but a disadvantage
     // would be that we would rely on an AppKit SPI method.
 
-    if (!isEnabled(o))
+    if (!isEnabled(renderer))
         return false;
 
     // Checkboxes only have tint when checked.
-    if (o.style().usedAppearance() == StyleAppearance::Checkbox)
-        return isChecked(o);
+    if (renderer.style().usedAppearance() == StyleAppearance::Checkbox)
+        return isChecked(renderer);
 
     // For now assume other controls have tint if enabled.
     return true;
@@ -1262,7 +1262,7 @@ void RenderThemeMac::adjustImageControlsButtonStyle(RenderStyle& style, const El
 
 FloatSize RenderThemeMac::meterSizeForBounds(const RenderMeter& renderMeter, const FloatRect& bounds) const
 {
-    auto* control = const_cast<RenderMeter&>(renderMeter).ensureControlPartForRenderer();
+    RefPtr control = const_cast<RenderMeter&>(renderMeter).ensureControlPartForRenderer();
     if (!control)
         return bounds.size();
 
@@ -1299,7 +1299,7 @@ void RenderThemeMac::setColorWellSwatchBackground(HTMLElement& swatch, Color col
 
 IntRect RenderThemeMac::progressBarRectForBounds(const RenderProgress& renderProgress, const IntRect& bounds) const
 {
-    auto* control = const_cast<RenderProgress&>(renderProgress).ensureControlPartForRenderer();
+    RefPtr control = const_cast<RenderProgress&>(renderProgress).ensureControlPartForRenderer();
     if (!control)
         return bounds;
 
@@ -1969,7 +1969,7 @@ static void paintAttachmentPlaceholderBorder(const RenderAttachment& attachment,
     context.strokePath(borderPath);
 }
 
-bool RenderThemeMac::paintAttachment(const RenderObject& renderer, const PaintInfo& paintInfo, const IntRect& paintRect)
+bool RenderThemeMac::paintAttachment(const RenderElement& renderer, const PaintInfo& paintInfo, const IntRect& paintRect)
 {
     auto* attachment = dynamicDowncast<RenderAttachment>(renderer);
     if (!attachment)

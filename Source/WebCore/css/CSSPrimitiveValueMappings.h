@@ -2246,7 +2246,7 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef FOR_EACH
 
 #define TYPE ScrollSnapStrictness
-#define FOR_EACH(CASE) CASE(None) CASE(Proximity) CASE(Mandatory)
+#define FOR_EACH(CASE) CASE(Proximity) CASE(Mandatory)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
@@ -2306,56 +2306,6 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
-
-constexpr CSSValueID toCSSValueID(TextEdgeType textEdgeType)
-{
-    switch (textEdgeType) {
-    case TextEdgeType::Auto:
-        return CSSValueAuto;
-    case TextEdgeType::Leading:
-        return CSSValueLeading;
-    case TextEdgeType::Text:
-        return CSSValueText;
-    case TextEdgeType::CapHeight:
-        return CSSValueCap;
-    case TextEdgeType::ExHeight:
-        return CSSValueEx;
-    case TextEdgeType::Alphabetic:
-        return CSSValueAlphabetic;
-    case TextEdgeType::CJKIdeographic:
-        return CSSValueIdeographic;
-    case TextEdgeType::CJKIdeographicInk:
-        return CSSValueIdeographicInk;
-    }
-    ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-    return CSSValueInvalid;
-}
-
-template<> constexpr TextEdgeType fromCSSValueID(CSSValueID valueID)
-{
-    switch (valueID) {
-    case CSSValueAuto:
-        return TextEdgeType::Auto;
-    case CSSValueLeading:
-        return TextEdgeType::Leading;
-    case CSSValueText:
-        return TextEdgeType::Text;
-    case CSSValueCap:
-        return TextEdgeType::CapHeight;
-    case CSSValueEx:
-        return TextEdgeType::ExHeight;
-    case CSSValueAlphabetic:
-        return TextEdgeType::Alphabetic;
-    case CSSValueIdeographic:
-        return TextEdgeType::CJKIdeographic;
-    case CSSValueIdeographicInk:
-        return TextEdgeType::CJKIdeographicInk;
-    default:
-        break;
-    }
-    ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-    return TextEdgeType::Auto;
-}
 
 #if ENABLE(APPLE_PAY)
 
@@ -2632,6 +2582,18 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 
 #define TYPE TransitionBehavior
 #define FOR_EACH(CASE) CASE(Normal) CASE(AllowDiscrete)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#define TYPE TextEdgeOver
+#define FOR_EACH(CASE) CASE(Text) CASE(Ideographic) CASE(IdeographicInk) CASE(Cap) CASE(Ex)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
+#define TYPE TextEdgeUnder
+#define FOR_EACH(CASE) CASE(Text) CASE(Ideographic) CASE(IdeographicInk) CASE(Alphabetic)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH

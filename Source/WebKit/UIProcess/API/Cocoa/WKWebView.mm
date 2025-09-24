@@ -2167,8 +2167,7 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
 - (void)createPDFWithConfiguration:(WKPDFConfiguration *)pdfConfiguration completionHandler:(void (^)(NSData *pdfDocumentData, NSError *error))completionHandler
 {
     THROW_IF_SUSPENDED;
-    auto frameID = _page->mainFrame() ? std::optional { _page->mainFrame()->frameID() } : std::nullopt;
-    if (!frameID) {
+    if (!_page->mainFrame()) {
         completionHandler(nil, createNSError(WKErrorUnknown).get());
         return;
     }
@@ -2179,11 +2178,7 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
 
     bool allowTransparentBackground = pdfConfiguration && pdfConfiguration.allowTransparentBackground;
 
-    Ref preferences = _page->preferences();
-    bool useDrawRemote = preferences->remoteSnapshottingEnabled() && preferences->useGPUProcessForDOMRenderingEnabled();
-    auto drawToPDFFunction = useDrawRemote ? &WebKit::WebPageProxy::drawRemoteToPDF : &WebKit::WebPageProxy::drawToPDF;
-
-    (*_page.*drawToPDFFunction)(*frameID, floatRect, allowTransparentBackground, [handler = makeBlockPtr(completionHandler)](RefPtr<WebCore::SharedBuffer>&& pdfData) {
+    _page->drawToPDF(floatRect, allowTransparentBackground, [handler = makeBlockPtr(completionHandler)](RefPtr<WebCore::SharedBuffer>&& pdfData) {
         if (!pdfData || pdfData->isEmpty()) {
             handler(nil, createNSError(WKErrorUnknown).get());
             return;
@@ -4567,9 +4562,14 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
 
 - (void)_loadAlternateHTMLString:(NSString *)string baseURL:(NSURL *)baseURL forUnreachableURL:(NSURL *)unreachableURL
 {
+    [self _loadAlternateHTMLString:string baseURL:baseURL forUnreachableURL:unreachableURL withWebpagePreferences:nil];
+}
+
+- (void)_loadAlternateHTMLString:(NSString *)string baseURL:(NSURL *)baseURL forUnreachableURL:(NSURL *)unreachableURL withWebpagePreferences:(WKWebpagePreferences *)preferences
+{
     THROW_IF_SUSPENDED;
     RetainPtr data = bridge_cast([string dataUsingEncoding:NSUTF8StringEncoding] ?: NSData.data);
-    _page->loadAlternateHTML(WebCore::DataSegment::create(WTFMove(data)), "UTF-8"_s, baseURL, unreachableURL);
+    _page->loadAlternateHTML(WebCore::DataSegment::create(WTFMove(data)), "UTF-8"_s, baseURL, unreachableURL, preferences ? preferences->_websitePolicies.get() : nullptr);
 }
 
 - (WKNavigation *)_loadData:(NSData *)data MIMEType:(NSString *)MIMEType characterEncodingName:(NSString *)characterEncodingName baseURL:(NSURL *)baseURL userData:(id)userData
@@ -5137,14 +5137,6 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
     });
 }
 
-- (void)_isEnhancedSecurityEnabled:(void(^)(BOOL))completionHandler
-{
-    THROW_IF_SUSPENDED;
-    _page->isEnhancedSecurityEnabled([completionHandler = makeBlockPtr(completionHandler)] (bool enabled) {
-        completionHandler(enabled);
-    });
-}
-
 - (void)_evaluateJavaScriptWithoutUserGesture:(NSString *)javaScriptString completionHandler:(void (^)(id, NSError *))completionHandler
 {
     THROW_IF_SUSPENDED;
@@ -5204,8 +5196,7 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
         [NSException raise:NSInvalidArgumentException format:@"Updating WKWebsiteDataStore is only supported during decidePolicyForNavigationAction."];
     if (webpagePreferences._userContentController)
         [NSException raise:NSInvalidArgumentException format:@"Updating WKUserContentController is only supported during decidePolicyForNavigationAction."];
-    auto data = Ref { *webpagePreferences->_websitePolicies }->data();
-    _page->updateWebsitePolicies(WTFMove(data));
+    _page->updateWebsitePolicies(Ref { *webpagePreferences->_websitePolicies });
 }
 
 - (BOOL)_allowsRemoteInspection

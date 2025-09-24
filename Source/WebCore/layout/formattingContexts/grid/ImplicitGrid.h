@@ -26,6 +26,7 @@
 #pragma once
 
 #include <wtf/Forward.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 namespace Layout {
@@ -34,6 +35,7 @@ class PlacedGridItem;
 class UnplacedGridItem;
 
 using PlacedGridItems = Vector<PlacedGridItem>;
+using GridCell = Vector<UnplacedGridItem, 1>;
 
 // https://drafts.csswg.org/css-grid-1/#implicit-grids
 class ImplicitGrid {
@@ -48,7 +50,7 @@ public:
     PlacedGridItems placedGridItems() const;
 
 private:
-    using GridMatrix = Vector<Vector<std::optional<const UnplacedGridItem>>>;
+    using GridMatrix = Vector<Vector<GridCell>>;
     GridMatrix m_gridMatrix;
 };
 

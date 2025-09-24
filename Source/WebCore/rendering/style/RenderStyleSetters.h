@@ -144,6 +144,7 @@ inline void RenderStyle::setContent(Style::Content&& value) { SET_NESTED(m_nonIn
 inline void RenderStyle::setContentVisibility(ContentVisibility value) { SET_NESTED(m_nonInheritedData, rareData, contentVisibility, static_cast<unsigned>(value)); }
 inline void RenderStyle::setUsedAppearance(StyleAppearance a) { SET_NESTED(m_nonInheritedData, miscData, usedAppearance, static_cast<unsigned>(a)); }
 inline void RenderStyle::setEffectiveInert(bool effectiveInert) { SET(m_rareInheritedData, effectiveInert, effectiveInert); }
+inline void RenderStyle::setIsEffectivelyTransparent(bool effectivelyTransparent) { SET(m_rareInheritedData, effectivelyTransparent, effectivelyTransparent); }
 inline void RenderStyle::setUsedTouchActions(OptionSet<TouchAction> touchActions) { SET(m_rareInheritedData, usedTouchActions, touchActions); }
 inline void RenderStyle::setEventListenerRegionTypes(OptionSet<EventListenerRegionType> eventListenerTypes) { SET(m_rareInheritedData, eventListenerRegionTypes, eventListenerTypes); }
 inline void RenderStyle::setFieldSizing(FieldSizing value) { SET_NESTED(m_nonInheritedData, rareData, fieldSizing, static_cast<unsigned>(value)); }
@@ -268,6 +269,9 @@ inline void RenderStyle::setRubyAlign(RubyAlign alignment) { SET(m_rareInherited
 inline void RenderStyle::setRubyOverhang(RubyOverhang overhang) { SET(m_rareInheritedData, rubyOverhang, static_cast<unsigned>(overhang)); }
 inline void RenderStyle::setScale(Style::Scale&& scale) { SET_NESTED(m_nonInheritedData, rareData, scale, WTFMove(scale)); }
 inline void RenderStyle::setScrollBehavior(Style::ScrollBehavior behavior) { SET_NESTED(m_nonInheritedData, rareData, scrollBehavior, static_cast<unsigned>(behavior)); }
+inline void RenderStyle::setScrollSnapAlign(Style::ScrollSnapAlign&& align) { SET_NESTED(m_nonInheritedData, rareData, scrollSnapAlign, WTFMove(align)); }
+inline void RenderStyle::setScrollSnapStop(ScrollSnapStop stop) { SET_NESTED(m_nonInheritedData, rareData, scrollSnapStop, stop); }
+inline void RenderStyle::setScrollSnapType(Style::ScrollSnapType&& type) { SET_NESTED(m_nonInheritedData, rareData, scrollSnapType, WTFMove(type)); }
 inline void RenderStyle::setScrollTimelineAxes(Style::ProgressTimelineAxes&& axes) { SET_NESTED(m_nonInheritedData, rareData, scrollTimelineAxes, WTFMove(axes)); }
 inline void RenderStyle::setScrollTimelineNames(Style::ProgressTimelineNames&& names) { SET_NESTED(m_nonInheritedData, rareData, scrollTimelineNames, WTFMove(names)); }
 inline void RenderStyle::setVerticalAlign(Style::VerticalAlign&& align) { SET_NESTED(m_nonInheritedData, boxData, m_verticalAlign, WTFMove(align)); }
@@ -290,6 +294,8 @@ inline void RenderStyle::setStrokeWidth(Style::StrokeWidth&& width) { SET(m_rare
 inline void RenderStyle::setTabSize(const TabSize& size) { SET(m_rareInheritedData, tabSize, size); }
 inline void RenderStyle::setTextAlignLast(TextAlignLast value) { SET(m_rareInheritedData, textAlignLast, static_cast<unsigned>(value)); }
 inline void RenderStyle::setTextBoxTrim(TextBoxTrim value) { SET_NESTED(m_nonInheritedData, rareData, textBoxTrim, static_cast<unsigned>(value)); }
+inline void RenderStyle::setTextBoxEdge(Style::TextBoxEdge value) { SET(m_rareInheritedData, textBoxEdge, value); }
+inline void RenderStyle::setLineFitEdge(Style::LineFitEdge value) { SET(m_rareInheritedData, lineFitEdge, value); }
 inline void RenderStyle::setTextCombine(TextCombine value) { SET(m_rareInheritedData, textCombine, static_cast<unsigned>(value)); }
 inline void RenderStyle::setTextDecorationColor(Style::Color&& color) { SET_NESTED(m_nonInheritedData, rareData, textDecorationColor, WTFMove(color)); }
 inline void RenderStyle::setTextDecorationLine(Style::TextDecorationLine&& value) { m_nonInheritedFlags.textDecorationLine = value.toRaw(); }

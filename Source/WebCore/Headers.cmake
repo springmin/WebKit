@@ -1361,6 +1361,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/FragmentDirectiveParser.h
     dom/FragmentDirectiveRangeFinder.h
     dom/FragmentDirectiveUtilities.h
+    dom/FullscreenOptions.h
     dom/GCReachableRef.h
     dom/GetHTMLOptions.h
     dom/IdTargetObserver.h
@@ -1734,6 +1735,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     html/track/VideoTrackClient.h
     html/track/WebVTTParser.h
 
+    inspector/FrameInspectorController.h
     inspector/InspectorBackendClient.h
     inspector/InspectorController.h
     inspector/InspectorDebuggableType.h
@@ -2252,10 +2254,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/LayoutUnit.h
     platform/LegacySchemeRegistry.h
     platform/Length.h
-    platform/LengthBox.h
     platform/LengthFunctions.h
     platform/LengthPoint.h
-    platform/LengthSize.h
     platform/LinkIcon.h
     platform/LocalizedStrings.h
     platform/LogClient.h
@@ -2345,6 +2345,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/ScrollbarTheme.h
     platform/ScrollbarThemeComposite.h
     platform/ScrollbarsController.h
+    platform/ScrollbarsControllerInlines.h
     platform/ScrollingEffectsController.h
     platform/SearchPopupMenu.h
     platform/SerializedPlatformDataCue.h
@@ -2669,7 +2670,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/ShareableBitmap.h
     platform/graphics/ShareableBitmapHandle.h
     platform/graphics/ShouldLocalizeAxisNames.h
-    platform/graphics/SnapshotIdentifier.h
     platform/graphics/SourceBrush.h
     platform/graphics/SourceBrushLogicalGradient.h
     platform/graphics/SourceBufferPrivate.h
@@ -3143,10 +3143,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/style/StyleNonInheritedData.h
     rendering/style/StyleRareInheritedData.h
     rendering/style/StyleRareNonInheritedData.h
-    rendering/style/StyleScrollSnapPoints.h
     rendering/style/StyleSelfAlignmentData.h
     rendering/style/StyleSurroundData.h
-    rendering/style/StyleTextEdge.h
     rendering/style/StyleTransformData.h
     rendering/style/StyleVisitedLinkColorData.h
     rendering/style/WillChangeData.h
@@ -3281,6 +3279,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/images/StyleObjectPosition.h
 
     style/values/inline/StyleLineBoxContain.h
+    style/values/inline/StyleLineFitEdge.h
+    style/values/inline/StyleTextBoxEdge.h
+    style/values/inline/StyleTextEdge.h
     style/values/inline/StyleVerticalAlign.h
     style/values/inline/StyleWebKitInitialLetter.h
 
@@ -3360,6 +3361,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     style/values/scroll-snap/StyleScrollMargin.h
     style/values/scroll-snap/StyleScrollPadding.h
+    style/values/scroll-snap/StyleScrollSnapAlign.h
+    style/values/scroll-snap/StyleScrollSnapType.h
 
     style/values/scrollbars/StyleScrollbarColor.h
 
@@ -3391,6 +3394,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/svg/StyleSVGBaselineShift.h
     style/values/svg/StyleSVGCenterCoordinateComponent.h
     style/values/svg/StyleSVGCoordinateComponent.h
+    style/values/svg/StyleSVGMarkerResource.h
     style/values/svg/StyleSVGPaint.h
     style/values/svg/StyleSVGPathData.h
     style/values/svg/StyleSVGRadius.h
@@ -3636,7 +3640,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     ${WebCore_DERIVED_SOURCES_DIR}/NodeName.h
     ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncClient.h
     ${WebCore_DERIVED_SOURCES_DIR}/ProcessSyncData.h
-    ${WebCore_DERIVED_SOURCES_DIR}/ReadableByteStreamInternalsBuiltins.h
     ${WebCore_DERIVED_SOURCES_DIR}/ReadableStreamInternalsBuiltins.h
     ${WebCore_DERIVED_SOURCES_DIR}/SVGNames.h
     ${WebCore_DERIVED_SOURCES_DIR}/Settings.h
