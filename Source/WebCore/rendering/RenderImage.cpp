@@ -653,7 +653,7 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paintOf
     if (showBorderForIncompleteImage && (result != ImageDrawResult::DidDraw || (cachedImage() && cachedImage()->isLoading())))
         paintIncompleteImageOutline(paintInfo, paintOffset, missingImageBorderWidth);
     
-    if (cachedImage() && paintInfo.phase == PaintPhase::Foreground) {
+    if (cachedImage() && paintInfo.phase == PaintPhase::Foreground && !context.paintingDisabled()) {
         // For now, count images as unpainted if they are still progressively loading. We may want 
         // to refine this in the future to account for the portion of the image that has painted.
         LayoutRect visibleRect = intersection(replacedContentRect, contentBoxRect);
@@ -661,6 +661,12 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paintOf
             page().addRelevantUnpaintedObject(*this, visibleRect);
         else
             page().addRelevantRepaintedObject(*this, visibleRect);
+
+        if (auto styleable = Styleable::fromRenderer(*this)) {
+            auto localVisibleRect = visibleRect;
+            localVisibleRect.moveBy(-paintOffset);
+            protectedDocument()->didPaintImage(styleable->element, cachedImage(), localVisibleRect);
+        }
     }
 }
 
@@ -671,7 +677,7 @@ void RenderImage::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
     if (paintInfo.phase == PaintPhase::Outline)
         paintAreaElementFocusRing(paintInfo, paintOffset);
 }
-    
+
 void RenderImage::paintAreaElementFocusRing(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
     if (document().printing() || !frame().selection().isFocusedAndActive())
@@ -688,7 +694,7 @@ void RenderImage::paintAreaElementFocusRing(PaintInfo& paintInfo, const LayoutPo
     if (!areaElementStyle)
         return;
 
-    float outlineWidth = Style::evaluate(areaElementStyle->outlineWidth(), 1.0f /* FIXME ZOOM EFFECTED? */);
+    float outlineWidth = Style::evaluate(areaElementStyle->outlineWidth(), Style::ZoomNeeded { });
     if (!outlineWidth)
         return;
 
