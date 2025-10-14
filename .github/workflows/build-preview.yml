@@ -112,6 +112,8 @@ jobs:
   build:
     name: Build
     needs: trigger
+    permissions:
+      contents: write
     uses: ./.github/workflows/build-reusable.yml
     with:
       build_ref: ${{ needs.trigger.outputs.sha }}
