@@ -772,13 +772,15 @@ void JSPromise::resolveWithoutPromise(JSGlobalObject* globalObject, JSValue reso
 
 void JSPromise::rejectWithoutPromise(JSGlobalObject* globalObject, JSValue argument, JSValue onFulfilled, JSValue onRejected, JSValue context)
 {
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
     UNUSED_PARAM(onFulfilled);
 #if USE(BUN_JSC_ADDITIONS)
     // AsyncLocalStorage support: wrap context with async context if present
     if (auto* asyncContextData = globalObject->m_asyncContextData.get()) {
         JSValue asyncContext = asyncContextData->getInternalField(0);
         if (!asyncContext.isUndefined()) {
-            VM& vm = globalObject->vm();
             // Create array [context, asyncContext]
             ObjectInitializationScope initializationScope(vm);
             JSArray* contextArray = JSArray::tryCreateUninitializedRestricted(initializationScope,
@@ -791,18 +793,21 @@ void JSPromise::rejectWithoutPromise(JSGlobalObject* globalObject, JSValue argum
         }
     }
 #endif
+    scope.release();
     globalObject->queueMicrotask(InternalMicrotask::PromiseReactionJobWithoutPromise, onRejected, argument, context, jsUndefined());
 }
 
 void JSPromise::fulfillWithoutPromise(JSGlobalObject* globalObject, JSValue argument, JSValue onFulfilled, JSValue onRejected, JSValue context)
 {
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
     UNUSED_PARAM(onRejected);
 #if USE(BUN_JSC_ADDITIONS)
     // AsyncLocalStorage support: wrap context with async context if present
     if (auto* asyncContextData = globalObject->m_asyncContextData.get()) {
         JSValue asyncContext = asyncContextData->getInternalField(0);
         if (!asyncContext.isUndefined()) {
-            VM& vm = globalObject->vm();
             // Create array [context, asyncContext]
             ObjectInitializationScope initializationScope(vm);
             JSArray* contextArray = JSArray::tryCreateUninitializedRestricted(initializationScope,
@@ -815,6 +820,7 @@ void JSPromise::fulfillWithoutPromise(JSGlobalObject* globalObject, JSValue argu
         }
     }
 #endif
+    scope.release();
     globalObject->queueMicrotask(InternalMicrotask::PromiseReactionJobWithoutPromise, onFulfilled, argument, context, jsUndefined());
 }
 
