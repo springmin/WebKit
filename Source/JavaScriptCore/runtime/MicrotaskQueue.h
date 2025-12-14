@@ -176,6 +176,22 @@ public:
         m_markedBefore = 0;
     }
 
+#if USE(BUN_JSC_ADDITIONS)
+    void clearForGlobalObject(JSGlobalObject* targetGlobalObject)
+    {
+        if (!targetGlobalObject)
+            return;
+        Deque<QueuedTask> remaining;
+        while (!m_queue.isEmpty()) {
+            QueuedTask task = m_queue.takeFirst();
+            if (task.globalObject() != targetGlobalObject)
+                remaining.append(WTFMove(task));
+        }
+        m_queue.swap(remaining);
+        m_markedBefore = 0;
+    }
+#endif
+
     void beginMarking()
     {
         m_markedBefore = 0;
@@ -217,6 +233,16 @@ public:
         m_queue.clear();
         m_toKeep.clear();
     }
+
+#if USE(BUN_JSC_ADDITIONS)
+    void clearForGlobalObject(JSGlobalObject* targetGlobalObject)
+    {
+        if (!targetGlobalObject)
+            return;
+        m_queue.clearForGlobalObject(targetGlobalObject);
+        m_toKeep.clearForGlobalObject(targetGlobalObject);
+    }
+#endif
 
     void beginMarking()
     {
