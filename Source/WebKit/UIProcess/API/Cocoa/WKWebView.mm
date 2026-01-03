@@ -65,8 +65,10 @@
 #import "RunJavaScriptParameters.h"
 #import "SafeBrowsingUtilities.h"
 #import "SessionStateCoding.h"
+#import "TextExtractionAssertionScope.h"
 #import "TextExtractionFilter.h"
 #import "TextExtractionToStringConversion.h"
+#import "TextExtractionURLCache.h"
 #import "UIDelegate.h"
 #import "UIKitUtilities.h"
 #import "VideoPresentationManagerProxy.h"
@@ -6730,45 +6732,56 @@ static WebKit::TextExtractionOutputFormat textExtractionOutputFormat(_WKTextExtr
 
 static RetainPtr<_WKTextExtractionResult> createEmptyTextExtractionResult()
 {
-    return adoptNS([[_WKTextExtractionResult alloc] initWithTextContent:@"" filteredOutAnyText:NO]);
+    return adoptNS([[_WKTextExtractionResult alloc] initWithTextContent:@"" filteredOutAnyText:NO shortenedURLs:@{ }]);
 }
 
 #endif
 
 - (void)_extractDebugTextWithConfiguration:(_WKTextExtractionConfiguration *)configuration completionHandler:(void(^)(_WKTextExtractionResult *))completionHandler
 {
+    UniqueRef assertionScope = _page->createTextExtractionAssertionScope();
 #if USE(APPLE_INTERNAL_SDK) || (!PLATFORM(WATCHOS) && !PLATFORM(APPLETV))
     if (_page->protectedPreferences()->textExtractionFilterEnabled() && (configuration.filterOptions & _WKTextExtractionFilterRules)) {
-        _page->hasTextExtractionFilterRules([configuration = RetainPtr { configuration }, completionHandler = makeBlockPtr(completionHandler), weakSelf = WeakObjCPtr { self }](bool hasRules) mutable {
+        _page->hasTextExtractionFilterRules([assertionScope = WTF::move(assertionScope), configuration = RetainPtr { configuration }, completionHandler = makeBlockPtr(completionHandler), weakSelf = WeakObjCPtr { self }](bool hasRules) mutable {
             RetainPtr strongSelf = weakSelf.get();
             if (!strongSelf)
                 return completionHandler(createEmptyTextExtractionResult().get());
 
             if (hasRules)
-                return [strongSelf _extractDebugTextWithConfigurationWithoutUpdatingFilterRules:configuration.get() completionHandler:completionHandler.get()];
+                return [strongSelf _extractDebugTextWithConfigurationWithoutUpdatingFilterRules:configuration.get() assertionScope:WTF::move(assertionScope) completionHandler:completionHandler.get()];
 
-            WebKit::requestTextExtractionFilterRuleData([configuration = WTF::move(configuration), completionHandler = WTF::move(completionHandler), weakSelf](auto&& data) mutable {
+            WebKit::requestTextExtractionFilterRuleData([assertionScope = WTF::move(assertionScope), configuration = WTF::move(configuration), completionHandler = WTF::move(completionHandler), weakSelf](auto&& data) mutable {
                 RetainPtr strongSelf = weakSelf.get();
                 if (!strongSelf)
                     return completionHandler(createEmptyTextExtractionResult().get());
 
                 strongSelf->_page->updateTextExtractionFilterRules(WTF::move(data));
-                [strongSelf _extractDebugTextWithConfigurationWithoutUpdatingFilterRules:configuration.get() completionHandler:completionHandler.get()];
+                [strongSelf _extractDebugTextWithConfigurationWithoutUpdatingFilterRules:configuration.get() assertionScope:WTF::move(assertionScope) completionHandler:completionHandler.get()];
             });
         });
         return;
     }
 #endif // USE(APPLE_INTERNAL_SDK) || (!PLATFORM(WATCHOS) && !PLATFORM(APPLETV))
 
-    [self _extractDebugTextWithConfigurationWithoutUpdatingFilterRules:configuration completionHandler:completionHandler];
+    [self _extractDebugTextWithConfigurationWithoutUpdatingFilterRules:configuration assertionScope:WTF::move(assertionScope) completionHandler:completionHandler];
 }
 
-- (void)_extractDebugTextWithConfigurationWithoutUpdatingFilterRules:(_WKTextExtractionConfiguration *)configuration completionHandler:(void(^)(_WKTextExtractionResult *))completionHandler
+- (void)_extractDebugTextWithConfigurationWithoutUpdatingFilterRules:(_WKTextExtractionConfiguration *)configuration assertionScope:(UniqueRef<WebKit::TextExtractionAssertionScope>&&)assertionScope completionHandler:(void(^)(_WKTextExtractionResult *))completionHandler
 {
     bool allowFiltering = _page->protectedPreferences()->textExtractionFilterEnabled();
     bool filterUsingClassifier = allowFiltering && configuration.filterOptions & _WKTextExtractionFilterClassifier;
     bool filterHiddenText = allowFiltering && configuration.filterOptions & _WKTextExtractionFilterTextRecognition;
     bool filterUsingRules = allowFiltering && configuration.filterOptions & _WKTextExtractionFilterRules;
+
+    static uint64_t nextTextExtractionTracingID = 0;
+    auto currentTextExtractionTracingID = ++nextTextExtractionTracingID;
+    auto mainFrameWebProcessID = static_cast<uint64_t>(self._webProcessIdentifier);
+    auto gpuProcessID = static_cast<uint64_t>(self._gpuProcessIdentifier);
+    tracePoint(TextExtractionStart, currentTextExtractionTracingID, mainFrameWebProcessID, gpuProcessID);
+
+    auto endTextExtractionScope = makeScopeExit([assertionScope = WTF::move(assertionScope), currentTextExtractionTracingID, mainFrameWebProcessID, gpuProcessID] {
+        tracePoint(TextExtractionEnd, currentTextExtractionTracingID, mainFrameWebProcessID, gpuProcessID);
+    });
 
 #if ENABLE(TEXT_EXTRACTION_FILTER)
     if (filterUsingClassifier)
@@ -6783,6 +6796,9 @@ static RetainPtr<_WKTextExtractionResult> createEmptyTextExtractionResult()
     if (configuration.maxWordsPerParagraph < NSUIntegerMax)
         maxWordsPerParagraph = { static_cast<uint64_t>(configuration.maxWordsPerParagraph) };
 
+    if (!_textExtractionURLCache)
+        _textExtractionURLCache = WebKit::TextExtractionURLCache::create();
+
     [self _requestTextExtractionInternal:configuration completion:[
         completionHandler = makeBlockPtr(completionHandler),
         weakSelf = WeakObjCPtr<WKWebView>(self),
@@ -6792,10 +6808,12 @@ static RetainPtr<_WKTextExtractionResult> createEmptyTextExtractionResult()
         includeURLs = configuration.includeURLs,
         includeRects = configuration.includeRects,
         onlyIncludeText = configuration.onlyIncludeVisibleText,
+        shortenURLs = configuration.shortenURLs,
         maxWordsPerParagraph = WTF::move(maxWordsPerParagraph),
         version,
         replacementStrings = extractReplacementStrings(configuration),
-        outputFormat = textExtractionOutputFormat(configuration)
+        outputFormat = textExtractionOutputFormat(configuration),
+        endTextExtractionScope = WTF::move(endTextExtractionScope)
     ](auto&& item) mutable {
         RetainPtr strongSelf = weakSelf.get();
         if (!strongSelf)
@@ -6915,17 +6933,31 @@ static RetainPtr<_WKTextExtractionResult> createEmptyTextExtractionResult()
             optionFlags.add(IncludeRects);
         if (onlyIncludeText)
             optionFlags.add(OnlyIncludeText);
+        if (shortenURLs)
+            optionFlags.add(ShortenURLs);
+        RefPtr urlCache = strongSelf->_textExtractionURLCache;
         WebKit::TextExtractionOptions options {
             WTF::move(filterCallbacks),
             [strongSelf _activeNativeMenuItemTitles],
             WTF::move(replacementStrings),
             version,
             optionFlags,
-            outputFormat
+            outputFormat,
+            urlCache.get(),
         };
-        WebKit::convertToText(WTF::move(*item), WTF::move(options), [completionHandler = WTF::move(completionHandler)](auto&& result) {
-            auto [text, filteredOutAnyText] = result;
-            completionHandler(adoptNS([[_WKTextExtractionResult alloc] initWithTextContent:text.createNSString().get() filteredOutAnyText:filteredOutAnyText]).get());
+        WebKit::convertToText(WTF::move(*item), WTF::move(options), [urlCache, completionHandler = WTF::move(completionHandler), endTextExtractionScope = WTF::move(endTextExtractionScope)](auto&& result) {
+            auto [text, filteredOutAnyText, shortenedURLStrings] = result;
+            RetainPtr shortenedURLs = adoptNS([[NSMutableDictionary alloc] initWithCapacity:shortenedURLStrings.size()]);
+            for (auto& string : shortenedURLStrings) {
+                if (auto url = urlCache->urlForShortenedString(string); url.isValid()) {
+                    if (RetainPtr nsURL = url.createNSURL())
+                        [shortenedURLs setObject:nsURL.get() forKey:string.createNSString().get()];
+                }
+            }
+            completionHandler(adoptNS([[_WKTextExtractionResult alloc]
+                initWithTextContent:text.createNSString().get()
+                filteredOutAnyText:filteredOutAnyText
+                shortenedURLs:shortenedURLs.get()]).get());
         });
     }];
 }
@@ -7281,6 +7313,9 @@ static HashMap<String, HashMap<WebCore::JSHandleIdentifier, String>> extractClie
 
     if (RefPtr filter = WebKit::TextExtractionFilter::singletonIfCreated())
         filter->resetCache();
+
+    if (_textExtractionURLCache)
+        _textExtractionURLCache->clear();
 
     _textValidationCache.clear();
 }

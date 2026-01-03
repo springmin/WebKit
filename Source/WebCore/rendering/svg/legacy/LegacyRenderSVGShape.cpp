@@ -449,6 +449,14 @@ FloatRect LegacyRenderSVGShape::repaintRectInLocalCoordinates(RepaintRectCalcula
     return strokeBoundingBox;
 }
 
+FloatRect LegacyRenderSVGShape::decoratedBoundingBox() const
+{
+    // FIXME: strokeBoundingBox currently includes markers via adjustStrokeBoundingBoxForMarkersAndZeroLengthLinecaps.
+    // Ideally, strokeBoundingBox should only include stroke. We should refactor to compute
+    // decoratedBoundingBox = strokeBoundingBox() + markers explicitly.
+    return strokeBoundingBox();
+}
+
 float LegacyRenderSVGShape::strokeWidth() const
 {
     Ref graphicsElement = this->graphicsElement();

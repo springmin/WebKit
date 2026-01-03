@@ -249,6 +249,8 @@
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::AccentColor",
                 "color-property": true,
+                "color-property-traits-color-custom": true,
+                "color-property-traits-visited-link-color-custom": true,
                 "parser-grammar": "auto | <color>"
             },
             "specification": {
@@ -367,16 +369,15 @@
                 "auto"
             ],
             "codegen-properties": {
-                "animation-wrapper": "CaretColorWrapper",
-                "animation-wrapper-requires-override-parameters": [],
                 "visited-link-color-support": true,
                 "color-property": true,
-                "style-builder-custom": "All",
-                "skip-render-style-getter": true,
-                "skip-render-style-setter": true,
-                "skip-render-style-initial": true,
-                "render-style-changed-for-animation-custom": true,
+                "color-property-traits-color-custom": true,
+                "color-property-traits-visited-link-color-custom": true,
+                "style-extractor-custom": true,
                 "render-style-storage-path": ["m_rareInheritedData"],
+                "render-style-storage-kind": "reference",
+                "render-style-type": "Style::CaretColor",
+                "render-style-visited-link-storage-path": ["m_rareInheritedData"],
                 "parser-grammar": "auto | <color>"
             },
             "specification": {
@@ -393,19 +394,23 @@
                 "animation-wrapper": "VisitedAffectedColorWrapper",
                 "visited-link-color-support": true,
                 "color-property": true,
-                "style-builder-custom": "All",
+                "color-property-traits-color-custom": true,
+                "color-property-traits-visited-link-color-custom": true,
+                "style-builder-custom": "Value",
                 "style-extractor-custom": true,
                 "fast-path-inherited": true,
                 "render-style-initial-custom": true,
                 "render-style-getter-custom": true,
                 "render-style-getter-exported": true,
                 "render-style-getter-inline": false,
+                "render-style-has-explicitly-set-policy": "all-author-origin",
                 "render-style-has-explicitly-set-storage-path": ["m_inheritedFlags"],
                 "render-style-has-explicitly-set-storage-container": "struct",
                 "render-style-storage-path": ["m_inheritedData"],
                 "render-style-storage-kind": "reference",
                 "render-style-type": "WebCore::Color",
                 "render-style-visited-link-storage-path": ["m_inheritedData"],
+                "render-style-visited-dependent-exported": true,
                 "parser-grammar": "<color>"
             },
             "status": {
@@ -447,8 +452,8 @@
                 "rtl"
             ],
             "codegen-properties": {
-                "style-builder-custom": "Value",
                 "style-extractor-custom": true,
+                "render-style-has-explicitly-set-policy": "value-only",
                 "render-style-has-explicitly-set-storage-path": ["m_nonInheritedData", "miscData"],
                 "render-style-getter": "computedDirection",
                 "render-style-getter-custom": true,
@@ -987,7 +992,7 @@
                 "font-description-name-for-methods": "Kerning",
                 "font-property": true,
                 "high-priority": true,
-                "style-builder-needs-system-font-shorthand-check": true,
+                "style-builder-requires-system-font-shorthand-check": true,
                 "render-style-storage-container": "opaque",
                 "render-style-storage-path": ["m_inheritedData", "fontData", "fontCascade"],
                 "render-style-storage-kind": "enum",
@@ -1084,7 +1089,7 @@
                 "font-description-name-for-methods": "VariantPosition",
                 "font-property": true,
                 "high-priority": true,
-                "style-builder-needs-system-font-shorthand-check": true,
+                "style-builder-requires-system-font-shorthand-check": true,
                 "render-style-storage-container": "opaque",
                 "render-style-storage-path": ["m_inheritedData", "fontData", "fontCascade"],
                 "render-style-storage-kind": "enum",
@@ -1114,7 +1119,7 @@
                 "font-description-name-for-methods": "VariantCaps",
                 "font-property": true,
                 "high-priority": true,
-                "style-builder-needs-system-font-shorthand-check": true,
+                "style-builder-requires-system-font-shorthand-check": true,
                 "render-style-storage-container": "opaque",
                 "render-style-storage-path": ["m_inheritedData", "fontData", "fontCascade"],
                 "render-style-storage-kind": "enum",
@@ -1226,7 +1231,7 @@
                 "font-description-name-for-methods": "VariantEmoji",
                 "font-property": true,
                 "high-priority": true,
-                "style-builder-needs-system-font-shorthand-check": true,
+                "style-builder-requires-system-font-shorthand-check": true,
                 "render-style-storage-container": "opaque",
                 "render-style-storage-path": ["m_inheritedData", "fontData", "fontCascade"],
                 "render-style-storage-kind": "enum",
@@ -1335,7 +1340,7 @@
                 "font-description-name-for-methods": "OpticalSizing",
                 "font-property": true,
                 "high-priority": true,
-                "style-builder-needs-system-font-shorthand-check": true,
+                "style-builder-requires-system-font-shorthand-check": true,
                 "render-style-storage-container": "opaque",
                 "render-style-storage-path": ["m_inheritedData", "fontData", "fontCascade"],
                 "render-style-storage-kind": "enum",
@@ -1637,6 +1642,7 @@
                 ],
                 "style-builder-custom": "Value",
                 "style-extractor-custom": true,
+                "render-style-has-explicitly-set-policy": "value-only",
                 "render-style-has-explicitly-set-storage-path": ["m_nonInheritedData", "miscData"],
                 "render-style-getter": "computedWritingMode",
                 "render-style-getter-custom": true,
@@ -2294,11 +2300,13 @@
                 "accepts-quirky-color": true,
                 "visited-link-color-support": true,
                 "color-property": true,
+                "color-property-traits-requires-excludes-visited-link-color": true,
                 "disables-native-appearance": true,
                 "render-style-storage-path": ["m_nonInheritedData", "backgroundData"],
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::Color",
                 "render-style-visited-link-storage-path": ["m_nonInheritedData", "miscData", "visitedLinkColor"],
+                "render-style-visited-dependent-applying-color-filter-exported": true,
                 "parser-grammar": "<color>"
             },
             "specification": {
@@ -2891,8 +2899,8 @@
                     "name": "border-radius",
                     "resolver": "bottom-left"
                 },
-                "style-builder-custom": "All",
                 "disables-native-appearance": true,
+                "render-style-has-explicitly-set-policy": "all-border-radius",
                 "render-style-has-explicitly-set-storage-path": ["m_nonInheritedData", "surroundData"],
                 "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.radii"],
                 "render-style-storage-container": "physical-group",
@@ -2916,8 +2924,8 @@
                     "name": "border-radius",
                     "resolver": "bottom-right"
                 },
-                "style-builder-custom": "All",
                 "disables-native-appearance": true,
+                "render-style-has-explicitly-set-policy": "all-border-radius",
                 "render-style-has-explicitly-set-storage-path": ["m_nonInheritedData", "surroundData"],
                 "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.radii"],
                 "render-style-storage-container": "physical-group",
@@ -3795,8 +3803,8 @@
                     "name": "border-radius",
                     "resolver": "top-left"
                 },
-                "style-builder-custom": "All",
                 "disables-native-appearance": true,
+                "render-style-has-explicitly-set-policy": "all-border-radius",
                 "render-style-has-explicitly-set-storage-path": ["m_nonInheritedData", "surroundData"],
                 "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.radii"],
                 "render-style-storage-container": "physical-group",
@@ -3820,8 +3828,8 @@
                     "name": "border-radius",
                     "resolver": "top-right"
                 },
-                "style-builder-custom": "All",
                 "disables-native-appearance": true,
+                "render-style-has-explicitly-set-policy": "all-border-radius",
                 "render-style-has-explicitly-set-storage-path": ["m_nonInheritedData", "surroundData"],
                 "render-style-storage-path": ["m_nonInheritedData", "surroundData", "border.radii"],
                 "render-style-storage-container": "physical-group",
@@ -4774,14 +4782,14 @@
                 }
             ],
             "codegen-properties": {
-                "animation-wrapper": "VisitedAffectedStyleTypeWrapper<SVGPaint>",
-                "animation-wrapper-requires-override-parameters": ["CSSPropertyID::CSSPropertyFill", "&RenderStyle::fill", "&RenderStyle::setFill", "&RenderStyle::visitedLinkFill", "&RenderStyle::setVisitedLinkFill"],
-                "style-builder-custom": "All",
                 "render-style-storage-path": ["m_svgStyle", "fillData"],
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::SVGPaint",
                 "render-style-visited-link-storage-path": ["m_svgStyle", "fillData"],
                 "color-property": true,
+                "color-property-traits-color-custom": true,
+                "color-property-traits-visited-link-color-custom": true,
+                "visited-link-color-support": true,
                 "parser-grammar": "none | <color> | [ <url> [ none | <color> ]? ]",
                 "parser-grammar-comment": "Current spec grammar is 'none | <color> | [ <url> [ none | <color> ]? ] | context-fill | context-stroke'",
                 "comment": "Also specified (with different grammar) in CSS Fill and Stroke Module Level 3"
@@ -6368,7 +6376,7 @@
             }
         },
         "math-shift": {
-            "animation-type": "not animatable",
+            "animation-type": "discrete",
             "inherited": true,
             "initial": "normal",
             "values": [
@@ -6387,7 +6395,7 @@
             }
         },
         "math-style": {
-            "animation-type": "not animatable",
+            "animation-type": "discrete",
             "inherited": true,
             "initial": "normal",
             "values": [
@@ -7544,8 +7552,8 @@
                     "resolver": "bottom"
                 },
                 "accepts-quirky-length": true,
-                "style-builder-custom": "All",
                 "style-extractor-custom": true,
+                "render-style-has-explicitly-set-policy": "all-author-origin",
                 "render-style-has-explicitly-set-storage-path": ["m_nonInheritedData", "surroundData"],
                 "render-style-storage-path": ["m_nonInheritedData", "surroundData", "padding"],
                 "render-style-storage-container": "physical-group",
@@ -7620,8 +7628,8 @@
                     "resolver": "left"
                 },
                 "accepts-quirky-length": true,
-                "style-builder-custom": "All",
                 "style-extractor-custom": true,
+                "render-style-has-explicitly-set-policy": "all-author-origin",
                 "render-style-has-explicitly-set-storage-path": ["m_nonInheritedData", "surroundData"],
                 "render-style-storage-path": ["m_nonInheritedData", "surroundData", "padding"],
                 "render-style-storage-container": "physical-group",
@@ -7643,8 +7651,8 @@
                     "resolver": "right"
                 },
                 "accepts-quirky-length": true,
-                "style-builder-custom": "All",
                 "style-extractor-custom": true,
+                "render-style-has-explicitly-set-policy": "all-author-origin",
                 "render-style-has-explicitly-set-storage-path": ["m_nonInheritedData", "surroundData"],
                 "render-style-storage-path": ["m_nonInheritedData", "surroundData", "padding"],
                 "render-style-storage-container": "physical-group",
@@ -7666,8 +7674,8 @@
                     "resolver": "top"
                 },
                 "accepts-quirky-length": true,
-                "style-builder-custom": "All",
                 "style-extractor-custom": true,
+                "render-style-has-explicitly-set-policy": "all-author-origin",
                 "render-style-has-explicitly-set-storage-path": ["m_nonInheritedData", "surroundData"],
                 "render-style-storage-path": ["m_nonInheritedData", "surroundData", "padding"],
                 "render-style-storage-container": "physical-group",
@@ -8059,14 +8067,14 @@
                 }
             ],
             "codegen-properties": {
-                "animation-wrapper": "VisitedAffectedStyleTypeWrapper<SVGPaint>",
-                "animation-wrapper-requires-override-parameters": ["CSSPropertyID::CSSPropertyStroke", "&RenderStyle::stroke", "&RenderStyle::setStroke", "&RenderStyle::visitedLinkStroke", "&RenderStyle::setVisitedLinkStroke"],
-                "style-builder-custom": "All",
                 "render-style-storage-path": ["m_svgStyle", "strokeData"],
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::SVGPaint",
                 "render-style-visited-link-storage-path": ["m_svgStyle", "strokeData"],
                 "color-property": true,
+                "color-property-traits-color-custom": true,
+                "color-property-traits-visited-link-color-custom": true,
+                "visited-link-color-support": true,
                 "parser-grammar": "none | <color> | [ <url> [ none | <color> ]? ]",
                 "parser-grammar-comment": "Current spec grammar is 'none | <color> | [ <url> [ none | <color> ]? ] | context-fill | context-stroke'",
                 "comment": "Also specified (with different grammar) in CSS Fill and Stroke Module Level 3"
@@ -8210,7 +8218,7 @@
                 "animation-wrapper": "StyleTypeWrapper",
                 "animation-wrapper-comment": "FIXME: Why doesn't this use VisitedAffectedStyleTypeWrapper?",
                 "animation-wrapper-requires-override-parameters": ["CSSPropertyID::CSSPropertyStrokeColor", "&RenderStyle::strokeColor", "&RenderStyle::setStrokeColor"],
-                "style-builder-custom": "Value",
+                "render-style-has-explicitly-set-policy": "value-only",
                 "render-style-has-explicitly-set-storage-path": ["m_rareInheritedData"],
                 "render-style-storage-path": ["m_rareInheritedData"],
                 "render-style-storage-kind": "reference",
@@ -8231,7 +8239,7 @@
             "inherited": true,
             "initial": "1px",
             "codegen-properties": {
-                "style-builder-custom": "Value",
+                "render-style-has-explicitly-set-policy": "value-only",
                 "render-style-has-explicitly-set-storage-path": ["m_rareInheritedData"],
                 "render-style-storage-path": ["m_rareInheritedData"],
                 "render-style-storage-kind": "reference",
@@ -11409,7 +11417,7 @@
                     "supported-color-schemes"
                 ],
                 "enable-if": "ENABLE_DARK_MODE_CSS",
-                "style-builder-custom": "Value",
+                "render-style-has-explicitly-set-policy": "value-only",
                 "render-style-has-explicitly-set-storage-path": ["m_nonInheritedData", "miscData"],
                 "render-style-storage-path": ["m_rareInheritedData"],
                 "render-style-storage-kind": "value",
@@ -11714,6 +11722,7 @@
                 ],
                 "visited-link-color-support": true,
                 "color-property": true,
+                "color-property-traits-requires-resolving-current-color": true,
                 "render-style-storage-path": ["m_nonInheritedData", "rareData"],
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::Color",
@@ -13301,6 +13310,7 @@
                 "render-style-storage-path": ["m_rareInheritedData"],
                 "render-style-storage-kind": "reference",
                 "render-style-type": "Style::Color",
+                "render-style-resolving-current-color-exported": true,
                 "parser-grammar": "<color>"
             },
             "status": "non-standard"

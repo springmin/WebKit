@@ -30,6 +30,7 @@
 
 #include <atomic>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/SIMDUTF.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/ZippedRange.h>
 #include <wtf/text/AtomString.h>
@@ -294,14 +295,21 @@ RefPtr<StringImpl> StringImpl::create(std::span<const char8_t> codeUnits)
     if (charactersAreAllASCII(codeUnits))
         return create(byteCast<Latin1Character>(codeUnits));
 
-    Vector<char16_t, 1024> buffer(codeUnits.size());
+    auto input = reinterpret_cast<const char*>(codeUnits.data());
+    auto inputLength = codeUnits.size();
 
-    auto result = Unicode::convert(codeUnits, buffer.mutableSpan());
-    if (result.code != Unicode::ConversionResultCode::Success)
+    if (!simdutf::validate_utf8(input, inputLength))
         return nullptr;
 
-    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(result.buffer.size() <= codeUnits.size());
-    return create(result.buffer);
+    size_t utf16Length = simdutf::utf16_length_from_utf8(input, inputLength);
+
+    std::span<char16_t> data;
+    auto string = createUninitializedInternalNonEmpty(utf16Length, data);
+
+    size_t written = simdutf::convert_valid_utf8_to_utf16le(input, inputLength, data.data());
+    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(written == utf16Length);
+
+    return string;
 }
 
 Ref<StringImpl> StringImpl::createStaticStringImpl(std::span<const Latin1Character> characters)
@@ -913,9 +921,7 @@ size_t StringImpl::find(std::span<const Latin1Character> matchString, size_t sta
     // Optimization: keep a running hash of the strings,
     // only call equal if the hashes match.
 
-    if (is8Bit()) {
-        auto searchCharacters = span8().subspan(start);
-
+    auto findWithHash = [&](auto searchCharacters) -> size_t {
         unsigned searchHash = 0;
         unsigned matchHash = 0;
         for (size_t i = 0; i < matchString.size(); ++i) {
@@ -923,35 +929,18 @@ size_t StringImpl::find(std::span<const Latin1Character> matchString, size_t sta
             matchHash += matchString[i];
         }
 
-        size_t i = 0;
-        while (searchHash != matchHash || !equal(searchCharacters.subspan(i).data(), matchString)) {
-            if (i == delta)
-                return notFound;
-            searchHash += searchCharacters[i + matchString.size()];
-            searchHash -= searchCharacters[i];
-            ++i;
+        for (size_t i = 0; i <= delta; ++i) {
+            if (searchHash == matchHash && equal(searchCharacters.subspan(i, matchString.size()), matchString))
+                return start + i;
+            if (i < delta) {
+                searchHash += searchCharacters[i + matchString.size()];
+                searchHash -= searchCharacters[i];
+            }
         }
-        return start + i;
-    }
+        return notFound;
+    };
 
-    auto searchCharacters = span16().subspan(start);
-
-    unsigned searchHash = 0;
-    unsigned matchHash = 0;
-    for (size_t i = 0; i < matchString.size(); ++i) {
-        searchHash += searchCharacters[i];
-        matchHash += matchString[i];
-    }
-
-    size_t i = 0;
-    while (searchHash != matchHash || !equal(searchCharacters.subspan(i).data(), matchString)) {
-        if (i == delta)
-            return notFound;
-        searchHash += searchCharacters[i + matchString.size()];
-        searchHash -= searchCharacters[i];
-        ++i;
-    }
-    return start + i;
+    return is8Bit() ? findWithHash(span8().subspan(start)) : findWithHash(span16().subspan(start));
 }
 
 size_t StringImpl::reverseFind(std::span<const Latin1Character> matchString, size_t start)

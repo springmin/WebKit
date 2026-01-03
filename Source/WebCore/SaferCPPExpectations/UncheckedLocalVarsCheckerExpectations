@@ -1,6 +1,3 @@
-Modules/mediastream/RTCPeerConnection.cpp
-Modules/mediastream/UserMediaRequest.cpp
-Modules/mediastream/libwebrtc/LibWebRTCPeerConnectionBackend.cpp
 Modules/model-element/HTMLModelElement.cpp
 Modules/push-api/PushDatabase.cpp
 Modules/webaudio/AudioWorkletGlobalScope.cpp
@@ -404,7 +401,7 @@ rendering/svg/RenderSVGTextPath.cpp
 rendering/svg/SVGBoundingBoxComputation.cpp
 rendering/svg/SVGContainerLayout.cpp
 rendering/svg/SVGLayerTransformComputation.h
-rendering/svg/SVGPaintServerHandling.h
+rendering/svg/SVGPaintServerHandlingInlines.h
 rendering/svg/SVGPathData.cpp
 rendering/svg/SVGRenderSupport.cpp
 rendering/svg/SVGRenderTreeAsText.cpp
@@ -481,12 +478,9 @@ svg/SVGAnimateMotionElement.cpp
 svg/SVGClipPathElement.cpp
 svg/SVGElement.cpp
 svg/SVGFEComponentTransferElement.cpp
-svg/SVGFEDiffuseLightingElement.cpp
-svg/SVGFEDropShadowElement.cpp
 svg/SVGFEFloodElement.cpp
 svg/SVGFELightElement.cpp
 svg/SVGFEMergeElement.cpp
-svg/SVGFESpecularLightingElement.cpp
 svg/SVGFilterPrimitiveStandardAttributes.cpp
 svg/SVGFontFaceSrcElement.cpp
 svg/SVGGeometryElement.cpp

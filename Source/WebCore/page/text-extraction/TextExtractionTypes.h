@@ -35,6 +35,10 @@
 #include <wtf/URL.h>
 
 namespace WebCore {
+
+struct FrameIdentifierType;
+using FrameIdentifier = ObjectIdentifier<FrameIdentifierType>;
+
 namespace TextExtraction {
 
 enum class Action : uint8_t {
@@ -114,12 +118,19 @@ struct ScrollableItemData {
 
 struct ImageItemData {
     URL completedSource;
+    String shortenedName;
     String altText;
 };
 
 struct LinkItemData {
     String target;
     URL completedURL;
+    String shortenedURLString;
+};
+
+struct IFrameData {
+    String origin;
+    FrameIdentifier identifier;
 };
 
 struct ContentEditableData {
@@ -167,7 +178,7 @@ enum class ContainerType : uint8_t {
     Generic,
 };
 
-using ItemData = Variant<ContainerType, TextItemData, ScrollableItemData, ImageItemData, SelectData, ContentEditableData, TextFormControlData, FormData, LinkItemData>;
+using ItemData = Variant<ContainerType, TextItemData, ScrollableItemData, ImageItemData, SelectData, ContentEditableData, TextFormControlData, FormData, LinkItemData, IFrameData>;
 
 struct Item {
     ItemData data;

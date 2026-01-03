@@ -2424,6 +2424,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/SleepDisablerClient.h
     platform/SleepDisablerIdentifier.h
     platform/StaticPasteboard.h
+    platform/StringEntropyHelpers.h
     platform/StyleAppearance.h
     platform/SuddenTermination.h
     platform/Supplementable.h
@@ -2626,11 +2627,16 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/GraphicsContextStateSaver.h
     platform/graphics/GraphicsLayer.h
     platform/graphics/GraphicsLayerAnimation.h
+    platform/graphics/GraphicsLayerAnimationValue.h
     platform/graphics/GraphicsLayerClient.h
     platform/graphics/GraphicsLayerContentsDisplayDelegate.h
     platform/graphics/GraphicsLayerEnums.h
     platform/graphics/GraphicsLayerFactory.h
+    platform/graphics/GraphicsLayerFilterAnimationValue.h
+    platform/graphics/GraphicsLayerFloatAnimationValue.h
+    platform/graphics/GraphicsLayerKeyframeValueList.h
     platform/graphics/GraphicsLayerTransform.h
+    platform/graphics/GraphicsLayerTransformAnimationValue.h
     platform/graphics/GraphicsStyle.h
     platform/graphics/GraphicsTypes.h
     platform/graphics/GraphicsTypesGL.h
@@ -3190,7 +3196,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/style/PositionTryOrder.h
     rendering/style/RenderStyle.h
     rendering/style/RenderStyle+GettersInlines.h
-    rendering/style/RenderStyle+InitialInlines.h
     rendering/style/RenderStyleBase.h
     rendering/style/RenderStyleBase+GettersInlines.h
     rendering/style/RenderStyleConstants.h
@@ -3249,6 +3254,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/ResolvedScopedName.h
     style/ScopedName.h
     style/StyleChange.h
+    style/StyleColorResolver.h
     style/StyleCustomProperty.h
     style/StyleDifference.h
     style/StyleForVisitedLink.h
@@ -3594,6 +3600,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/transitions/StyleTransitions.h
 
     style/values/ui/StyleAccentColor.h
+    style/values/ui/StyleCaretColor.h
     style/values/ui/StyleCursor.h
     style/values/ui/StyleResize.h
 
@@ -3813,7 +3820,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     ${WebCore_DERIVED_SOURCES_DIR}/ReadableStreamInternalsBuiltins.h
     ${WebCore_DERIVED_SOURCES_DIR}/RenderStyleProperties.h
     ${WebCore_DERIVED_SOURCES_DIR}/RenderStyleProperties+GettersInlines.h
-    ${WebCore_DERIVED_SOURCES_DIR}/RenderStyleProperties+InitialInlines.h
     ${WebCore_DERIVED_SOURCES_DIR}/SVGNames.h
     ${WebCore_DERIVED_SOURCES_DIR}/Settings.h
     ${WebCore_DERIVED_SOURCES_DIR}/StreamInternalsBuiltins.h

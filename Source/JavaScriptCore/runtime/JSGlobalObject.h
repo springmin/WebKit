@@ -775,7 +775,6 @@ public:
     JSFunction* parseIntFunction() const { return m_parseIntFunction.get(this); }
     JSFunction* parseFloatFunction() const { return m_parseFloatFunction.get(this); }
 
-    JSFunction* asyncGeneratorYieldOnRejectedFunction() const;
     JSFunction* promiseEmptyOnFulfilledFunction() const;
     JSFunction* promiseEmptyOnRejectedFunction() const;
     JSFunction* evalFunction() const;
@@ -1171,9 +1170,8 @@ public:
     static bool shouldInterruptScriptBeforeTimeout(const JSGlobalObject*) { return false; }
     static RuntimeFlags javaScriptRuntimeFlags(const JSGlobalObject*) { return RuntimeFlags(); }
 
-    JS_EXPORT_PRIVATE void queueMicrotask(InternalMicrotask, JSValue, JSValue, JSValue, JSValue);
 #if USE(BUN_JSC_ADDITIONS)
-    JS_EXPORT_PRIVATE void queueMicrotask(InternalMicrotask, JSValue, JSValue, JSValue, JSValue, JSValue);
+    JS_EXPORT_PRIVATE void queueMicrotask(InternalMicrotask, uint8_t, JSValue, JSValue, JSValue, JSValue);
 #endif
 
     JS_EXPORT_PRIVATE static void queueMicrotaskToEventLoop(JSGlobalObject&, QueuedTask&&);
@@ -1200,6 +1198,8 @@ public:
         if (Options::useTrustedTypes())
             m_trustedTypesEnforcement = enforcement;
     }
+
+    void queueMicrotask(InternalMicrotask, uint8_t, JSValue, JSValue, JSValue);
 
 #if ASSERT_ENABLED
     const JSGlobalObject* globalObjectAtDebuggerEntry() const { return m_globalObjectAtDebuggerEntry; }

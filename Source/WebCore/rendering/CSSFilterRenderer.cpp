@@ -128,8 +128,10 @@ static RefPtr<FilterEffect> createDropShadowEffect(const DropShadowFilterOperati
 
 static RefPtr<FilterEffect> createDropShadowEffect(const Style::DropShadowFilterOperationWithStyleColor& dropShadowOperation, const RenderStyle& style)
 {
+    Style::ColorResolver colorResolver { style };
+
     float std = dropShadowOperation.stdDeviation();
-    return FEDropShadow::create(std, std, dropShadowOperation.x(), dropShadowOperation.y(), style.colorResolvingCurrentColor(dropShadowOperation.styleColor()), 1);
+    return FEDropShadow::create(std, std, dropShadowOperation.x(), dropShadowOperation.y(), colorResolver.colorResolvingCurrentColor(dropShadowOperation.styleColor()), 1);
 }
 
 static RefPtr<FilterEffect> createGrayScaleEffect(const BasicColorMatrixFilterOperation& colorMatrixOperation)
@@ -330,6 +332,18 @@ OptionSet<FilterRenderingMode> CSSFilterRenderer::supportedFilterRenderingModes(
 
     ASSERT(modes);
     return modes;
+}
+
+void CSSFilterRenderer::computeEnclosingFilterRegion()
+{
+#if USE(CORE_IMAGE)
+    auto enclosingFilterRegion = filterRegion();
+    for (auto& function : m_functions) {
+        if (RefPtr filter = dynamicDowncast<Filter>(function))
+            enclosingFilterRegion.unite(filter->filterRegion());
+    }
+    setEnclosingFilterRegion(enclosingFilterRegion);
+#endif
 }
 
 RefPtr<FilterImage> CSSFilterRenderer::apply(FilterImage* sourceImage, FilterResults& results)

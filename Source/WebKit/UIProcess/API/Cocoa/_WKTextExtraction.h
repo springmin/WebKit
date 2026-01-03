@@ -148,6 +148,12 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA))
  */
 @property (nonatomic) _WKTextExtractionFilterOptions filterOptions;
 
+/*!
+ Automatically shorten extracted URLs by removing or replacing parts of each URL.
+ The default value is `NO`.
+ */
+@property (nonatomic) BOOL shortenURLs;
+
 @end
 
 WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA))
@@ -160,6 +166,12 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA))
  of `_WKTextExtractionFilterOptions` or the maximum paragraph word limit.
  */
 @property (nonatomic, readonly) BOOL filteredOutAnyText;
+
+/*!
+ A map of shortened URL strings to their original URLs; only populated when
+ `shortenURLs` is set when performing text extraction.
+ */
+@property (nonatomic, readonly) NSDictionary<NSString *, NSURL *> *shortenedURLs;
 
 @end
 

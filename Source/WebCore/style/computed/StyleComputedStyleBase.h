@@ -236,6 +236,7 @@ struct BorderImageSource;
 struct BorderImageWidth;
 struct BorderRadius;
 struct BoxShadow;
+struct CaretColor;
 struct Clip;
 struct ClipPath;
 struct Color;
@@ -401,6 +402,7 @@ enum class TextAlign : uint8_t;
 enum class WebkitOverflowScrolling : bool;
 enum class WebkitTouchCallout : bool;
 
+template<typename> struct ColorPropertyTraits;
 template<typename> struct CoordinatedValueList;
 template<typename> struct Shadows;
 
@@ -716,16 +718,6 @@ public:
     inline void setTransformOrigin(TransformOrigin&&);
 
     // MARK: - Properties/descriptors that are not yet generated
-
-    // `caret-color`
-    inline const Color& caretColor() const;
-    inline const Color& visitedLinkCaretColor() const;
-    inline bool hasAutoCaretColor() const;
-    inline bool hasVisitedLinkAutoCaretColor() const;
-    inline void setCaretColor(Color&&);
-    inline void setVisitedLinkCaretColor(Color&&);
-    inline void setHasAutoCaretColor();
-    inline void setHasVisitedLinkAutoCaretColor();
 
     // `cursor`
     inline CursorType cursorType() const;

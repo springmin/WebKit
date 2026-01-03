@@ -2317,6 +2317,7 @@ platform/FileMonitor.cpp
 platform/FileStream.cpp
 platform/FixedContainerEdges.cpp
 platform/FrameRateMonitor.cpp
+platform/StringEntropyHelpers.cpp
 platform/KeyboardScroll.cpp
 platform/KeyboardScrollingAnimator.cpp
 platform/LLVMProfiling.cpp
@@ -2497,6 +2498,7 @@ platform/graphics/Float16ArrayPixelBuffer.cpp
 platform/graphics/FloatLine.cpp
 platform/graphics/FloatPoint.cpp
 platform/graphics/FloatPoint3D.cpp
+platform/graphics/FloatPointGraph.cpp
 platform/graphics/FloatPolygon.cpp
 platform/graphics/FloatQuad.cpp
 platform/graphics/FloatRect.cpp
@@ -2534,6 +2536,7 @@ platform/graphics/GraphicsContextSwitcher.cpp
 platform/graphics/GraphicsLayer.cpp
 platform/graphics/GraphicsLayerAnimation.cpp
 platform/graphics/GraphicsLayerContentsDisplayDelegate.cpp
+platform/graphics/GraphicsLayerKeyframeValueList.cpp
 platform/graphics/GraphicsLayerTransform.cpp
 platform/graphics/GraphicsStyle.cpp
 platform/graphics/GraphicsTZoneImpls.cpp
@@ -3153,6 +3156,7 @@ style/StyleBuilder.cpp
 style/StyleBuilderState.cpp
 style/StyleChange.cpp
 style/StyleChangedAnimatableProperties.cpp
+style/StyleColorResolver.cpp
 style/StyleCustomProperty.cpp
 style/StyleCustomPropertyRegistry.cpp
 style/StyleDifference.cpp
@@ -3169,6 +3173,7 @@ style/StyleResolver.cpp
 style/StyleScope.cpp
 style/StyleScopeRuleSets.cpp
 style/StyleSheetContentsCache.cpp
+style/StyleTransformResolver.cpp
 style/StyleTreeResolver.cpp
 style/StyleUpdate.cpp
 style/Styleable.cpp
@@ -3393,6 +3398,7 @@ style/values/transforms/StyleTranslate.cpp
 style/values/transitions/StyleSingleTransitionProperty.cpp
 style/values/transitions/StyleTransition.cpp
 style/values/ui/StyleAccentColor.cpp
+style/values/ui/StyleCaretColor.cpp
 style/values/ui/StyleCursor.cpp
 style/values/ui/StyleResize.cpp
 style/values/view-transitions/StyleViewTransitionName.cpp
@@ -3673,6 +3679,7 @@ MathMLElementFactory.cpp
 SVGElementFactory.cpp
 StyleBuilderGenerated.cpp
 StyleChangedAnimatablePropertiesGenerated.cpp
+StyleComputedStyleProperties.cpp
 StyleExtractorGenerated.cpp
 StyleInterpolationWrapperMap.cpp
 StylePropertyShorthandFunctions.cpp

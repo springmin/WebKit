@@ -115,6 +115,7 @@ fast/element-targeting [ Pass ]
 fast/text-extraction [ Pass ]
 http/tests/app-privacy-report/ [ Pass ]
 http/tests/device-orientation [ Pass ]
+http/tests/text-extraction [ Pass ]
 fast/history/ios [ Pass ]
 fast/scrolling/ios [ Pass ]
 fast/speechrecognition/ios [ Pass ]
@@ -1699,10 +1700,6 @@ svg/zoom/page/zoom-svg-float-border-padding.xml [ Failure ]
 svg/zoom/page/zoom-zoom-coords.xhtml [ Failure ]
 svg/zoom/text/zoom-coords-viewattr-01-b.svg [ Failure ]
 svg/zoom/text/zoom-svg-float-border-padding.xml [ Failure ]
-
-# CSS transform tests that fail:
-transforms/3d/point-mapping/3d-point-mapping-3.html [ Failure ]
-transforms/3d/point-mapping/3d-point-mapping-overlapping.html [ Failure ]
 
 # Webarchive tests that fail:
 webarchive/test-css-url-resources-in-stylesheets.html [ Failure ]
@@ -5959,8 +5956,6 @@ fast/layoutformattingcontext/ [ Skip ]
 
 webkit.org/b/208018 [ Release ] perf/clone-with-focus.html [ Pass Failure ]
 
-webkit.org/b/208030 http/tests/workers/service/registration-clear-redundant-worker.html [ Pass Timeout ]
-
 webkit.org/b/207038 compositing/webgl/webgl-reflection.html [ Pass Failure ]
 
 webkit.org/b/208081 http/tests/workers/service/Client-properties-auxiliary.html [ Pass Timeout ]
@@ -8188,6 +8183,7 @@ webkit.org/b/296657 fast/scrolling/ios/scroll-anchoring-when-revealing-focused-e
 webkit.org/b/296707 imported/w3c/web-platform-tests/screen-orientation/non-fully-active.html [ Pass Failure ]
 
 webkit.org/b/296709 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/evil/media_height_19.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/line_1_wrapped_cue_grow_downwards.html [ ImageOnlyFailure ]
 
 webkit.org/b/296816 [ Release ] imported/w3c/web-platform-tests/css/css-shapes/spec-examples/shape-outside-012.html [ Pass Failure ]
 
@@ -8337,10 +8333,6 @@ imported/w3c/web-platform-tests/dom/nodes/Document-createEvent.https.html [ Fail
 imported/w3c/web-platform-tests/editing/run/multitest.html?9001-last [ Failure ]
 imported/w3c/web-platform-tests/editing/run/inserttext.html?2001-last [ Failure ]
 
-# webkit.org/b/301546 [iOS26] Two tests in imported/w3c/web-platform-tests/uievents/mouse are constant failures
-imported/w3c/web-platform-tests/uievents/mouse/mouseover-at-removing-mousedown-target.html?duration=16 [ Failure ]
-imported/w3c/web-platform-tests/uievents/mouse/mouseover-at-removing-mousedown-target.html?duration=42 [ Failure ]
-
 webkit.org/b/301548 imported/w3c/web-platform-tests/uievents/mouse/offset_and_page_after_dispatch.tentative.html [ Failure ]
 
 # webkit.org/b/301591 [ iOS 26 ] imported/w3c/web-platform-tests/editing/other/empty-elements-insertion.html is a constant text failure 
@@ -8351,10 +8343,7 @@ imported/w3c/web-platform-tests/inert/inert-pseudo-element-hittest.html [ Failur
 
 webkit.org/b/301670 imported/w3c/web-platform-tests/css/css-anchor-position/popover-implicit-anchor.html [ Failure ]
 
-# webkit.org/b/301869 [iOS] 5 tests in fast/forms/ios are constant failuring with text diff
-fast/forms/ios/accessory-bar-navigation.html [ Failure ]
-fast/forms/ios/focus-input-via-button.html [ Failure ]
-fast/forms/ios/focus-long-textarea.html [ Failure ]
+# webkit.org/b/304751 [iOS] 2 tests in fast/forms/ios are constant failuring with text diff
 fast/forms/ios/zoom-after-input-tap-wide-input.html [ Failure ]
 fast/forms/ios/zoom-after-input-tap.html [ Failure ]
 
@@ -8464,3 +8453,5 @@ webkit.org/b/304427 fast/html/HTMLPluginElement-renderer-destroyed-crash.html [ 
 [ Release ] http/tests/site-isolation/history/add-iframes-and-navigate-mainframe.html [ Skip ]
 [ Release ] http/tests/site-isolation/focus-click-navigation-activeElement.html [ Skip ]
 [ Release ] http/tests/site-isolation/history/add-iframes-and-go-back.html [ Skip ]
+
+webkit.org/b/304851 imported/w3c/web-platform-tests/workers/worker-performance.worker.html [ Pass Failure ]

@@ -68,6 +68,61 @@ public:
     {
         serializationForCSS(builder, context, extractorState.style, extractorState.style.testAnimationWrapperAccelerationThreadedOnly());
     }
+    static RefPtr<CSSValue> extractTestColor(ExtractorState& extractorState)
+    {
+        return createCSSValue(extractorState.pool, extractorState.style, extractorState.style.testColor());
+    }
+    static void extractTestColorSerialization(ExtractorState& extractorState, StringBuilder& builder, const CSS::SerializationContext& context)
+    {
+        serializationForCSS(builder, context, extractorState.style, extractorState.style.testColor());
+    }
+    static RefPtr<CSSValue> extractTestColorAllowsTypesAbsolute(ExtractorState& extractorState)
+    {
+        return createCSSValue(extractorState.pool, extractorState.style, extractorState.style.testColorAllowsTypesAbsolute());
+    }
+    static void extractTestColorAllowsTypesAbsoluteSerialization(ExtractorState& extractorState, StringBuilder& builder, const CSS::SerializationContext& context)
+    {
+        serializationForCSS(builder, context, extractorState.style, extractorState.style.testColorAllowsTypesAbsolute());
+    }
+    static RefPtr<CSSValue> extractTestColorPropertyWithVisitedLinkSupport(ExtractorState& extractorState)
+    {
+        if (extractorState.allowVisitedStyle) {
+            return extractorState.pool.createColorValue(extractorState.style.visitedDependentTestColorPropertyWithVisitedLinkSupport());
+        }
+        return createCSSValue(extractorState.pool, extractorState.style, extractorState.style.testColorPropertyWithVisitedLinkSupport());
+    }
+    static void extractTestColorPropertyWithVisitedLinkSupportSerialization(ExtractorState& extractorState, StringBuilder& builder, const CSS::SerializationContext& context)
+    {
+        if (extractorState.allowVisitedStyle) {
+            builder.append(WebCore::serializationForCSS(extractorState.style.visitedDependentTestColorPropertyWithVisitedLinkSupport()));
+            return;
+        }
+        serializationForCSS(builder, context, extractorState.style, extractorState.style.testColorPropertyWithVisitedLinkSupport());
+    }
+    static RefPtr<CSSValue> extractTestRenderStyleHasExplicitlySetPolicyAllAuthorOrigin(ExtractorState& extractorState)
+    {
+        return createCSSValue(extractorState.pool, extractorState.style, extractorState.style.testRenderStyleHasExplicitlySetPolicyAllAuthorOrigin());
+    }
+    static void extractTestRenderStyleHasExplicitlySetPolicyAllAuthorOriginSerialization(ExtractorState& extractorState, StringBuilder& builder, const CSS::SerializationContext& context)
+    {
+        serializationForCSS(builder, context, extractorState.style, extractorState.style.testRenderStyleHasExplicitlySetPolicyAllAuthorOrigin());
+    }
+    static RefPtr<CSSValue> extractTestRenderStyleHasExplicitlySetPolicyAllBorderRadius(ExtractorState& extractorState)
+    {
+        return createCSSValue(extractorState.pool, extractorState.style, extractorState.style.testRenderStyleHasExplicitlySetPolicyAllBorderRadius());
+    }
+    static void extractTestRenderStyleHasExplicitlySetPolicyAllBorderRadiusSerialization(ExtractorState& extractorState, StringBuilder& builder, const CSS::SerializationContext& context)
+    {
+        serializationForCSS(builder, context, extractorState.style, extractorState.style.testRenderStyleHasExplicitlySetPolicyAllBorderRadius());
+    }
+    static RefPtr<CSSValue> extractTestRenderStyleHasExplicitlySetPolicyValueOnly(ExtractorState& extractorState)
+    {
+        return createCSSValue(extractorState.pool, extractorState.style, extractorState.style.testRenderStyleHasExplicitlySetPolicyValueOnly());
+    }
+    static void extractTestRenderStyleHasExplicitlySetPolicyValueOnlySerialization(ExtractorState& extractorState, StringBuilder& builder, const CSS::SerializationContext& context)
+    {
+        serializationForCSS(builder, context, extractorState.style, extractorState.style.testRenderStyleHasExplicitlySetPolicyValueOnly());
+    }
     static RefPtr<CSSValue> extractTestRenderStyleStorageOneLevelEnum(ExtractorState& extractorState)
     {
         return createCSSValue(extractorState.pool, extractorState.style, extractorState.style.testRenderStyleStorageOneLevelEnum());
@@ -220,17 +275,11 @@ RefPtr<CSSValue> ExtractorGenerated::extractValue(ExtractorState& extractorState
         // Skipped - Not computable
         return nullptr;
     case CSSPropertyID::CSSPropertyTestColor:
-        // Skipped - Not computable
-        return nullptr;
+        return ExtractorFunctions::extractTestColor(extractorState);
     case CSSPropertyID::CSSPropertyTestColorAllowsTypesAbsolute:
-        // Skipped - Not computable
-        return nullptr;
-    case CSSPropertyID::CSSPropertyTestColorPropertyWithNoVisitedLinkSupport:
-        // Skipped - Not computable
-        return nullptr;
+        return ExtractorFunctions::extractTestColorAllowsTypesAbsolute(extractorState);
     case CSSPropertyID::CSSPropertyTestColorPropertyWithVisitedLinkSupport:
-        // Skipped - Not computable
-        return nullptr;
+        return ExtractorFunctions::extractTestColorPropertyWithVisitedLinkSupport(extractorState);
     case CSSPropertyID::CSSPropertyTestCustomExtractor:
         return ExtractorCustom::extractTestCustomExtractor(extractorState);
     case CSSPropertyID::CSSPropertyTestFunctionBoundedParameters:
@@ -407,6 +456,12 @@ RefPtr<CSSValue> ExtractorGenerated::extractValue(ExtractorState& extractorState
     case CSSPropertyID::CSSPropertyTestProperty:
         // Skipped - Not computable
         return nullptr;
+    case CSSPropertyID::CSSPropertyTestRenderStyleHasExplicitlySetPolicyAllAuthorOrigin:
+        return ExtractorFunctions::extractTestRenderStyleHasExplicitlySetPolicyAllAuthorOrigin(extractorState);
+    case CSSPropertyID::CSSPropertyTestRenderStyleHasExplicitlySetPolicyAllBorderRadius:
+        return ExtractorFunctions::extractTestRenderStyleHasExplicitlySetPolicyAllBorderRadius(extractorState);
+    case CSSPropertyID::CSSPropertyTestRenderStyleHasExplicitlySetPolicyValueOnly:
+        return ExtractorFunctions::extractTestRenderStyleHasExplicitlySetPolicyValueOnly(extractorState);
     case CSSPropertyID::CSSPropertyTestRenderStyleStorageOneLevelEnum:
         return ExtractorFunctions::extractTestRenderStyleStorageOneLevelEnum(extractorState);
     case CSSPropertyID::CSSPropertyTestRenderStyleStorageOneLevelRaw:
@@ -571,16 +626,13 @@ void ExtractorGenerated::extractValueSerialization(ExtractorState& extractorStat
         // Skipped - Not computable
         return;
     case CSSPropertyID::CSSPropertyTestColor:
-        // Skipped - Not computable
+        ExtractorFunctions::extractTestColorSerialization(extractorState, builder, context);
         return;
     case CSSPropertyID::CSSPropertyTestColorAllowsTypesAbsolute:
-        // Skipped - Not computable
-        return;
-    case CSSPropertyID::CSSPropertyTestColorPropertyWithNoVisitedLinkSupport:
-        // Skipped - Not computable
+        ExtractorFunctions::extractTestColorAllowsTypesAbsoluteSerialization(extractorState, builder, context);
         return;
     case CSSPropertyID::CSSPropertyTestColorPropertyWithVisitedLinkSupport:
-        // Skipped - Not computable
+        ExtractorFunctions::extractTestColorPropertyWithVisitedLinkSupportSerialization(extractorState, builder, context);
         return;
     case CSSPropertyID::CSSPropertyTestCustomExtractor:
         ExtractorCustom::extractTestCustomExtractorSerialization(extractorState, builder, context);
@@ -758,6 +810,15 @@ void ExtractorGenerated::extractValueSerialization(ExtractorState& extractorStat
         return;
     case CSSPropertyID::CSSPropertyTestProperty:
         // Skipped - Not computable
+        return;
+    case CSSPropertyID::CSSPropertyTestRenderStyleHasExplicitlySetPolicyAllAuthorOrigin:
+        ExtractorFunctions::extractTestRenderStyleHasExplicitlySetPolicyAllAuthorOriginSerialization(extractorState, builder, context);
+        return;
+    case CSSPropertyID::CSSPropertyTestRenderStyleHasExplicitlySetPolicyAllBorderRadius:
+        ExtractorFunctions::extractTestRenderStyleHasExplicitlySetPolicyAllBorderRadiusSerialization(extractorState, builder, context);
+        return;
+    case CSSPropertyID::CSSPropertyTestRenderStyleHasExplicitlySetPolicyValueOnly:
+        ExtractorFunctions::extractTestRenderStyleHasExplicitlySetPolicyValueOnlySerialization(extractorState, builder, context);
         return;
     case CSSPropertyID::CSSPropertyTestRenderStyleStorageOneLevelEnum:
         ExtractorFunctions::extractTestRenderStyleStorageOneLevelEnumSerialization(extractorState, builder, context);

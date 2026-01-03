@@ -188,6 +188,7 @@ public:
     void clearController() { m_controller = nullptr; }
 
     Document* document();
+    RefPtr<Document> protectedDocument();
 
     void updateDescriptions(PeerConnectionBackend::DescriptionStates&&);
     void updateTransceiversAfterSuccessfulLocalDescription();
@@ -299,5 +300,7 @@ private:
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_EVENTTARGET(RTCPeerConnection)
 
 #endif // ENABLE(WEB_RTC)

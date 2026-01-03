@@ -1,7 +1,5 @@
 Modules/credentialmanagement/CredentialsContainer.cpp
 Modules/mediacontrols/MediaControlsHost.cpp
-Modules/mediastream/RTCController.cpp
-Modules/mediastream/RTCPeerConnection.cpp
 Modules/model-element/HTMLModelElement.cpp
 Modules/pictureinpicture/HTMLVideoElementPictureInPicture.cpp
 Modules/push-api/PushDatabase.cpp
@@ -225,7 +223,6 @@ inspector/InspectorOverlayLabel.cpp
 inspector/InspectorResourceUtilities.cpp
 inspector/InspectorStyleSheet.cpp
 inspector/PageDebugger.cpp
-inspector/PageInspectorController.cpp
 inspector/WorkerDebugger.cpp
 inspector/agents/InspectorCSSAgent.cpp
 inspector/agents/InspectorCanvasAgent.cpp
@@ -540,10 +537,10 @@ rendering/mathml/RenderMathMLSpace.cpp
 rendering/mathml/RenderMathMLToken.cpp
 rendering/mathml/RenderMathMLUnderOver.cpp
 rendering/shapes/ShapeOutsideInfo.cpp
-rendering/style/RenderStyle.cpp
-rendering/style/RenderStyle.h
 rendering/style/RenderStyle+GettersInlines.h
 rendering/style/RenderStyle+SettersInlines.h
+rendering/style/RenderStyle.cpp
+rendering/style/RenderStyle.h
 rendering/style/RenderStyleBase+GettersInlines.h
 rendering/style/StyleCachedImage.cpp
 rendering/style/StyleCanvasImage.cpp
@@ -572,7 +569,6 @@ rendering/svg/SVGContainerLayout.cpp
 rendering/svg/SVGInlineTextBox.cpp
 rendering/svg/SVGLayerTransformComputation.h
 rendering/svg/SVGLayerTransformUpdater.h
-rendering/svg/SVGPaintServerHandling.h
 rendering/svg/SVGRenderSupport.cpp
 rendering/svg/SVGRenderTreeAsText.cpp
 rendering/svg/SVGRenderingContext.cpp

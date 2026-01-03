@@ -62,11 +62,11 @@
 #import "RenderMeter.h"
 #import "RenderSlider.h"
 #import "RenderStyle+GettersInlines.h"
-#import "RenderStyle+InitialInlines.h"
 #import "RenderStyle+SettersInlines.h"
 #import "RenderView.h"
 #import "SliderThumbElement.h"
 #import "StringTruncator.h"
+#import "StyleComputedStyle+InitialInlines.h"
 #import "StylePadding.h"
 #import "UTIUtilities.h"
 #import <Carbon/Carbon.h>
@@ -1232,7 +1232,7 @@ static void setFontFromControlSize(RenderStyle& style, NSControlSize controlSize
     fontDescription.setSpecifiedSize([font pointSize] * style.usedZoom());
 
     // Reset line height
-    style.setLineHeight(RenderStyle::initialLineHeight());
+    style.setLineHeight(Style::ComputedStyle::initialLineHeight());
     style.setFontDescription(WTF::move(fontDescription));
 }
 
@@ -1425,7 +1425,7 @@ void RenderThemeMac::adjustMenuListButtonStyle(RenderStyle& style, const Element
 
     style.setMinHeight(18_css_px);
 
-    style.setLineHeight(RenderStyle::initialLineHeight());
+    style.setLineHeight(Style::ComputedStyle::initialLineHeight());
 }
 
 std::span<const IntSize, 4> RenderThemeMac::menuListSizes() const
@@ -1840,8 +1840,8 @@ static void paintAttachmentIconBackground(const RenderAttachment& attachment, Gr
     if (paintBorder)
         backgroundRect.inflate(-attachmentIconSelectionBorderThickness);
 
-    CheckedRef style = attachment.style();
-    Color backgroundColor = style->colorByApplyingColorFilter(attachmentIconBackgroundColor);
+    Style::ColorResolver colorResolver { attachment.style() };
+    auto backgroundColor = colorResolver.colorApplyingColorFilter(attachmentIconBackgroundColor);
     context.fillRoundedRect(FloatRoundedRect(backgroundRect, FloatRoundedRect::Radii(attachmentIconBackgroundRadius)), backgroundColor);
 
     if (paintBorder) {
@@ -1852,7 +1852,7 @@ static void paintAttachmentIconBackground(const RenderAttachment& attachment, Gr
         Path borderPath;
         borderPath.addRoundedRect(borderRect, iconBackgroundRadiusSize);
 
-        Color borderColor = style->colorByApplyingColorFilter(attachmentIconBorderColor);
+        auto borderColor = colorResolver.colorApplyingColorFilter(attachmentIconBorderColor);
         context.setStrokeColor(borderColor);
         context.setStrokeThickness(attachmentIconSelectionBorderThickness);
         context.strokePath(borderPath);
@@ -1909,9 +1909,11 @@ static void paintAttachmentTitleBackground(const RenderAttachment& attachment, G
         return line.backgroundRect;
     });
 
-    Color backgroundColor = colorFromCocoaColor(attachment.frame().checkedSelection()->isFocusedAndActive() ? [NSColor selectedContentBackgroundColor] : [NSColor unemphasizedSelectedContentBackgroundColor]);
+    auto backgroundColor = colorFromCocoaColor(attachment.frame().checkedSelection()->isFocusedAndActive() ? [NSColor selectedContentBackgroundColor] : [NSColor unemphasizedSelectedContentBackgroundColor]);
 
-    backgroundColor = attachment.checkedStyle()->colorByApplyingColorFilter(backgroundColor);
+    Style::ColorResolver colorResolver { attachment.style() };
+
+    backgroundColor = colorResolver.colorApplyingColorFilter(backgroundColor);
     context.setFillColor(backgroundColor);
 
     Path backgroundPath = PathUtilities::pathWithShrinkWrappedRects(backgroundRects, attachmentTitleBackgroundRadius);
@@ -1956,7 +1958,9 @@ static void paintAttachmentPlaceholderBorder(const RenderAttachment& attachment,
     Path borderPath;
     borderPath.addRoundedRect(layout.attachmentRect, FloatSize(attachmentPlaceholderBorderRadius, attachmentPlaceholderBorderRadius));
 
-    Color placeholderBorderColor = attachment.checkedStyle()->colorByApplyingColorFilter(attachmentPlaceholderBorderColor);
+    Style::ColorResolver colorResolver { attachment.style() };
+
+    auto placeholderBorderColor = colorResolver.colorApplyingColorFilter(attachmentPlaceholderBorderColor);
     context.setStrokeColor(placeholderBorderColor);
     context.setStrokeThickness(attachmentPlaceholderBorderWidth);
     context.setStrokeStyle(StrokeStyle::DashedStroke);

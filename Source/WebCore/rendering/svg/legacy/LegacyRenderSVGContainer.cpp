@@ -221,6 +221,11 @@ FloatRect LegacyRenderSVGContainer::repaintRectInLocalCoordinates(RepaintRectCal
     return *m_accurateRepaintBoundingBox;
 }
 
+FloatRect LegacyRenderSVGContainer::decoratedBoundingBox() const
+{
+    return SVGRenderSupport::computeContainerDecoratedBoundingBox(*this);
+}
+
 bool LegacyRenderSVGContainer::nodeAtFloatPoint(const HitTestRequest& request, HitTestResult& result, const FloatPoint& pointInParent, HitTestAction hitTestAction)
 {
     // Give LegacyRenderSVGViewportContainer a chance to apply its viewport clip

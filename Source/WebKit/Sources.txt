@@ -248,6 +248,7 @@ Shared/SharedStringHashStore.cpp
 Shared/SharedStringHashTableReadOnly.cpp
 Shared/SharedStringHashTable.cpp
 Shared/TextExtractionToStringConversion.cpp
+Shared/TextExtractionURLCache.cpp
 Shared/UserData.cpp
 Shared/WebBackForwardListFrameItem.cpp
 Shared/WebBackForwardListItem.cpp
@@ -442,6 +443,7 @@ UIProcess/SystemPreviewController.cpp
 UIProcess/SpeechRecognitionPermissionManager.cpp
 UIProcess/TextChecker.cpp
 UIProcess/TextCheckerCompletion.cpp
+UIProcess/TextExtractionAssertionScope.cpp
 UIProcess/UIProcessLogInitialization.cpp
 UIProcess/UserMediaPermissionCheckProxy.cpp
 UIProcess/UserMediaPermissionRequestManagerProxy.cpp
