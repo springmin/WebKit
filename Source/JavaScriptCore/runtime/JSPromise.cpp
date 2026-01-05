@@ -435,13 +435,18 @@ void JSPromise::performPromiseThenWithInternalMicrotask(VM& vm, JSGlobalObject* 
 #if USE(BUN_JSC_ADDITIONS)
         // BUN: Different tasks expect context in different argument positions:
         // - Combinator jobs (PromiseAllResolveJob, etc.): args[2] = context
+        // - AsyncGenerator jobs: args[2] = context (generator)
         // - AsyncFunctionResume: args[3] = context (generator)
-        // Use 5-arg for combinator jobs (context in args[2]), 6-arg for others (context in args[3])
+        // Use 5-arg for combinator/asyncgenerator jobs (context in args[2]), 6-arg for others (context in args[3])
         switch (task) {
         case InternalMicrotask::PromiseAllResolveJob:
         case InternalMicrotask::PromiseAllSettledResolveJob:
         case InternalMicrotask::PromiseAnyResolveJob:
         case InternalMicrotask::InternalPromiseAllResolveJob:
+        case InternalMicrotask::AsyncGeneratorYieldAwaited:
+        case InternalMicrotask::AsyncGeneratorBodyCallNormal:
+        case InternalMicrotask::AsyncGeneratorBodyCallReturn:
+        case InternalMicrotask::AsyncGeneratorResumeNext:
             globalObject->queueMicrotask(task, static_cast<uint8_t>(Status::Rejected), promise, reactionsOrResult, context);
             break;
         default:
@@ -456,11 +461,16 @@ void JSPromise::performPromiseThenWithInternalMicrotask(VM& vm, JSGlobalObject* 
     case JSPromise::Status::Fulfilled: {
 #if USE(BUN_JSC_ADDITIONS)
         // BUN: Different tasks expect context in different argument positions
+        // Use 5-arg for combinator/asyncgenerator jobs (context in args[2]), 6-arg for others (context in args[3])
         switch (task) {
         case InternalMicrotask::PromiseAllResolveJob:
         case InternalMicrotask::PromiseAllSettledResolveJob:
         case InternalMicrotask::PromiseAnyResolveJob:
         case InternalMicrotask::InternalPromiseAllResolveJob:
+        case InternalMicrotask::AsyncGeneratorYieldAwaited:
+        case InternalMicrotask::AsyncGeneratorBodyCallNormal:
+        case InternalMicrotask::AsyncGeneratorBodyCallReturn:
+        case InternalMicrotask::AsyncGeneratorResumeNext:
             globalObject->queueMicrotask(task, static_cast<uint8_t>(Status::Fulfilled), promise, reactionsOrResult, context);
             break;
         default:
