@@ -109,6 +109,9 @@ struct Config {
 
     StopTheWorldCallback JSC_CONFIG_METHOD(wasmDebuggerStopTheWorld);
     StopTheWorldCallback JSC_CONFIG_METHOD(memoryDebuggerStopTheWorld);
+#if USE(BUN_JSC_ADDITIONS)
+    StopTheWorldCallback JSC_CONFIG_METHOD(jsDebuggerStopTheWorld);
+#endif
 
     struct {
         uint8_t exceptionInstructions[maxBytecodeStructLength + 1];
