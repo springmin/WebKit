@@ -1201,6 +1201,9 @@ public:
     }
 
     void queueMicrotask(InternalMicrotask, uint8_t, JSValue, JSValue, JSValue);
+#if USE(BUN_JSC_ADDITIONS)
+    void queueMicrotask(InternalMicrotask, uint8_t, JSValue, JSValue, JSValue, JSValue);
+#endif
 
 
 #if ASSERT_ENABLED

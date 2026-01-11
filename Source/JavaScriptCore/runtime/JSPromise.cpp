@@ -292,6 +292,37 @@ void JSPromise::performPromiseThen(VM& vm, JSGlobalObject* globalObject, JSValue
     markAsHandled();
 }
 
+#if USE(BUN_JSC_ADDITIONS)
+void JSPromise::performPromiseThenWithContext(VM& vm, JSGlobalObject* globalObject, JSValue onFulfilled, JSValue onRejected, JSValue promiseOrCapability, JSValue context)
+{
+    if (!onFulfilled.isCallable())
+        onFulfilled = globalObject->promiseEmptyOnFulfilledFunction();
+
+    if (!onRejected.isCallable())
+        onRejected = globalObject->promiseEmptyOnRejectedFunction();
+
+    JSValue reactionsOrResult = this->reactionsOrResult();
+    switch (status()) {
+    case JSPromise::Status::Pending: {
+        auto* reaction = JSPromiseReaction::create(vm, promiseOrCapability, onFulfilled, onRejected, context, jsDynamicCast<JSPromiseReaction*>(reactionsOrResult));
+        setReactionsOrResult(vm, reaction);
+        break;
+    }
+    case JSPromise::Status::Rejected: {
+        if (!isHandled())
+            globalObject->globalObjectMethodTable()->promiseRejectionTracker(globalObject, this, JSPromiseRejectionOperation::Handle);
+        globalObject->queueMicrotask(InternalMicrotask::PromiseReactionJob, static_cast<uint8_t>(Status::Rejected), promiseOrCapability, onRejected, reactionsOrResult, context);
+        break;
+    }
+    case JSPromise::Status::Fulfilled: {
+        globalObject->queueMicrotask(InternalMicrotask::PromiseReactionJob, static_cast<uint8_t>(Status::Fulfilled), promiseOrCapability, onFulfilled, reactionsOrResult, context);
+        break;
+    }
+    }
+    markAsHandled();
+}
+#endif
+
 void JSPromise::performPromiseThenWithInternalMicrotask(VM& vm, JSGlobalObject* globalObject, InternalMicrotask task, JSValue promise, JSValue context)
 {
     JSValue reactionsOrResult = this->reactionsOrResult();
@@ -598,7 +629,14 @@ void JSPromise::triggerPromiseReactions(VM& vm, JSGlobalObject* globalObject, St
             globalObject->queueMicrotask(task, static_cast<uint8_t>(status), promise, argument, context);
             continue;
         }
+#if USE(BUN_JSC_ADDITIONS)
+        if (!context.isUndefinedOrNull()) {
+            globalObject->queueMicrotask(InternalMicrotask::PromiseReactionJob, static_cast<uint8_t>(status), promise, handler, argument, context);
+            continue;
+        }
+#else
         ASSERT(context.isUndefinedOrNull());
+#endif
         globalObject->queueMicrotask(InternalMicrotask::PromiseReactionJob, static_cast<uint8_t>(status), promise, handler, argument);
     }
 }

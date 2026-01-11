@@ -903,6 +903,13 @@ JSC_DEFINE_HOST_FUNCTION(performPromiseThen, (JSGlobalObject* globalObject, Call
     JSValue onFulfilled = callFrame->uncheckedArgument(1);
     JSValue onRejected = callFrame->uncheckedArgument(2);
     JSValue promiseOrCapability = callFrame->uncheckedArgument(3);
+#if USE(BUN_JSC_ADDITIONS)
+    if (callFrame->argumentCount() > 4) {
+        JSValue context = callFrame->uncheckedArgument(4);
+        promise->performPromiseThenWithContext(globalObject->vm(), globalObject, onFulfilled, onRejected, promiseOrCapability, context);
+        return encodedJSUndefined();
+    }
+#endif
     promise->performPromiseThen(globalObject->vm(), globalObject, onFulfilled, onRejected, promiseOrCapability);
     return encodedJSUndefined();
 }
@@ -3660,6 +3667,18 @@ void JSGlobalObject::queueMicrotask(InternalMicrotask job, uint8_t payload, JSVa
     }
     vm().queueMicrotask(WTF::move(task));
 }
+
+#if USE(BUN_JSC_ADDITIONS)
+void JSGlobalObject::queueMicrotask(InternalMicrotask job, uint8_t payload, JSValue argument0, JSValue argument1, JSValue argument2, JSValue argument3)
+{
+    QueuedTask task { nullptr, job, payload, this, argument0, argument1, argument2, argument3 };
+    if (globalObjectMethodTable()->queueMicrotaskToEventLoop) {
+        globalObjectMethodTable()->queueMicrotaskToEventLoop(*this, WTF::move(task));
+        return;
+    }
+    vm().queueMicrotask(WTF::move(task));
+}
+#endif
 
 void JSGlobalObject::promiseRejectionTracker(JSGlobalObject* globalObject, JSPromise* promise, JSPromiseRejectionOperation operation)
 {

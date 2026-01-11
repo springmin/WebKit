@@ -135,6 +135,9 @@ public:
 
     // This is abstract operations defined in the spec.
     void performPromiseThen(VM&, JSGlobalObject*, JSValue onFulfilled, JSValue onRejected, JSValue);
+#if USE(BUN_JSC_ADDITIONS)
+    void performPromiseThenWithContext(VM&, JSGlobalObject*, JSValue onFulfilled, JSValue onRejected, JSValue, JSValue context);
+#endif
     void rejectPromise(VM&, JSGlobalObject*, JSValue);
     void fulfillPromise(VM&, JSGlobalObject*, JSValue);
     void resolvePromise(JSGlobalObject*, JSValue);
