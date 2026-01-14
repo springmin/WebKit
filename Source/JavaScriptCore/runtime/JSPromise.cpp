@@ -935,6 +935,17 @@ createNewPromise:
     if (constructor == globalObject->promiseConstructor()) [[likely]] {
         JSPromise* promise = JSPromise::create(vm, globalObject->promiseStructure());
         scope.release();
+#if USE(BUN_JSC_ADDITIONS)
+        // For InternalPromise, use internal microtask to adopt the state without
+        // calling user-visible .then(). This preserves InternalPromise isolation
+        // while returning a regular Promise for instanceof checks.
+        if (argument.inherits<JSInternalPromise>()) {
+            auto* internalPromise = jsCast<JSInternalPromise*>(argument);
+            internalPromise->performPromiseThenWithInternalMicrotask(vm, globalObject,
+                InternalMicrotask::PromiseResolveWithoutHandlerJob, promise, jsUndefined());
+            return promise;
+        }
+#endif
         promise->resolve(globalObject, argument);
         return promise;
     }
