@@ -192,6 +192,7 @@ if (!(Test-Path -Path $ICU_STATIC_ROOT) -or !(Test-Path -Path "$ICU_STATIC_LIBRA
         "/p:Configuration=$msbuildConfiguration",
         "/p:Platform=$Platform",
         "/p:SkipUWP=true",
+        "/p:WindowsTargetPlatformVersion=10.0",
         "/m",
         "/v:normal"
     )
@@ -246,6 +247,7 @@ if (!(Test-Path -Path $ICU_STATIC_ROOT) -or !(Test-Path -Path "$ICU_STATIC_LIBRA
             "/p:Configuration=$msbuildConfiguration",
             "/p:Platform=$Platform",
             "/p:SkipUWP=true",
+            "/p:WindowsTargetPlatformVersion=10.0",
             "/m",
             "/v:minimal"
         )
@@ -346,6 +348,22 @@ if ($CMAKE_BUILD_TYPE -eq "Debug") {
 $NoWebassembly = if ($env:NO_WEBASSEMBLY) { $env:NO_WEBASSEMBLY } else { $false }
 $WebAssemblyState = if ($NoWebassembly) { "OFF" } else { "ON" }
 
+# For ARM64, use the explicitly installed LLVM toolchain instead of VS's x64 LLVM
+# The VS Developer Shell adds VS's x64 LLVM to PATH which would be used otherwise
+if ($Platform -eq "ARM64") {
+    $ClangPath = "C:/LLVM/bin/clang-cl.exe"
+    $LldLinkPath = "C:/LLVM/bin/lld-link.exe"
+    # Note: The LLVM SEH unwind bug on Windows ARM64 (llvm/llvm-project#47432) is worked
+    # around by disabling the probe functionality in MacroAssemblerARM64.cpp rather than
+    # using compiler flags.
+    $ARM64SehWorkaround = ""
+    Write-Host ":: Using ARM64 LLVM toolchain: $ClangPath"
+} else {
+    $ClangPath = "clang-cl"
+    $LldLinkPath = "lld-link"
+    $ARM64SehWorkaround = ""
+}
+
 cmake -S . -B $WebKitBuild `
     -DPORT="JSCOnly" `
     -DENABLE_STATIC_JSC=ON `
@@ -366,12 +384,13 @@ cmake -S . -B $WebKitBuild `
     "-DICU_ROOT=${ICU_STATIC_ROOT}" `
     "-DICU_LIBRARY=${ICU_STATIC_LIBRARY}" `
     "-DICU_INCLUDE_DIR=${ICU_STATIC_INCLUDE_DIR}" `
-    "-DCMAKE_C_COMPILER=clang-cl" `
-    "-DCMAKE_CXX_COMPILER=clang-cl" `
-    "-DCMAKE_C_FLAGS_RELEASE=/Zi /O2 /Ob2 /DNDEBUG /DU_STATIC_IMPLEMENTATION " `
-    "-DCMAKE_CXX_FLAGS_RELEASE=/Zi /O2 /Ob2 /DNDEBUG /DU_STATIC_IMPLEMENTATION -Xclang -fno-c++-static-destructors " `
-    "-DCMAKE_C_FLAGS_DEBUG=/Zi /FS /O0 /Ob0 /DU_STATIC_IMPLEMENTATION " `
-    "-DCMAKE_CXX_FLAGS_DEBUG=/Zi /FS /O0 /Ob0 /DU_STATIC_IMPLEMENTATION -Xclang -fno-c++-static-destructors " `
+    "-DCMAKE_C_COMPILER=${ClangPath}" `
+    "-DCMAKE_CXX_COMPILER=${ClangPath}" `
+    "-DCMAKE_LINKER=${LldLinkPath}" `
+    "-DCMAKE_C_FLAGS_RELEASE=/Zi /O2 /Ob2 /DNDEBUG /DU_STATIC_IMPLEMENTATION ${ARM64SehWorkaround}" `
+    "-DCMAKE_CXX_FLAGS_RELEASE=/Zi /O2 /Ob2 /DNDEBUG /DU_STATIC_IMPLEMENTATION /clang:-fno-c++-static-destructors ${ARM64SehWorkaround}" `
+    "-DCMAKE_C_FLAGS_DEBUG=/Zi /FS /O0 /Ob0 /DU_STATIC_IMPLEMENTATION ${ARM64SehWorkaround}" `
+    "-DCMAKE_CXX_FLAGS_DEBUG=/Zi /FS /O0 /Ob0 /DU_STATIC_IMPLEMENTATION /clang:-fno-c++-static-destructors ${ARM64SehWorkaround}" `
     -DENABLE_REMOTE_INSPECTOR=ON `
     "-DCMAKE_MSVC_RUNTIME_LIBRARY=${CmakeMsvcRuntimeLibrary}" `
     -G Ninja
