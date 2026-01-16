@@ -353,10 +353,15 @@ $WebAssemblyState = if ($NoWebassembly) { "OFF" } else { "ON" }
 if ($Platform -eq "ARM64") {
     $ClangPath = "C:/LLVM/bin/clang-cl.exe"
     $LldLinkPath = "C:/LLVM/bin/lld-link.exe"
+    # Workaround for LLVM SEH unwind bug on Windows ARM64 (llvm/llvm-project#47432)
+    # The bug causes "Failed to evaluate function length in SEH unwind info" when
+    # inline assembly contains alignment directives. Disabling loop alignment avoids this.
+    $ARM64SehWorkaround = "/clang:-mllvm /clang:-align-loops=1"
     Write-Host ":: Using ARM64 LLVM toolchain: $ClangPath"
 } else {
     $ClangPath = "clang-cl"
     $LldLinkPath = "lld-link"
+    $ARM64SehWorkaround = ""
 }
 
 cmake -S . -B $WebKitBuild `
@@ -382,10 +387,10 @@ cmake -S . -B $WebKitBuild `
     "-DCMAKE_C_COMPILER=${ClangPath}" `
     "-DCMAKE_CXX_COMPILER=${ClangPath}" `
     "-DCMAKE_LINKER=${LldLinkPath}" `
-    "-DCMAKE_C_FLAGS_RELEASE=/Zi /O2 /Ob2 /DNDEBUG /DU_STATIC_IMPLEMENTATION " `
-    "-DCMAKE_CXX_FLAGS_RELEASE=/Zi /O2 /Ob2 /DNDEBUG /DU_STATIC_IMPLEMENTATION /clang:-fno-c++-static-destructors " `
-    "-DCMAKE_C_FLAGS_DEBUG=/Zi /FS /O0 /Ob0 /DU_STATIC_IMPLEMENTATION " `
-    "-DCMAKE_CXX_FLAGS_DEBUG=/Zi /FS /O0 /Ob0 /DU_STATIC_IMPLEMENTATION /clang:-fno-c++-static-destructors " `
+    "-DCMAKE_C_FLAGS_RELEASE=/Zi /O2 /Ob2 /DNDEBUG /DU_STATIC_IMPLEMENTATION ${ARM64SehWorkaround}" `
+    "-DCMAKE_CXX_FLAGS_RELEASE=/Zi /O2 /Ob2 /DNDEBUG /DU_STATIC_IMPLEMENTATION /clang:-fno-c++-static-destructors ${ARM64SehWorkaround}" `
+    "-DCMAKE_C_FLAGS_DEBUG=/Zi /FS /O0 /Ob0 /DU_STATIC_IMPLEMENTATION ${ARM64SehWorkaround}" `
+    "-DCMAKE_CXX_FLAGS_DEBUG=/Zi /FS /O0 /Ob0 /DU_STATIC_IMPLEMENTATION /clang:-fno-c++-static-destructors ${ARM64SehWorkaround}" `
     -DENABLE_REMOTE_INSPECTOR=ON `
     "-DCMAKE_MSVC_RUNTIME_LIBRARY=${CmakeMsvcRuntimeLibrary}" `
     -G Ninja
