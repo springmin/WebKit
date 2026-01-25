@@ -141,7 +141,7 @@ public:
         m_usedBlocks.set(0);
 #elif USE(MIMALLOC)
         void* memory = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(g_jscConfig.startOfStructureHeap) + MarkedBlock::blockSize);
-        size_t size = g_jscConfig.sizeOfStructureHeap - MarkedBlock::blockSize;                                                                                                                            
+        size_t size = g_jscConfig.sizeOfStructureHeap - MarkedBlock::blockSize;
         RELEASE_ASSERT(mi_manage_os_memory_ex(memory, size, false, false, false, -1, true, &structureArena));
         structureHeap = mi_heap_new_in_arena(structureArena);
 #else
