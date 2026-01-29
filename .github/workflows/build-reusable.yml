@@ -216,6 +216,11 @@ jobs:
           ENABLE_SANITIZERS: ${{matrix.ENABLE_SANITIZERS}}
         run: |
           rm -rf ${{runner.temp}}/bun-webkit ${{runner.temp}}/bun-webkit.tar.gz
+          if [ "${{matrix.package_json_arch}}" = "arm64" ]; then
+            export MARCH_FLAG="-march=armv8-a+crc -mtune=ampere1"
+          elif [ "${{matrix.package_json_arch}}" = "x64" ]; then
+            export MARCH_FLAG="-march=nehalem"
+          fi
           WEBKIT_RELEASE_TYPE=${{matrix.CMAKE_BUILD_TYPE}} CPU="native" cpu=native LTO_FLAG="${{matrix.lto_flag}}" temp=${{runner.temp}} ENABLE_SANITIZERS="${{matrix.ENABLE_SANITIZERS}}" bash release.sh
           cd ${{runner.temp}}
           echo "#define BUN_WEBKIT_VERSION \"${{ inputs.build_ref }}\"" >> bun-webkit/include/cmakeconfig.h
@@ -366,6 +371,11 @@ jobs:
       - name: Run
         run: |
           rm -rf ${{runner.temp}}/bun-webkit ${{runner.temp}}/bun-webkit.tar.gz
+          if [ "${{matrix.package_json_arch}}" = "arm64" ]; then
+            export MARCH_FLAG="-march=armv8-a+crc -mtune=ampere1"
+          elif [ "${{matrix.package_json_arch}}" = "x64" ]; then
+            export MARCH_FLAG="-march=nehalem"
+          fi
           WEBKIT_RELEASE_TYPE=${{matrix.CMAKE_BUILD_TYPE}} CPU="native" cpu=native LTO_FLAG="${{matrix.lto_flag}}" temp=${{runner.temp}} bash musl-release.sh
           cd ${{runner.temp}}
           echo "#define BUN_WEBKIT_VERSION \"${{ inputs.build_ref }}\"" >> bun-webkit/include/cmakeconfig.h
