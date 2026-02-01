@@ -19,10 +19,11 @@
  * IN THE SOFTWARE.
  */
 
-#include "BPlatform.h"
+#include "config.h"
+#include <wtf/Platform.h>
 #include <cstdint>
 
-#if BOS(LINUX)
+#if OS(LINUX)
 
 #ifndef PRIu64
 #define PRIu64 "lu"
@@ -215,7 +216,7 @@ static uint64_t uv__get_cgroup_constrained_memory(char buf[1024])
 
     uint64_t result = high < max ? high : max;
 
-#if BCPU(X86_64) || BCPU(ARM64)
+#if CPU(X86_64) || CPU(ARM64)
     // max 52 bit integer, which is the most addressible space between arm64 and x64
     if (result >= 9007199254740991)
         return 0;
