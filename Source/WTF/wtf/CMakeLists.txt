@@ -543,6 +543,7 @@ set(WTF_SOURCES
     Assertions.cpp
     AutomaticThread.cpp
     AvailableMemory.cpp
+    uv_get_constrained_memory.cpp
     BitVector.cpp
     BloomFilter.cpp
     CPUTime.cpp

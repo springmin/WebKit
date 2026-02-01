@@ -30,8 +30,6 @@ set(bmalloc_SOURCES
     bmalloc/bmalloc.cpp
     bmalloc/VMAllocate.cpp
 
-    bmalloc/uv_get_constrained_memory.cpp
-
     libpas/src/libpas/bmalloc_heap.c
     libpas/src/libpas/bmalloc_heap_config.c
     libpas/src/libpas/jit_heap.c
