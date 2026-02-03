@@ -934,9 +934,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         return;
 
     BlockPtr<UIMenu*(UIMenu*)> menuUpdater;
-    menuUpdater = makeBlockPtr([&](UIMenu *menu) -> UIMenu* {
-        if ([menu.identifier isEqual:captionStyleMenu.identifier])
-            return captionStyleMenu;
+    menuUpdater = makeBlockPtr([&, captionStyleMenu = RetainPtr { captionStyleMenu }](UIMenu *menu) mutable -> UIMenu* {
+        if ([menu.identifier isEqual:captionStyleMenu.get().identifier])
+            return captionStyleMenu.getAutoreleased();
 
         if (!menu.children.count)
             return menu;
@@ -1244,19 +1244,15 @@ static NSMutableArray<UIMenuElement *> *menuElementsFromDefaultActions(RetainPtr
     if (item.title.length)
         result[@"title"] = item.title;
 
-    if ([item isKindOfClass:UIMenu.class]) {
-        UIMenu *menu = (UIMenu *)item;
-
-        NSMutableArray *children = [NSMutableArray arrayWithCapacity:menu.children.count];
-        for (UIMenuElement *child in menu.children)
+    if (RetainPtr menu = dynamic_objc_cast<UIMenu>(item)) {
+        NSMutableArray *children = [NSMutableArray arrayWithCapacity:[menu children].count];
+        for (UIMenuElement *child in [menu children])
             [children addObject:[self _contentsOfContextMenuItem:child]];
         result[@"children"] = children;
     }
 
-    if ([item isKindOfClass:UIAction.class]) {
-        UIAction *action = (UIAction *)item;
-
-        if (action.state == UIMenuElementStateOn)
+    if (RetainPtr action = dynamic_objc_cast<UIAction>(item)) {
+        if ([action state] == UIMenuElementStateOn)
             result[@"checked"] = @YES;
     }
 

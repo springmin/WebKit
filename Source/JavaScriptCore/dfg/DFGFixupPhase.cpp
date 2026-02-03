@@ -1977,6 +1977,10 @@ private:
                 && m_graph.isWatchingSetIteratorProtocolWatchpoint(node->child1().node())
                 && m_graph.isWatchingHavingABadTimeWatchpoint(node->child1().node()))
                 fixEdge<SetObjectUse>(node->child1());
+            else if (node->child1()->shouldSpeculateMapIteratorObject()
+                && m_graph.isWatchingMapIteratorProtocolWatchpoint(node->child1().node())
+                && m_graph.isWatchingHavingABadTimeWatchpoint(node->child1().node()))
+                fixEdge<MapIteratorObjectUse>(node->child1());
             else
                 fixEdge<CellUse>(node->child1());
             break;
@@ -3508,8 +3512,6 @@ private:
         case TailCallInlinedCallerWasm:
         case ProfileControlFlow:
         case NewObject:
-        case NewGenerator:
-        case NewAsyncGenerator:
         case NewInternalFieldObject:
         case NewRegExp:
         case NewMap:

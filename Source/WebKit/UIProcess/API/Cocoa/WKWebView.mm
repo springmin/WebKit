@@ -1079,6 +1079,11 @@ static void addBrowsingContextControllerMethodStubsIfNeeded()
     return wrapper(_page->loadRequest(request)).autorelease();
 }
 
+- (WKNavigation *)loadURL:(NSURL *)url
+{
+    return [self loadRequest:[NSURLRequest requestWithURL:url]];
+}
+
 - (WKNavigation *)loadFileURL:(NSURL *)URL allowingReadAccessToURL:(NSURL *)readAccessURL
 {
     THROW_IF_SUSPENDED;
@@ -6694,6 +6699,11 @@ static Vector<Ref<API::TargetedElementInfo>> elementsFromWKElements(NSArray<_WKT
 - (bool)hasRemoteAccessibilityChild
 {
     return _impl->hasRemoteAccessibilityChild();
+}
+
+- (NSData *)_remoteAccessibilityChildToken
+{
+    return _impl->remoteAccessibilityChildToken();
 }
 
 - (RetainPtr<NSPopUpButtonCell>)_activePopupButtonCell
