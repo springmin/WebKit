@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2026 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,46 +23,19 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import "config.h"
-#import "WebChromeClient.h"
+#pragma once
 
-#if PLATFORM(COCOA)
-
-#import "WebIconUtilities.h"
-#import "WebPage.h"
-#import <WebCore/AXObjectCache.h>
-#import <WebCore/Icon.h>
-
-#if PLATFORM(MAC)
-
-#import "ApplicationServicesSPI.h"
-
-extern "C" AXError _AXUIElementNotifyProcessSuspendStatus(AXSuspendStatus);
-
-#endif // PLATFORM(MAC)
+#if ENABLE(UNIFIED_PDF)
 
 namespace WebKit {
-using namespace WebCore;
 
-RefPtr<Icon> WebChromeClient::createIconForFiles(const Vector<String>& filenames)
-{
-    return Icon::create(iconForFiles(filenames).get());
-}
-
-void AXRelayProcessSuspendedNotification::sendProcessSuspendMessage(bool suspended)
-{
-    if (!AXObjectCache::accessibilityEnabled())
-        return;
-
-#if PLATFORM(MAC)
-    _AXUIElementNotifyProcessSuspendStatus(suspended ? AXSuspendStatusSuspended : AXSuspendStatusRunning);
-#else
-    NSDictionary *message = @{ @"pid" : @(getpid()), @"suspended" : @(suspended) };
-    NSData *data = [NSKeyedArchiver archivedDataWithRootObject:message requiringSecureCoding:YES error:nil];
-    protect(m_page)->relayAccessibilityNotification("AXProcessSuspended"_s, data);
-#endif
-}
+enum class PDFDisplayMode : uint8_t {
+    SinglePageDiscrete,
+    SinglePageContinuous,
+    TwoUpDiscrete,
+    TwoUpContinuous,
+};
 
 } // namespace WebKit
 
-#endif // PLATFORM(COCOA)
+#endif

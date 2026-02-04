@@ -437,8 +437,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (void)_cancel
 {
-    if (_listener)
-        _listener->cancel();
+    if (RefPtr listener = _listener)
+        listener->cancel();
 
     [self _dispatchDidDismiss];
 }
@@ -487,7 +487,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     NSData *png = UIImagePNGRepresentation(iconImage);
     RefPtr iconImageDataRef = adoptRef(WebKit::toImpl(WKDataCreate(static_cast<const unsigned char*>([png bytes]), [png length])));
 
-    _listener->chooseFiles(filenames, displayString, iconImageDataRef.get());
+    protect(_listener)->chooseFiles(filenames, displayString, iconImageDataRef.get());
     [self _dispatchDidDismiss];
 }
 
@@ -960,6 +960,9 @@ static NSSet<NSString *> *UTIsForMIMETypes(NSArray *mimeTypes)
     [self _dismissDisplayAnimated:animated];
 
     _presentationViewController = [_view _wk_viewControllerForFullScreenPresentation];
+#if PLATFORM(VISION)
+    [_view page]->dispatchWillPresentModalUI();
+#endif
     [_presentationViewController presentViewController:viewController animated:animated completion:^{
         if (!_isPresentingSubMenu && [_view isFirstResponder])
             [_view resignFirstResponder];

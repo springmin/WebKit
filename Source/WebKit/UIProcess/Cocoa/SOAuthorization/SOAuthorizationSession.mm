@@ -250,7 +250,7 @@ void SOAuthorizationSession::continueStartAfterDecidePolicy(const SOAuthorizatio
         kSOAuthorizationOptionInitiatingPath: initiatingPath.createNSString().get()
     };
 #if PLATFORM(IOS_FAMILY)
-    RetainPtr<WKWebView> webView = m_page->cocoaView();
+    RetainPtr<WKWebView> webView = protect(m_page)->cocoaView();
     id webViewUIDelegate = [webView UIDelegate];
     if ([webViewUIDelegate respondsToSelector:@selector(_hostSceneIdentifierForWebView:)]) {
         NSString *callerSceneID = [webViewUIDelegate _hostSceneIdentifierForWebView:webView.get()];
@@ -422,7 +422,9 @@ void SOAuthorizationSession::presentViewController(SOAuthorizationViewController
     // WKFullScreenViewController even though that is the presenting view controller of the WKWebView.
     // We should call PageClientImpl::presentingViewController() instead.
     UIViewController *presentingViewController = page->uiClient().presentingViewController();
-#if !PLATFORM(VISION)
+#if PLATFORM(VISION)
+    page->dispatchWillPresentModalUI();
+#else
     if (!presentingViewController)
         presentingViewController = [page->cocoaView() _wk_viewControllerForFullScreenPresentation];
 #endif
