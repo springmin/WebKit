@@ -75,8 +75,6 @@ inline CapabilityLevel canCompile(Node* node)
     case PutStructure:
     case GetButterfly:
     case NewObject:
-    case NewGenerator:
-    case NewAsyncGenerator:
     case NewStringObject:
     case NewRegExpUntyped:
     case NewSymbol:
@@ -176,6 +174,7 @@ inline CapabilityLevel canCompile(Node* node)
     case StringCodePointAt:
     case StringFromCharCode:
     case StringIndexOf:
+    case StringStartsWith:
     case AllocatePropertyStorage:
     case ReallocatePropertyStorage:
     case NukeStructureAndSetButterfly:
@@ -289,6 +288,7 @@ inline CapabilityLevel canCompile(Node* node)
     case MapIterationEntry:
     case MapIterationEntryKey:
     case MapIterationEntryValue:
+    case MapOrSetSize:
     case MapStorage:
     case MapStorageOrSentinel:
     case MapIteratorNext:
@@ -422,6 +422,7 @@ inline CapabilityLevel canCompile(Node* node)
     case SameValue:
     case DefineDataProperty:
     case DefineAccessorProperty:
+    case ObjectDefineProperty:
     case StringValueOf:
     case StringSlice:
     case StringSubstring:

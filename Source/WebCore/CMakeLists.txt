@@ -30,7 +30,6 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/Modules/cache"
     "${WEBCORE_DIR}/Modules/compression"
     "${WEBCORE_DIR}/Modules/contact-picker"
-    "${WEBCORE_DIR}/Modules/cookie-consent"
     "${WEBCORE_DIR}/Modules/cookie-store"
     "${WEBCORE_DIR}/Modules/credentialmanagement"
     "${WEBCORE_DIR}/Modules/encryptedmedia"
@@ -132,7 +131,6 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/html/track"
     "${WEBCORE_DIR}/inspector"
     "${WEBCORE_DIR}/inspector/agents"
-    "${WEBCORE_DIR}/inspector/agents/frame"
     "${WEBCORE_DIR}/inspector/agents/page"
     "${WEBCORE_DIR}/inspector/agents/worker"
     "${WEBCORE_DIR}/layout"
@@ -368,9 +366,6 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/contact-picker/ContactsSelectOptions.idl
     Modules/contact-picker/Navigator+Contacts.idl
 
-    Modules/cookie-consent/Navigator+CookieConsent.idl
-    Modules/cookie-consent/RequestCookieConsentOptions.idl
-
     Modules/cookie-store/CookieChangeEvent.idl
     Modules/cookie-store/CookieChangeEventInit.idl
     Modules/cookie-store/CookieInit.idl
@@ -543,6 +538,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/mediastream/MediaStream.idl
     Modules/mediastream/MediaStreamTrack.idl
     Modules/mediastream/MediaStreamTrackEvent.idl
+    Modules/mediastream/MediaStreamTrackHandle.idl
     Modules/mediastream/MediaStreamTrackProcessor.idl
     Modules/mediastream/MediaTrackCapabilities.idl
     Modules/mediastream/MediaTrackConstraints.idl
@@ -2497,6 +2493,7 @@ set(WebCoreTestSupport_IDL_FILES
     testing/MockContentFilterSettings.idl
     testing/MockMediaDeviceRoute.idl
     testing/MockMediaDeviceRouteController.idl
+    testing/MockMediaDeviceRouteURLCallback.idl
     testing/MockPageOverlay.idl
     testing/MockWebAuthenticationConfiguration.idl
     testing/ServiceWorkerInternals.idl
@@ -3070,7 +3067,7 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     ${WebCore_DERIVED_SOURCES_DIR}/DocumentSyncData.serialization.in
     ${WebCore_DERIVED_SOURCES_DIR}/FrameTreeSyncData.serialization.in
 
-    Modules/Model/InternalAPI/DDModel.serialization.in
+    Modules/Model/InternalAPI/WebModel.serialization.in
 
     Modules/WebGPU/InternalAPI/WebGPU.serialization.in
     Modules/indexeddb/IndexedDB.serialization.in

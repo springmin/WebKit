@@ -1132,6 +1132,7 @@ private:
 
         case MapHash:
         case MapIterationEntry:
+        case MapOrSetSize:
             setPrediction(SpecInt32Only);
             break;
 
@@ -1184,6 +1185,11 @@ private:
 
         case StringIndexOf: {
             setPrediction(SpecInt32Only);
+            break;
+        }
+
+        case StringStartsWith: {
+            setPrediction(SpecBoolean);
             break;
         }
 
@@ -1320,9 +1326,7 @@ private:
             break;
 
         case CreateGenerator:
-        case NewGenerator:
         case CreateAsyncGenerator:
-        case NewAsyncGenerator:
             setPrediction(SpecObjectOther);
             break;
 
@@ -1684,6 +1688,7 @@ private:
         case PutSetterByVal:
         case DefineDataProperty:
         case DefineAccessorProperty:
+        case ObjectDefineProperty:
         case CallCustomAccessorSetter:
         case DFG::Jump:
         case Branch:

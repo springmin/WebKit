@@ -209,7 +209,6 @@ set(BUILD_VARIANTS
 
 set(LLINT_ASM
     llint/InPlaceInterpreter.asm
-    llint/InPlaceInterpreter32_64.asm
     llint/InPlaceInterpreter64.asm
     llint/LowLevelInterpreter.asm
     llint/LowLevelInterpreter32_64.asm
@@ -1034,6 +1033,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
 
     parser/ASTBuilder.h
     parser/Lexer.h
+    parser/LexerUnicodeProperties.h
     parser/ModuleAnalyzer.h
     parser/ModuleScopeData.h
     parser/NodeConstructors.h
@@ -1383,6 +1383,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/JSFloat64Array.h
     runtime/JSFunction.h
     runtime/JSFunctionInlines.h
+    runtime/JSFunctionWithFields.h
     runtime/JSGenerator.h
     runtime/JSGeneratorFunction.h
     runtime/JSGeneratorFunctionInlines.h
@@ -1983,6 +1984,15 @@ add_custom_command(
     VERBATIM)
 list(APPEND JavaScriptCore_HEADERS ${JavaScriptCore_DERIVED_SOURCES_DIR}/yarr/RegExpJitTables.h)
 WEBKIT_ADD_SOURCE_DEPENDENCIES(${CMAKE_CURRENT_SOURCE_DIR}/yarr/YarrPattern.cpp ${JavaScriptCore_DERIVED_SOURCES_DIR}/yarr/RegExpJitTables.h)
+
+add_custom_command(
+    OUTPUT ${JavaScriptCore_DERIVED_SOURCES_DIR}/LexerUnicodePropertyTables.h
+    MAIN_DEPENDENCY ${JAVASCRIPTCORE_DIR}/parser/generateLexerUnicodePropertyTables.py
+    DEPENDS ${JAVASCRIPTCORE_DIR}/ucd/UnicodeData.txt
+    COMMAND ${PYTHON_EXECUTABLE} ${JAVASCRIPTCORE_DIR}/parser/generateLexerUnicodePropertyTables.py ${JAVASCRIPTCORE_DIR}/ucd/UnicodeData.txt ${JavaScriptCore_DERIVED_SOURCES_DIR}/LexerUnicodePropertyTables.h
+    VERBATIM)
+list(APPEND JavaScriptCore_HEADERS ${JavaScriptCore_DERIVED_SOURCES_DIR}/LexerUnicodePropertyTables.h)
+WEBKIT_ADD_SOURCE_DEPENDENCIES(${CMAKE_CURRENT_SOURCE_DIR}/parser/Lexer.cpp ${JavaScriptCore_DERIVED_SOURCES_DIR}/LexerUnicodePropertyTables.h)
 
 add_custom_command(
     OUTPUT ${JavaScriptCore_DERIVED_SOURCES_DIR}/yarr/UnicodePatternTables.h

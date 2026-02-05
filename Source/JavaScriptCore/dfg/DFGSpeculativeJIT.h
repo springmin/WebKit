@@ -1498,6 +1498,7 @@ public:
     void compileMapIterationEntry(Node*);
     void compileMapIterationEntryKey(Node*);
     void compileMapIterationEntryValue(Node*);
+    void compileMapOrSetSize(Node*);
     void compileSetAdd(Node*);
     void compileMapSet(Node*);
     void compileMapOrSetDelete(Node*);
@@ -1724,6 +1725,7 @@ public:
     void compileCompareEqPtr(Node*);
     void compileDefineDataProperty(Node*);
     void compileDefineAccessorProperty(Node*);
+    void compileObjectDefineProperty(Node*);
     void compileStringSlice(Node*);
     void compileStringSubstring(Node*);
     void compileToLowerCase(Node*);
@@ -1771,8 +1773,6 @@ public:
     void compileCreateGenerator(Node*);
     void compileCreateAsyncGenerator(Node*);
     void compileNewObject(Node*);
-    void compileNewGenerator(Node*);
-    void compileNewAsyncGenerator(Node*);
     void compileNewInternalFieldObject(Node*);
     void compileToPrimitive(Node*);
     void compileToPropertyKey(Node*);
@@ -1788,6 +1788,7 @@ public:
     void compileStringCodePointAt(Node*);
     void compileStringLocaleCompare(Node*);
     void compileStringIndexOf(Node*);
+    void compileStringStartsWith(Node*);
     void compileDateGet(Node*);
     void compileDateSet(Node*);
     void compileGlobalIsNaN(Node*);
@@ -1860,8 +1861,8 @@ public:
 
     void emitAllocateRawObject(GPRReg resultGPR, RegisteredStructure, GPRReg storageGPR, unsigned numElements, unsigned vectorLength);
     
-    void emitGetLength(InlineCallFrame*, GPRReg lengthGPR, bool includeThis = false);
-    void emitGetLength(CodeOrigin, GPRReg lengthGPR, bool includeThis = false);
+    void emitGetArgumentCount(InlineCallFrame*, GPRReg lengthGPR, bool includeThis = false);
+    void emitGetArgumentCount(CodeOrigin, GPRReg lengthGPR, bool includeThis = false);
     void emitGetCallee(CodeOrigin, GPRReg calleeGPR);
     void emitGetArgumentStart(CodeOrigin, GPRReg startGPR);
     void emitPopulateSliceIndex(Edge&, std::optional<GPRReg> indexGPR, GPRReg lengthGPR, GPRReg resultGPR);
