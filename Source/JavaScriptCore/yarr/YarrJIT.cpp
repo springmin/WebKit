@@ -3288,7 +3288,8 @@ class YarrGenerator final : public YarrJITInfo {
             break;
 
         case PatternTerm::Type::ForwardReference:
-            m_failureReason = JITFailureReason::ForwardReference;
+            // Forward references always match the empty string (the referenced
+            // group hasn't captured anything yet), so no code needs to be emitted.
             break;
 
         case PatternTerm::Type::ParenthesesSubpattern:
@@ -3369,7 +3370,7 @@ class YarrGenerator final : public YarrJITInfo {
             break;
 
         case PatternTerm::Type::ForwardReference:
-            m_failureReason = JITFailureReason::ForwardReference;
+            // Nothing to backtrack for a forward reference (always matches empty string).
             break;
 
         case PatternTerm::Type::ParenthesesSubpattern:
@@ -5587,8 +5588,11 @@ class YarrGenerator final : public YarrJITInfo {
             return cursor;
 
         case PatternTerm::Type::BackReference:
-        case PatternTerm::Type::ForwardReference:
             return std::nullopt;
+
+        case PatternTerm::Type::ForwardReference:
+            // Forward references always match the empty string, like assertions.
+            return cursor;
 
         case PatternTerm::Type::ParenthesesSubpattern: {
             // Right now, we only support /(...)/ or /(...)?/ case.
@@ -6245,9 +6249,10 @@ public:
                 if (term.quantityType != QuantifierType::FixedCount)
                     return true;
 
-                // Back/forward references can cause backtracking
-                if (term.type == PatternTerm::Type::BackReference || term.type == PatternTerm::Type::ForwardReference)
+                // Back references can cause backtracking
+                if (term.type == PatternTerm::Type::BackReference)
                     return true;
+                // ForwardReference always matches empty string - no backtracking needed.
 
                 // Recursively check nested parentheses (use the full check for nested disjunctions)
                 if (term.type == PatternTerm::Type::ParenthesesSubpattern || term.type == PatternTerm::Type::ParentheticalAssertion) {
@@ -6662,7 +6667,7 @@ public:
                 break;
 
             case PatternTerm::Type::ForwardReference:
-                out.printf("ForwardReference <not handled> checked-offset:(%u)", op.m_checkedOffset.value());
+                out.printf("ForwardReference checked-offset:(%u)", op.m_checkedOffset.value());
                 break;
 
             case PatternTerm::Type::ParenthesesSubpattern:
@@ -7028,9 +7033,6 @@ static void dumpCompileFailure(JITFailureReason failure)
         break;
     case JITFailureReason::BackReference:
         dataLog("Can't JIT some patterns containing back references\n");
-        break;
-    case JITFailureReason::ForwardReference:
-        dataLog("Can't JIT a pattern containing forward references\n");
         break;
     case JITFailureReason::Lookbehind:
         dataLog("Can't JIT a pattern containing lookbehinds\n");
