@@ -306,6 +306,12 @@ void Debugger::addObserver(Observer& observer)
 
     if (wasEmpty)
         attachDebugger();
+
+    if (m_isPaused && m_currentDebuggerCallFrame) {
+        auto* globalObject = m_currentDebuggerCallFrame->globalObject(m_vm);
+        if (globalObject)
+            observer.didPause(globalObject, *m_currentDebuggerCallFrame, jsUndefined());
+    }
 }
 
 void Debugger::removeObserver(Observer& observer, bool isBeingDestroyed)

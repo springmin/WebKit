@@ -29,6 +29,7 @@
 #include "CallFrameInlines.h"
 #include "CodeBlock.h"
 #include "CodeBlockSet.h"
+#include "Debugger.h"
 #include "DFGCommonData.h"
 #include "ExceptionHelpers.h"
 #include "HeapInlines.h"
@@ -45,6 +46,10 @@
 #include <wtf/Scope.h>
 #include <wtf/ThreadMessage.h>
 #include <wtf/threads/Signals.h>
+
+#if USE(BUN_JSC_ADDITIONS)
+extern "C" void Bun__drainQueuedCDPMessages(JSC::VM&);
+#endif
 
 namespace JSC {
 
@@ -479,6 +484,11 @@ bool VMTraps::handleTraps(VMTraps::BitField mask)
         switch (event) {
         case NeedDebuggerBreak:
             invalidateCodeBlocksOnStack(vm.topCallFrame);
+#if USE(BUN_JSC_ADDITIONS)
+            // Drain queued CDP messages before pausing so that commands like
+            // Debugger.pause are processed first, setting the correct pause
+            // reason on the InspectorDebuggerAgent.
+            Bun__drainQueuedCDPMessages(vm);
             // If a debugger is attached and wants to pause, call breakProgram()
             // to immediately enter the pause loop. This is needed because baseline
             // JIT doesn't have debug hooks that call pauseIfNeeded().
@@ -492,6 +502,7 @@ bool VMTraps::handleTraps(VMTraps::BitField mask)
                         debugger->breakProgram();
                 }
             }
+#endif
             didHandleTrap = true;
             break;
 
