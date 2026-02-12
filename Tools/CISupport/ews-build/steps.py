@@ -1455,10 +1455,11 @@ class FindModifiedLayoutTests(shell.ShellCommand, AnalyzeChange):
     RE_LAYOUT_TEST = br'^(\+\+\+).*(LayoutTests.*\.html|LayoutTests.*\.svg|LayoutTests.*\.xml)'
     DIRECTORIES_TO_IGNORE = ['reference', 'reftest', 'resources', 'support', 'script-tests', 'tools']
     SUFFIXES_TO_IGNORE = ['-expected', '-expected-mismatch', '-ref', '-notref']
-    command = ['diff', '-u', '-w', 'base-expectations.txt', 'new-expectations.txt']
+    MAX_MODIFIED_TESTS = 100
 
     def __init__(self, skipBuildIfNoResult=True):
         self.skipBuildIfNoResult = skipBuildIfNoResult
+        self.command = ['bash', '-c', f'diff -u -w base-expectations.txt new-expectations.txt | grep "^+[^+]" | grep -v "\\[.SKIP.\\]" | head -n {self.MAX_MODIFIED_TESTS * 10} || true']
         super().__init__(logEnviron=False)
 
     @defer.inlineCallbacks
@@ -1491,6 +1492,10 @@ class FindModifiedLayoutTests(shell.ShellCommand, AnalyzeChange):
         modified_tests += tests_from_patch
 
         if modified_tests:
+            total_tests = len(modified_tests)
+            if total_tests > self.MAX_MODIFIED_TESTS:
+                yield self._addToLog('stdio', f'\nFound {total_tests} modified layout tests, limiting to first {self.MAX_MODIFIED_TESTS}\n')
+                modified_tests = modified_tests[:self.MAX_MODIFIED_TESTS]
             yield self._addToLog('stdio', '\nThis change modifies following tests: {}\n'.format(modified_tests))
             self.setProperty('modified_tests', modified_tests)
             self.results = SUCCESS

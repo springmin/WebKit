@@ -193,6 +193,13 @@ static inline TextNodesAndText collectText(const SimpleRange& range, IncludeText
     return nodesAndText;
 }
 
+static String stringOnlyIfHumanReadable(const String& string)
+{
+    if (StringEntropyHelpers::isProbablyHumanReadable(string))
+        return string;
+    return { };
+}
+
 static void addBoxShadowIfNeeded(Node& node, String&& styleValue)
 {
     Ref document = node.document();
@@ -400,7 +407,7 @@ static inline String labelText(HTMLElement& element)
     }
 
     if (firstRenderedLabel)
-        return firstRenderedLabel->textContent();
+        return firstRenderedLabel->textContent().simplifyWhiteSpace(isASCIIWhitespace);
 
     return { };
 }
@@ -458,8 +465,19 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
 
                 auto shortenedURLString = [&] {
                     auto shortenedURL = StringEntropyHelpers::removeHighEntropyComponents(url);
-                    if (shortenedURL.protocolIsFile())
+                    if (shortenedURL.protocolIsFile()) {
+                        String lastComponent;
+                        String secondToLastComponent;
+                        for (auto component : shortenedURL.path().split('/')) {
+                            std::swap(secondToLastComponent, lastComponent);
+                            lastComponent = component.toString();
+                        }
+
+                        if (!secondToLastComponent.isEmpty())
+                            shortenedURL.setPath(makeString(WTF::move(secondToLastComponent), '/', WTF::move(lastComponent)));
+
                         return shortenedURL.path().toString();
+                    }
 
                     auto shortenedString = shortenedURL.string();
                     if (!shortenedURL.protocolIsInHTTPFamily())
@@ -527,7 +545,7 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
     if (RefPtr form = dynamicDowncast<HTMLFormElement>(element)) {
         return { FormData {
             .autocomplete = form->autocomplete(),
-            .name = form->name(),
+            .name = stringOnlyIfHumanReadable(form->name()),
         } };
     }
 
@@ -555,7 +573,7 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
                 .controlType = control->type(),
                 .autocomplete = control->autocomplete(),
                 .pattern = control->attributeWithoutSynchronization(HTMLNames::patternAttr),
-                .name = input ? input->name() : String { },
+                .name = input ? stringOnlyIfHumanReadable(input->name()) : String { },
                 .minLength = input ? wholeNumberOrNull(input->minLength()) : std::optional<int> { },
                 .maxLength = input ? wholeNumberOrNull(input->maxLength()) : std::optional<int> { },
                 .isRequired = control->isRequired(),
@@ -801,7 +819,8 @@ static inline void extractRecursive(Node& node, Item& parentItem, TraversalConte
                 continue;
 
             static constexpr auto maximumLengthForAttributeText = 32;
-            auto elementText = normalizeText(plainText(makeRangeSelectingNodeContents(*elementForAttribute)).trim(isASCIIWhitespace<char16_t>), maximumLengthForAttributeText);
+            auto rawText = plainText(makeRangeSelectingNodeContents(*elementForAttribute)).simplifyWhiteSpace(isASCIIWhitespace);
+            auto elementText = normalizeText(WTF::move(rawText), maximumLengthForAttributeText);
             if (elementText.isEmpty())
                 continue;
 
@@ -1778,7 +1797,7 @@ void handleInteraction(Interaction&& interaction, LocalFrame& frame, CompletionH
         if (RefPtr body = documentBodyElement(frame); body && !interaction.text.isEmpty())
             return dispatchSimulatedClick(*body, WTF::move(interaction.text), WTF::move(completion));
 
-        return completion(false, "Missing location and nodeIdentifier"_s);
+        return completion(false, "Missing nodeIdentifier and/or text"_s);
     }
     case Action::SelectMenuItem: {
         if (auto identifier = interaction.nodeIdentifier) {

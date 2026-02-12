@@ -128,7 +128,6 @@ public:
         DebuggableInfo,
         Download,
         Feature,
-        FormInfo,
         FormSubmissionListener,
         Frame,
         FrameInfo,

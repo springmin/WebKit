@@ -591,6 +591,17 @@ static EncodedJSValue stringIndexOfImpl(JSGlobalObject* globalObject, CallFrame*
     if (thisJSString->length() < otherJSString->length() + pos)
         return JSValue::encode(jsNumber(-1));
 
+    if (otherJSString->length() == 1 && thisJSString->isRope() && thisJSString->length() >= JSString::minLengthForRopeWalk) {
+        auto otherView = otherJSString->view(globalObject);
+        RETURN_IF_EXCEPTION(scope, encodedJSValue());
+        if (auto result = thisJSString->tryFindOneChar(globalObject, otherView[0], pos)) {
+            if (*result != notFound)
+                return JSValue::encode(jsNumber(*result));
+            return JSValue::encode(jsNumber(-1));
+        }
+        // nullopt: bail out, fall through to resolve. pos is advanced past the searched range.
+    }
+
     auto thisView = thisJSString->view(globalObject);
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
     auto otherView = otherJSString->view(globalObject);

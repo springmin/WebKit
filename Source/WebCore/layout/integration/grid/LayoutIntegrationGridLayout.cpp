@@ -61,6 +61,9 @@ static std::optional<LayoutUnit> minimumSizeConstraint(const Style::MinimumSize&
         [&gridContainerZoom](const Style::MinimumSize::Fixed& fixedValue) -> std::optional<LayoutUnit> {
             return Style::evaluate<LayoutUnit>(fixedValue, gridContainerZoom);
         },
+        [](const CSS::Keyword::Auto&) -> std::optional<LayoutUnit> {
+            return 0_lu;
+        },
         [](const auto&) -> std::optional<LayoutUnit> {
             ASSERT_NOT_IMPLEMENTED_YET();
             return { };

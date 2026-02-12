@@ -188,6 +188,11 @@ if (COMPILER_IS_GCC_OR_CLANG)
                                          -Wno-psabi
                                          -Wno-nullability-completeness)
 
+    # FIXME: Remove once Clang 18 does no longer need to be supported for the GTK and WPE ports
+    if ((CMAKE_CXX_COMPILER_ID STREQUAL Clang) AND (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19))
+        WEBKIT_PREPEND_GLOBAL_CXX_FLAGS(-frelaxed-template-template-args)
+    endif ()
+
     # GCC < 12.0 gives false warnings for mismatched-new-delete <https://webkit.org/b/241516>
     if ((CMAKE_CXX_COMPILER_ID MATCHES "GNU") AND (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "12.0.0"))
         WEBKIT_PREPEND_GLOBAL_COMPILER_FLAGS(-Wno-mismatched-new-delete)

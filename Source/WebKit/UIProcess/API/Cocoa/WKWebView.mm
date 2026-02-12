@@ -28,7 +28,6 @@
 
 #import "APIDataTask.h"
 #import "APIFormClient.h"
-#import "APIFormInfo.h"
 #import "APIFrameTreeNode.h"
 #import "APIPageConfiguration.h"
 #import "APISecurityOrigin.h"
@@ -86,7 +85,6 @@
 #import "WKErrorInternal.h"
 #import "WKFindConfiguration.h"
 #import "WKFindResultInternal.h"
-#import "WKFormInfoInternal.h"
 #import "WKFrameInfoInternal.h"
 #import "WKHistoryDelegatePrivate.h"
 #import "WKIntelligenceReplacementTextEffectCoordinator.h"
@@ -6012,20 +6010,17 @@ static inline OptionSet<WebKit::FindOptions> toFindOptions(_WKFindOptions wkFind
             if (!webView)
                 return completionHandler();
 
-            SEL willSubmitFormSelector = @selector(webView:willSubmitForm:submissionHandler:);
-            auto navigationDelegate = webView->_navigationState->navigationDelegate();
-            bool navigationDelegateRespondsToWillSubmitForm = [navigationDelegate respondsToSelector:willSubmitFormSelector];
+            auto inputDelegate = webView->_inputDelegate.get();
 
             SEL willSubmitFormValuesSelector = @selector(_webView:willSubmitFormValues:frameInfo:sourceFrameInfo:userObject:requestURL:method:submissionHandler:);
             SEL willSubmitFormValuesWithoutRequestURLSelector = @selector(_webView:willSubmitFormValues:frameInfo:sourceFrameInfo:userObject:submissionHandler:);
             SEL willSubmitFormValuesLegacySelector = @selector(_webView:willSubmitFormValues:userObject:submissionHandler:);
 
-            auto inputDelegate = webView->_inputDelegate.get();
             bool inputDelegateRespondsToWillSubmitFormValues = [inputDelegate respondsToSelector:willSubmitFormValuesSelector];
             bool inputDelegateRespondsToWillSubmitFormValuesWithoutRequestURL = [inputDelegate respondsToSelector:willSubmitFormValuesWithoutRequestURLSelector];
             bool inputDelegateRespondsToWillSubmitFormValuesLegacy = [inputDelegate respondsToSelector:willSubmitFormValuesLegacySelector];
 
-            if (!navigationDelegateRespondsToWillSubmitForm && !inputDelegateRespondsToWillSubmitFormValues && !inputDelegateRespondsToWillSubmitFormValuesLegacy && !inputDelegateRespondsToWillSubmitFormValuesWithoutRequestURL) {
+            if (!inputDelegateRespondsToWillSubmitFormValues && !inputDelegateRespondsToWillSubmitFormValuesWithoutRequestURL && !inputDelegateRespondsToWillSubmitFormValuesLegacy) {
                 completionHandler();
                 return;
             }
@@ -6034,47 +6029,42 @@ static inline OptionSet<WebKit::FindOptions> toFindOptions(_WKFindOptions wkFind
             for (const auto& pair : textFieldValues)
                 [valueMap setObject:pair.second.createNSString().get() forKey:pair.first.createNSString().get()];
 
-            auto checker = [&] {
-                if (navigationDelegateRespondsToWillSubmitForm)
-                    return WebKit::CompletionHandlerCallChecker::create(navigationDelegate.get(), willSubmitFormSelector);
-                if (inputDelegateRespondsToWillSubmitFormValuesLegacy)
-                    return WebKit::CompletionHandlerCallChecker::create(inputDelegate.get(), willSubmitFormValuesLegacySelector);
-                if (inputDelegateRespondsToWillSubmitFormValuesWithoutRequestURL)
-                    return WebKit::CompletionHandlerCallChecker::create(inputDelegate.get(), willSubmitFormValuesWithoutRequestURLSelector);
-                return WebKit::CompletionHandlerCallChecker::create(inputDelegate.get(), willSubmitFormValuesSelector);
-            }();
+            auto userObject = userData ? userData->toNSObject() : RetainPtr<NSObject<NSSecureCoding>>();
 
-            auto submissionHandler = makeBlockPtr([completionHandler = WTF::move(completionHandler), checker = WTF::move(checker)] () mutable {
+            if (inputDelegateRespondsToWillSubmitFormValuesLegacy) {
+                auto checker = WebKit::CompletionHandlerCallChecker::create(inputDelegate.get(), willSubmitFormValuesLegacySelector);
+                [inputDelegate _webView:webView.get() willSubmitFormValues:valueMap.get() userObject:userObject.get() submissionHandler:makeBlockPtr([completionHandler = WTF::move(completionHandler), checker = WTF::move(checker)] () mutable {
+                    if (checker->completionHandlerHasBeenCalled())
+                        return;
+                    checker->didCallCompletionHandler();
+                    completionHandler();
+                }).get()];
+                return;
+            }
+
+            if (inputDelegateRespondsToWillSubmitFormValuesWithoutRequestURL) {
+                auto checker = WebKit::CompletionHandlerCallChecker::create(inputDelegate.get(), willSubmitFormValuesWithoutRequestURLSelector);
+                auto frameInfo = wrapper(API::FrameInfo::create(WTF::move(frameInfoData)));
+                auto sourceFrameInfo = wrapper(API::FrameInfo::create(WTF::move(sourceFrameInfoData)));
+                [inputDelegate _webView:webView.get() willSubmitFormValues:valueMap.get() frameInfo:frameInfo.get() sourceFrameInfo:sourceFrameInfo.get() userObject:userObject.get() submissionHandler:makeBlockPtr([completionHandler = WTF::move(completionHandler), checker = WTF::move(checker)] () mutable {
+                    if (checker->completionHandlerHasBeenCalled())
+                        return;
+                    checker->didCallCompletionHandler();
+                    completionHandler();
+                }).get()];
+                return;
+            }
+
+            auto checker = WebKit::CompletionHandlerCallChecker::create(inputDelegate.get(), willSubmitFormValuesSelector);
+            auto frameInfo = wrapper(API::FrameInfo::create(WTF::move(frameInfoData)));
+            auto sourceFrameInfo = wrapper(API::FrameInfo::create(WTF::move(sourceFrameInfoData)));
+            [inputDelegate _webView:webView.get() willSubmitFormValues:valueMap.get() frameInfo:frameInfo.get() sourceFrameInfo:sourceFrameInfo.get() userObject:userObject.get() requestURL:requestURL.createNSURL().get() method:method.createNSString().get() submissionHandler:makeBlockPtr([completionHandler = WTF::move(completionHandler), checker = WTF::move(checker)] () mutable {
                 if (checker->completionHandlerHasBeenCalled())
                     return;
                 checker->didCallCompletionHandler();
                 completionHandler();
-            });
+            }).get()];
 
-            auto apiTargetFrameInfo = API::FrameInfo::create(WTF::move(frameInfoData));
-            auto apiSourceFrameInfo = API::FrameInfo::create(WTF::move(sourceFrameInfoData));
-            if (navigationDelegateRespondsToWillSubmitForm) {
-                auto apiFormInfo = API::FormInfo::create(apiTargetFrameInfo.get(), apiSourceFrameInfo.get(), requestURL, method, textFieldValues);
-                RetainPtr formInfo = wrapper(apiFormInfo);
-                [navigationDelegate webView:webView.get() willSubmitForm:formInfo.get() submissionHandler:submissionHandler.get()];
-                return;
-            }
-
-            auto userObject = userData ? userData->toNSObject() : RetainPtr<NSObject<NSSecureCoding>>();
-
-            if (inputDelegateRespondsToWillSubmitFormValuesLegacy) {
-                [inputDelegate _webView:webView.get() willSubmitFormValues:valueMap.get() userObject:userObject.get() submissionHandler:submissionHandler.get()];
-                return;
-            }
-
-            RetainPtr targetFrameInfo = wrapper(apiTargetFrameInfo);
-            RetainPtr sourceFrameInfo = wrapper(apiSourceFrameInfo);
-            if (inputDelegateRespondsToWillSubmitFormValuesWithoutRequestURL) {
-                [inputDelegate _webView:webView.get() willSubmitFormValues:valueMap.get() frameInfo:targetFrameInfo sourceFrameInfo:sourceFrameInfo userObject:userObject.get() submissionHandler:submissionHandler.get()];
-                return;
-            }
-
-            [inputDelegate _webView:webView.get() willSubmitFormValues:valueMap.get() frameInfo:targetFrameInfo sourceFrameInfo:sourceFrameInfo userObject:userObject.get() requestURL:requestURL.createNSURL().get() method:method.createNSString().get() submissionHandler:submissionHandler.get()];
         }
 
     private:

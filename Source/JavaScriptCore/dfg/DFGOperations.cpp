@@ -26,6 +26,7 @@
 #include "config.h"
 #include "DFGOperations.h"
 
+
 #include "ArrayPrototypeInlines.h"
 #include "ButterflyInlines.h"
 #include "CacheableIdentifierInlines.h"
@@ -3319,10 +3320,20 @@ JSC_DEFINE_JIT_OPERATION(operationStringIndexOfWithOneChar, UCPUStrictInt32, (JS
 
     auto scope = DECLARE_THROW_SCOPE(vm);
 
+    unsigned pos = 0;
+    if (base->isRope() && base->length() >= JSString::minLengthForRopeWalk) {
+        if (auto result = base->tryFindOneChar(globalObject, static_cast<char16_t>(character), pos)) {
+            if (*result != notFound)
+                OPERATION_RETURN(scope, toUCPUStrictInt32(static_cast<int32_t>(*result)));
+            OPERATION_RETURN(scope, toUCPUStrictInt32(-1));
+        }
+        // nullopt: bail out, fall through to resolve. pos is advanced past the searched range.
+    }
+
     auto thisView = base->view(globalObject);
     OPERATION_RETURN_IF_EXCEPTION(scope, 0);
 
-    size_t result = thisView->find(static_cast<char16_t>(character));
+    size_t result = thisView->find(static_cast<char16_t>(character), pos);
     if (result == notFound)
         OPERATION_RETURN(scope, toUCPUStrictInt32(-1));
     OPERATION_RETURN(scope, toUCPUStrictInt32(result));
@@ -3364,16 +3375,25 @@ JSC_DEFINE_JIT_OPERATION(operationStringIndexOfWithIndexWithOneChar, UCPUStrictI
 
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    auto thisView = base->view(globalObject);
-    OPERATION_RETURN_IF_EXCEPTION(scope, 0);
-
-    int32_t length = thisView->length();
+    int32_t length = base->length();
     unsigned pos = 0;
     if (position >= 0)
         pos = std::min<uint32_t>(position, length);
 
     if (static_cast<unsigned>(length) < 1 + pos)
         OPERATION_RETURN(scope, toUCPUStrictInt32(-1));
+
+    if (base->isRope() && base->length() >= JSString::minLengthForRopeWalk) {
+        if (auto result = base->tryFindOneChar(globalObject, static_cast<char16_t>(character), pos)) {
+            if (*result != notFound)
+                OPERATION_RETURN(scope, toUCPUStrictInt32(static_cast<int32_t>(*result)));
+            OPERATION_RETURN(scope, toUCPUStrictInt32(-1));
+        }
+        // nullopt: bail out, fall through to resolve. pos is advanced past the searched range.
+    }
+
+    auto thisView = base->view(globalObject);
+    OPERATION_RETURN_IF_EXCEPTION(scope, 0);
 
     size_t result = thisView->find(static_cast<char16_t>(character), pos);
     if (result == notFound)

@@ -8,6 +8,8 @@ root,scrollPosition=(0,0),contentSize=[…]
             'This is some article content with highlighted text.'
         form,autocomplete='on',name='signup'
             'Sign up for our newsletter'
+            input,'checkbox',label='Remember me'
+            'Remember me'
             input,'text',placeholder='Username',name='username',minlength=3,maxlength=20,required
             input,'password',placeholder='Password',name='password',minlength=3,maxlength=20,required,secure
             input,'text',placeholder='Email',pattern='[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$',name='email',required
@@ -24,6 +26,8 @@ root,scrollPosition=(0,0),contentSize=[…]
         </article>
         <form autocomplete='on' name='signup'>
             Sign up for our newsletter
+            <input type='checkbox' label='Remember me'>
+            Remember me
             <input type='text' placeholder='Username' name='username' minlength=3 maxlength=20 required>
             <input type='password' placeholder='Password' name='password' minlength=3 maxlength=20 required>
             <input type='text' placeholder='Email' pattern='[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$' name='email' required>

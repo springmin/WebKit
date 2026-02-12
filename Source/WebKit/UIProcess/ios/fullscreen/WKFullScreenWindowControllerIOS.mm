@@ -127,25 +127,23 @@ static bool useSpatialFullScreenTransition()
     return [[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomVision;
 }
 
-static void resizeScene(UIWindowScene *scene, CGSize size, BOOL useDefaultSceneGeometry, BOOL updateSceneGeometryEnabled, CompletionHandler<void()>&& completionHandler)
+static void resizeScene(UIWindowScene *scene, CGSize size, float animationDuration, BOOL shouldUpdateSizeRestrictions, CompletionHandler<void()>&& completionHandler)
 {
-    if (size.width) {
-        CGSize minimumSize = scene.sizeRestrictions.minimumSize;
-        minimumSize.height = floorf(minimumSize.width * size.height / size.width);
+    if (shouldUpdateSizeRestrictions) {
+        if (size.width) {
+            CGSize minimumSize = scene.sizeRestrictions.minimumSize;
+            minimumSize.height = floorf(minimumSize.width * size.height / size.width);
 
-        if (size.width >= minimumSize.width && size.height >= minimumSize.height)
-            scene.sizeRestrictions.minimumSize = minimumSize;
-        else
+            if (size.width >= minimumSize.width && size.height >= minimumSize.height)
+                scene.sizeRestrictions.minimumSize = minimumSize;
+            else
+                scene.sizeRestrictions.minimumSize = size;
+        } else
             scene.sizeRestrictions.minimumSize = size;
-    } else
-        scene.sizeRestrictions.minimumSize = size;
+    }
 
-    [UIView animateWithDuration:0 animations:^{
-#if ENABLE(SCENE_GEOMETRY_UPDATE)
-        if (updateSceneGeometryEnabled)
-            [scene setUsesDefaultGeometry:useDefaultSceneGeometry];
-#endif
-        // FIXME: Migrate to windowResizability or requestGeometryUpdate (rdar://168305873).
+    // FIXME: Migrate to windowResizability or requestGeometryUpdate (rdar://168305873).
+    [UIView animateWithDuration:animationDuration delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         [scene mrui_requestResizeToSize:size options:nil completion:makeBlockPtr([completionHandler = WTF::move(completionHandler)](CGSize sizeReceived, NSError *error) mutable {
             completionHandler();
@@ -1062,9 +1060,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
         OBJC_ALWAYS_LOG(OBJC_LOGIDENTIFIER, "(QL) presentation updated");
 
-        manager->prepareQuickLookImageURL([strongSelf = retainPtr(self), self, window = retainPtr([webView window]), completionHandler = WTF::move(completionHandler), logIdentifier = OBJC_LOGIDENTIFIER] (URL&& url) mutable {
+        bool launchInImmersive = manager->launchInImmersive();
+        manager->prepareQuickLookImageURL([strongSelf = retainPtr(self), self, window = retainPtr([webView window]), launchInImmersive, completionHandler = WTF::move(completionHandler), logIdentifier = OBJC_LOGIDENTIFIER] (URL&& url) mutable {
             UIWindowScene *scene = [window windowScene];
-            _previewWindowController = adoptNS([WebKit::allocWKPreviewWindowControllerInstance() initWithURL:url.createNSURL().get() sceneID:scene._sceneIdentifier]);
+            _previewWindowController = adoptNS([WebKit::allocWKPreviewWindowControllerInstance() initWithURL:url.createNSURL().get() sceneID:scene._sceneIdentifier launchInImmersive:launchInImmersive]);
             [_previewWindowController setDelegate:self];
             [_previewWindowController presentWindowWithCompletionHandler:^{ }];
             _fullScreenState = WebKit::InFullScreen;
@@ -1311,7 +1310,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
             OBJC_ALWAYS_LOG_WITH_SELF(strongSelf, logIdentifier, "presentation completed");
 
             [[strongSelf _webView] becomeFirstResponder];
+#if !PLATFORM(VISION)
             completionHandler(true);
+#endif
             manager->setAnimatingFullScreen(false);
             page->setSuppressVisibilityUpdates(false);
             page->flushDeferredResizeEvents();
@@ -1322,12 +1323,13 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 #if PLATFORM(VISION)
             if (WebKit::useSpatialFullScreenTransition()) {
-                CompletionHandler<void()> completionHandler = [strongSelf]() {
+                [strongSelf _performSpatialFullScreenTransition:YES completionHandler:makeBlockPtr([completionHandler = WTF::move(completionHandler), strongSelf] mutable {
                     // We may have lost key status during the transition into fullscreen
                     [strongSelf->_window makeKeyAndVisible];
-                };
-                [strongSelf _performSpatialFullScreenTransition:YES completionHandler:WTF::move(completionHandler)];
-            }
+                    completionHandler(true);
+                })];
+            } else
+                completionHandler(true);
 #endif
 
             if (RefPtr videoPresentationManager = [strongSelf _videoPresentationManager]) {
@@ -2030,7 +2032,36 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     return YES;
 }
 
+// FIXME: https://bugs.webkit.org/show_bug.cgi?id=307396
+- (BOOL)_shouldAnimateResizeScene
+{
+    return WTF::IOSApplication::isMobileSafari();
+}
+
 - (void)_configureSpatialFullScreenTransition
+{
+    if ([self _shouldAnimateResizeScene])
+        [self _configureSpatialFullScreenTransitionWithSceneResizeAnimation];
+    else
+        [self _configureSpatialFullScreenTransitionWithoutSceneResizeAnimation];
+}
+
+- (void)_configureSpatialFullScreenTransitionWithSceneResizeAnimation
+{
+    // Workaround rdar://103936581. Since `originalWindow` is not owned by WebKit, it is currently
+    // not possible to prevent it from participating in scene resize, as it is being faded out.
+    // Temporarily change the object's class to override scene resize behavior.
+    object_setClass(_lastKnownParentWindow.get(), [WKFixedSizeWindow class]);
+    object_setClass(_window.get(), [WKFixedSizeWindow class]);
+
+    UIWindowScene *scene = [_lastKnownParentWindow windowScene] ?: [_window windowScene];
+
+    scene.mrui_placement.preferredChromeOptions = RSSSceneChromeOptionsNone;
+
+    OBJC_ALWAYS_LOG(OBJC_LOGIDENTIFIER);
+}
+
+- (void)_configureSpatialFullScreenTransitionWithoutSceneResizeAnimation
 {
     CGRect originalWindowBounds = [_lastKnownParentWindow bounds];
     CGRect fullscreenWindowBounds = [_window bounds];
@@ -2056,14 +2087,14 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     scene.mrui_placement.preferredChromeOptions = RSSSceneChromeOptionsNone;
 
     OBJC_ALWAYS_LOG(OBJC_LOGIDENTIFIER);
-    WebKit::resizeScene(scene, sceneSize, NO, NO, [strongSelf = retainPtr(self), self, adjustedOriginalWindowFrame, adjustedFullscreenWindowFrame, logIdentifier = OBJC_LOGIDENTIFIER]() {
+    WebKit::resizeScene(scene, sceneSize, 0, YES, [strongSelf = retainPtr(self), self, adjustedOriginalWindowFrame, adjustedFullscreenWindowFrame, logIdentifier = OBJC_LOGIDENTIFIER]() {
         OBJC_ALWAYS_LOG(logIdentifier, "resize completed");
         [_lastKnownParentWindow setFrame:adjustedOriginalWindowFrame];
         [_window setFrame:adjustedFullscreenWindowFrame];
 
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         [self _updateOrnamentOffsetsForTemporarySceneSize:[_window windowScene].coordinateSpace.bounds.size];
-ALLOW_DEPRECATED_DECLARATIONS_END
+        ALLOW_DEPRECATED_DECLARATIONS_END
     });
 }
 
@@ -2138,9 +2169,22 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     WKFullScreenWindowController *controller = self;
     UIWindow *inWindow = enter ? _window.get() : _lastKnownParentWindow.get();
     UIWindow *outWindow = enter ? _lastKnownParentWindow.get() : _window.get();
+    CGRect inWindowBounds = [inWindow bounds];
+    CGRect outWindowBounds = [outWindow bounds];
     WKFullScreenParentWindowState *originalState = _parentWindowState.get();
 
-    inWindow.transform3D = CATransform3DTranslate(originalState.transform3D, 0, 0, kIncomingWindowZOffset);
+    const BOOL shouldAnimateResizeScene = [self _shouldAnimateResizeScene];
+
+    // This is a workaround for the fact that the content in the window is anchored to the top left of the scene
+    // As a result, we need to apply an XY offset that animates as the inWindow comes in, such that it
+    // is centered while the animation happens during scene resize.
+    CGFloat sceneWidthDifference = inWindowBounds.size.width - outWindowBounds.size.width;
+    CGFloat sceneHeightDifference = inWindowBounds.size.height - outWindowBounds.size.height;
+    float inWindowXOffset = shouldAnimateResizeScene ? sceneWidthDifference / 2 : 0;
+    float inWindowYOffset = shouldAnimateResizeScene ? sceneHeightDifference / 2 : 0;
+    CGSize targetSceneSize = [inWindow bounds].size;
+
+    inWindow.transform3D = CATransform3DTranslate(originalState.transform3D, -inWindowXOffset, -inWindowYOffset, kIncomingWindowZOffset);
 
     WKSurroundingsEffectType targetDarkness = enter ? (self.prefersSceneDimming ? WKSurroundingsEffectTypeDark : originalState.preferredSurroundingsEffect) : originalState.preferredSurroundingsEffect;
 
@@ -2151,81 +2195,119 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         } completion:nil];
     }
 
-    [UIView animateWithDuration:kOutgoingWindowFadeDuration delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
-        if (enter)
-            [self _setOrnamentsHidden:YES];
-
-        outWindow.alpha = 0;
-    } completion:nil];
-
-    [UIView animateWithDuration:kWindowTranslationDuration delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
-        outWindow.transform3D = CATransform3DTranslate(outWindow.transform3D, 0, 0, kOutgoingWindowZOffset);
-    } completion:nil];
-
-    [UIView animateWithDuration:kWindowTranslationDuration delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
-        inWindow.transform3D = originalState.transform3D;
-    } completion:nil];
-
-    for (MRUIPlatterOrnament *ornament in originalState.ornamentProperties) {
-        CGFloat originalDepth = [[originalState.ornamentProperties objectForKey:ornament] depthDisplacement];
-        CGFloat finalDepth = originalDepth;
-        if (enter)
-            finalDepth += kOutgoingWindowZOffset;
-        else
-            [ornament _setDepthDisplacement:originalDepth + kIncomingWindowZOffset];
-
-        [UIView animateWithDuration:kWindowTranslationDuration delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
-            [ornament _setDepthDisplacement:finalDepth];
-        } completion:nil];
-    }
-
     BOOL allowSceneGeometryUpdates = NO;
 #if ENABLE(SCENE_GEOMETRY_UPDATE)
-    // TODO: https://bugs.webkit.org/show_bug.cgi?id=303664
+    // FIXME: https://bugs.webkit.org/show_bug.cgi?id=303664
     if (auto page = [self._webView _page])
-        allowSceneGeometryUpdates = page->preferences().updateSceneGeometryEnabled();
+        allowSceneGeometryUpdates = page->preferences().updateSceneGeometryEnabled() && shouldAnimateResizeScene;
 #endif
 
-    auto completion = makeBlockPtr([controller = retainPtr(controller), inWindow = retainPtr(inWindow), originalState = retainPtr(originalState), enter, allowSceneGeometryUpdates, completionHandler = WTF::move(completionHandler)] (BOOL finished) mutable {
-        WebKit::resizeScene([inWindow windowScene], [inWindow bounds].size, !enter, allowSceneGeometryUpdates, [controller, inWindow, originalState, enter, completionHandler = WTF::move(completionHandler)] mutable {
-            Class inWindowClass = enter ? [UIWindow class] : [originalState windowClass];
-            object_setClass(inWindow.get(), inWindowClass);
+    WeakObjCPtr<WKFullScreenWindowController> weakSelf { self };
+    auto resizeCompletionBlock = makeBlockPtr([controller = retainPtr(controller), inWindow = retainPtr(inWindow), originalState = retainPtr(originalState), enter, completionHandler = WTF::move(completionHandler)] mutable {
+        Class inWindowClass = enter ? [UIWindow class] : [originalState windowClass];
+        object_setClass(inWindow.get(), inWindowClass);
 
-            UIWindowScene *scene = [inWindow windowScene];
+        UIWindowScene *scene = [inWindow windowScene];
 
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-            [inWindow setFrame:scene.coordinateSpace.bounds];
-ALLOW_DEPRECATED_DECLARATIONS_END
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+        [inWindow setFrame:scene.coordinateSpace.bounds];
+        ALLOW_DEPRECATED_DECLARATIONS_END
 
-            if (enter) {
-                if ([controller _sceneAspectRatioLockingEnabled])
-                    scene.mrui_placement.preferredResizingBehavior = MRUISceneResizingBehaviorUniform;
-                scene.delegate = adoptNS([[WKFullscreenWindowSceneDelegate alloc] initWithController:controller.get() originalDelegate:scene.delegate]).get();
-            } else {
-                scene.sizeRestrictions.minimumSize = [originalState sceneMinimumSize];
-                scene.mrui_placement.preferredResizingBehavior = [originalState sceneResizingBehavior];
-                if (auto delegate = dynamic_objc_cast<WKFullscreenWindowSceneDelegate>(scene.delegate))
-                    scene.delegate = [delegate originalDelegate];
+        if (enter) {
+            if ([controller _sceneAspectRatioLockingEnabled])
+                scene.mrui_placement.preferredResizingBehavior = MRUISceneResizingBehaviorUniform;
+            scene.delegate = adoptNS([[WKFullscreenWindowSceneDelegate alloc] initWithController:controller.get() originalDelegate:scene.delegate]).get();
+        } else {
+            scene.sizeRestrictions.minimumSize = [originalState sceneMinimumSize];
+            scene.mrui_placement.preferredResizingBehavior = [originalState sceneResizingBehavior];
+            if (RetainPtr delegate = dynamic_objc_cast<WKFullscreenWindowSceneDelegate>(scene.delegate))
+                scene.delegate = [delegate originalDelegate];
 
-                for (MRUIPlatterOrnament *ornament in [originalState ornamentProperties])
-                    ornament.offset2D = [[[originalState ornamentProperties] objectForKey:ornament] offset2D];
+            for (MRUIPlatterOrnament *ornament in [originalState ornamentProperties])
+                ornament.offset2D = [[[originalState ornamentProperties] objectForKey:ornament] offset2D];
 
-                // Dismiss the fullscreen view controller on exit to ensure hit-test redirection does not occur.
-                [controller->_fullscreenViewController dismissViewControllerAnimated:NO completion:nil];
-            }
+            // Dismiss the fullscreen view controller on exit to ensure hit-test redirection does not occur.
+            [controller->_fullscreenViewController dismissViewControllerAnimated:NO completion:nil];
+        }
 
-            scene.mrui_placement.preferredChromeOptions = [originalState sceneChromeOptions];
-
-            completionHandler();
-        });
+        scene.mrui_placement.preferredChromeOptions = [originalState sceneChromeOptions];
+        completionHandler();
     });
 
-    [UIView animateWithDuration:kIncomingWindowFadeDuration delay:kIncomingWindowFadeDelay options:UIViewAnimationOptionCurveEaseInOut animations:^{
-        if (!enter && self._shouldShowOrnaments)
-            [self _setOrnamentsHidden:NO];
+    auto animationCompletionBlock = makeBlockPtr([inWindow, targetSceneSize, shouldAnimateResizeScene, resizeCompletionBlock = WTF::move(resizeCompletionBlock)] (BOOL finished) mutable {
+        if (shouldAnimateResizeScene)
+            resizeCompletionBlock();
+        else
+            WebKit::resizeScene([inWindow windowScene], targetSceneSize, 0, shouldAnimateResizeScene, WTF::move(resizeCompletionBlock));
+    });
 
-        inWindow.alpha = 1;
-    } completion:completion.get()];
+    auto animationBlock = makeBlockPtr([inWindow, outWindow, originalState, enter, allowSceneGeometryUpdates, inWindowXOffset, inWindowYOffset, sceneWidthDifference, sceneHeightDifference, shouldAnimateResizeScene, self, weakSelf = WTF::move(weakSelf), animationCompletionBlock = WTF::move(animationCompletionBlock)] mutable {
+#if ENABLE(SCENE_GEOMETRY_UPDATE)
+        [UIView animateWithDuration:kWindowTranslationDuration delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
+            if (allowSceneGeometryUpdates)
+                [[inWindow windowScene] setUsesDefaultGeometry:!enter];
+        } completion:nil];
+#else
+        UNUSED_PARAM(allowSceneGeometryUpdates);
+#endif
+
+        [UIView animateWithDuration:kOutgoingWindowFadeDuration delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
+            if (enter)
+                [self _setOrnamentsHidden:YES];
+
+            outWindow.alpha = 0;
+        } completion:nil];
+
+        [UIView animateWithDuration:kWindowTranslationDuration delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
+            outWindow.transform3D = CATransform3DTranslate(outWindow.transform3D, inWindowXOffset, inWindowYOffset, kOutgoingWindowZOffset);
+        } completion:nil];
+
+        [UIView animateWithDuration:kWindowTranslationDuration delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
+            inWindow.transform3D = originalState.transform3D;
+        } completion:nil];
+
+        if (shouldAnimateResizeScene) {
+            [UIView animateWithDuration:kWindowTranslationDuration delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
+                if (enter) {
+                    for (MRUIPlatterOrnament *ornament in [originalState ornamentProperties]) {
+                        CGPoint originalOffset2D = [[[_parentWindowState ornamentProperties] objectForKey:ornament] offset2D];
+                        ornament.offset2D = CGPointMake(
+                            originalOffset2D.x + sceneWidthDifference * (0.5 - ornament.sceneAnchorPoint.x),
+                            originalOffset2D.y + sceneHeightDifference * (0.5 - ornament.sceneAnchorPoint.y)
+                        );
+                    }
+                } else {
+                    for (MRUIPlatterOrnament *ornament in [originalState ornamentProperties])
+                        ornament.offset2D = [[[originalState ornamentProperties] objectForKey:ornament] offset2D];
+                }
+            } completion:nil];
+        }
+
+        for (MRUIPlatterOrnament *ornament in originalState.ornamentProperties) {
+            CGFloat originalDepth = [[originalState.ornamentProperties objectForKey:ornament] depthDisplacement];
+            CGFloat finalDepth = originalDepth;
+            if (enter)
+                finalDepth += kOutgoingWindowZOffset;
+            else
+                [ornament _setDepthDisplacement:originalDepth + kIncomingWindowZOffset];
+
+            [UIView animateWithDuration:kWindowTranslationDuration delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
+                [ornament _setDepthDisplacement:finalDepth];
+            } completion:nil];
+        }
+
+        [UIView animateWithDuration:kIncomingWindowFadeDuration delay:kIncomingWindowFadeDelay options:UIViewAnimationOptionCurveEaseInOut animations:^{
+            if (!enter && self._shouldShowOrnaments)
+                [self _setOrnamentsHidden:NO];
+
+            inWindow.alpha = 1;
+        } completion:animationCompletionBlock.get()];
+    });
+
+    if (shouldAnimateResizeScene)
+        WebKit::resizeScene([inWindow windowScene], targetSceneSize, kWindowTranslationDuration, shouldAnimateResizeScene, WTF::move(animationBlock));
+    else
+        animationBlock();
 }
 
 - (void)toggleSceneDimming

@@ -64,7 +64,9 @@ WTTextSuggestionState convertToPlatformTextSuggestionState(WebCore::WritingTools
     case WebCore::WritingTools::TextSuggestion::State::Reviewing:
         return WTTextSuggestionStateReviewing;
     case WebCore::WritingTools::TextSuggestion::State::Accepted:
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         return WTTextSuggestionStateAccepted;
+        ALLOW_DEPRECATED_DECLARATIONS_END
     case WebCore::WritingTools::TextSuggestion::State::Rejected:
         return WTTextSuggestionStateRejected;
     case WebCore::WritingTools::TextSuggestion::State::Invalid:
@@ -108,7 +110,9 @@ WebCore::WritingTools::TextSuggestion::State convertToWebTextSuggestionState(WTT
         return WebCore::WritingTools::TextSuggestion::State::Pending;
     case WTTextSuggestionStateReviewing:
         return WebCore::WritingTools::TextSuggestion::State::Reviewing;
+        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     case WTTextSuggestionStateAccepted:
+        ALLOW_DEPRECATED_DECLARATIONS_END
         return WebCore::WritingTools::TextSuggestion::State::Accepted;
     case WTTextSuggestionStateRejected:
         return WebCore::WritingTools::TextSuggestion::State::Rejected;

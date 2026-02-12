@@ -360,7 +360,6 @@ UIProcess/API/Cocoa/WKDownload.mm @nonARC
 UIProcess/API/Cocoa/WKError.mm @nonARC
 UIProcess/API/Cocoa/WKFindConfiguration.mm @nonARC
 UIProcess/API/Cocoa/WKFindResult.mm @nonARC
-UIProcess/API/Cocoa/WKFormInfo.mm @nonARC
 UIProcess/API/Cocoa/WKFrameInfo.mm @nonARC
 UIProcess/API/Cocoa/WKHTTPCookieStore.mm @nonARC
 UIProcess/API/Cocoa/WKMenuItemIdentifiers.mm @nonARC
