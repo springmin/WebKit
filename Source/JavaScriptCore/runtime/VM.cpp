@@ -1114,7 +1114,8 @@ static void preCommitStackMemory(void* stackLimit)
         if (VirtualAlloc(base, size, MEM_COMMIT, PAGE_READWRITE))
             return;
     }
-    RELEASE_ASSERT_NOT_REACHED();
+    RELEASE_ASSERT_RESOURCE_AVAILABLE(false, MemoryExhaustion,
+        "preCommitStackMemory: VirtualAlloc MEM_COMMIT failed");
 }
 #endif
 
