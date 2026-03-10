@@ -128,6 +128,10 @@ function Patch-IcuVcxProj {
     $content = $content -replace '<OutputFile>[^<]*\.(dll|DLL)</OutputFile>', ''
     $content = $content -replace '<ImportLibrary>[^<]*</ImportLibrary>', ''
 
+    # Strip .rc — rc.exe cannot parse clang stddef.h and static libs do not need version resources.
+    $content = $content -replace "(?s)<ResourceCompile[^>]*>.*?</ResourceCompile>", ""
+    $content = $content -replace "<ResourceCompile[^>]*/>", ""
+
     # For stubdata - remove resource-only DLL settings
     if ($FilePath -match "stubdata") {
         $content = $content -replace '<NoEntryPoint>true</NoEntryPoint>', ''
