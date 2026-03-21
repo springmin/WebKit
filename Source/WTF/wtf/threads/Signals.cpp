@@ -138,7 +138,14 @@ static void initMachExceptionHandlerThread()
     if (!handlers.addedExceptions)
         return;
 
+#ifdef MPO_EXCEPTION_PORT
     uint16_t flags = MPO_INSERT_SEND_RIGHT | MPO_EXCEPTION_PORT;
+#else
+    uint16_t flags = MPO_INSERT_SEND_RIGHT;
+#ifdef MPO_PROVISIONAL_ID_PROT_OPTOUT
+    flags |= MPO_PROVISIONAL_ID_PROT_OPTOUT;
+#endif
+#endif
 
     mach_port_options_t options { };
     options.flags = flags;
