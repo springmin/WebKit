@@ -306,14 +306,14 @@ static int uv__get_cgroup1_constrained_cpu(char buf[1024])
 
     snprintf(filename, sizeof(filename),
         "/sys/fs/cgroup/cpu/%.*s/cpu.cfs_quota_us", n, p);
-    if (uv__slurp(filename, quota_buf, sizeof(quota_buf)) < 0)
+    if (uv__slurp(filename, quota_buf, sizeof(quota_buf)) != 0)
         return 0;
     if (sscanf(quota_buf, "%lld", &quota) != 1 || quota <= 0)
         return 0;
 
     snprintf(filename, sizeof(filename),
         "/sys/fs/cgroup/cpu/%.*s/cpu.cfs_period_us", n, p);
-    if (uv__slurp(filename, quota_buf, sizeof(quota_buf)) < 0)
+    if (uv__slurp(filename, quota_buf, sizeof(quota_buf)) != 0)
         return 0;
     if (sscanf(quota_buf, "%lld", &period) != 1 || period <= 0)
         return 0;
