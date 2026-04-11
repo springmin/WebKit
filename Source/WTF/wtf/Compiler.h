@@ -553,7 +553,7 @@
 #define SUPPRESS_NODELETE \
     IGNORE_CLANG_STATIC_ANALYZER_WARNINGS_ATTRIBUTE_ON_MEMBER("webkit.NoDeleteChecker")
 
-#if COMPILER(APPLE_CLANG) || defined(CLANG_WEBKIT_BRANCH) || (defined(__clang__) && (!defined __clang_major__ || __clang_major__ >= 21))
+#if (COMPILER(APPLE_CLANG) || defined(CLANG_WEBKIT_BRANCH) || (defined(__clang__) && (!defined __clang_major__ || __clang_major__ >= 21))) && !defined(_MSC_VER)
 #define SUPPRESS_UNCOUNTED_LAMBDA_CAPTURE \
     IGNORE_CLANG_STATIC_ANALYZER_WARNINGS_ATTRIBUTE("webkit.UncountedLambdaCapturesChecker")
 #define SUPPRESS_UNRETAINED_LOCAL \
