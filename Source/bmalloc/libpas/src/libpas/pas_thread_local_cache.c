@@ -377,6 +377,7 @@ pas_local_allocator_result pas_thread_local_cache_get_local_allocator_slow(
         memcpy(new_thread_local_cache->should_stop_bitvector,
                thread_local_cache->should_stop_bitvector,
                PAS_BITVECTOR_NUM_BYTES(thread_local_cache->allocator_index_upper_bound));
+        new_thread_local_cache->should_stop_some = thread_local_cache->should_stop_some;
 
         pas_compiler_fence();
         new_thread_local_cache->node->cache = new_thread_local_cache;
