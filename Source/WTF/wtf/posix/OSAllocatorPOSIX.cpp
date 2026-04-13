@@ -63,12 +63,6 @@
 
 #endif
 
-#ifdef MADV_DONTFORK
-#define BUN_MADV_DONTFORK MADV_DONTFORK
-#else
-#define BUN_MADV_DONTFORK 0
-#endif
-
 #ifdef BUN_MACOSX
 #define BUN_VM_CHILD_PROCESS_INHERIT VM_INHERIT_NONE
 #else
@@ -164,8 +158,10 @@ void* OSAllocator::tryReserveUncommitted(size_t bytes, Usage usage, void* addres
 #if OS(LINUX) || OS(HAIKU)
     UNUSED_PARAM(usage);
     void* result = tryReserveAndCommitImpl(bytes, usage, address, writable, executable, jitCageEnabled, numGuardPagesToAddOnEachEnd, /* uncommitted */ true);
+#ifdef MADV_DONTFORK
     if (result)
-        while (madvise(result, bytes, MADV_DONTNEED | BUN_MADV_DONTFORK) == -1 && errno == EAGAIN) { }
+        while (madvise(result, bytes, MADV_DONTFORK) == -1 && errno == EAGAIN) { }
+#endif
 #else // not OS(LINUX) || OS(HAIKU)
     void* result = tryReserveAndCommit(bytes, usage, address, writable, executable, jitCageEnabled, numGuardPagesToAddOnEachEnd);
 #if HAVE(MADV_FREE_REUSE)
@@ -235,9 +231,10 @@ void* OSAllocator::tryReserveUncommittedAligned(size_t bytes, size_t alignment, 
     void* result = mmap(address, bytes, protection, MAP_NORESERVE | MAP_PRIVATE | MAP_ANON | MAP_ALIGNED(getLSBSet(alignment)), -1, 0);
     if (result == MAP_FAILED)
         return nullptr;
+#ifdef MADV_DONTFORK
     if (result)
-        while (madvise(result, bytes, MADV_DONTNEED | BUN_MADV_DONTFORK) == -1 && errno == EAGAIN) {
-        }
+        while (madvise(result, bytes, MADV_DONTFORK) == -1 && errno == EAGAIN) { }
+#endif
     return result;
 #else
 
@@ -274,7 +271,7 @@ void OSAllocator::commit(void* address, size_t bytes, bool writable, bool execut
 #if OS(LINUX) || OS(HAIKU) || OS(QNX)
     UNUSED_PARAM(writable);
     UNUSED_PARAM(executable);
-    while (madvise(address, bytes, MADV_WILLNEED | BUN_MADV_DONTFORK) == -1 && errno == EAGAIN) {
+    while (madvise(address, bytes, MADV_WILLNEED) == -1 && errno == EAGAIN) {
     }
 #elif HAVE(MADV_FREE_REUSE)
     UNUSED_PARAM(writable);
