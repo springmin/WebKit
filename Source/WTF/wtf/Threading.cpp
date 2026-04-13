@@ -58,7 +58,7 @@
 #include <bmalloc/pas_thread_suspender.h>
 #endif
 
-#if BENABLE(LIBPAS) && OS(LINUX)
+#if BENABLE(LIBPAS) && (OS(LINUX) || OS(WINDOWS))
 namespace WTF {
 
 static pas_embedder_thread_handle pasSuspenderCurrentThread()
@@ -549,7 +549,7 @@ void initialize()
 #endif
         initializeDates();
         Thread::initializePlatformThreading();
-#if BENABLE(LIBPAS) && OS(LINUX)
+#if BENABLE(LIBPAS) && (OS(LINUX) || OS(WINDOWS))
         pas_install_thread_suspender(&s_pasThreadSuspender);
 #endif
 #if PLATFORM(COCOA)

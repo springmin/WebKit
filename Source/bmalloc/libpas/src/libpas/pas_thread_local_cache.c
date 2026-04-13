@@ -963,7 +963,7 @@ static void decommit_allocator_range(pas_thread_local_cache* cache,
                                      pas_thread_local_cache_layout_segment* end_segment,
                                      uintptr_t end_node_index)
 {
-#if PAS_OS(DARWIN) || PAS_OS(LINUX)
+#if PAS_OS(DARWIN) || PAS_OS(LINUX) || PAS_OS(WINDOWS)
     static const bool verbose = false;
     
     uintptr_t begin_page_index;
@@ -1015,7 +1015,7 @@ static void decommit_allocator_range(pas_thread_local_cache* cache,
                     pas_range_size(decommit_range),
                     &pas_large_utility_free_heap_allocation_config));
     }
-#else /* -> so !(PAS_OS(DARWIN) || PAS_OS(LINUX)) */
+#else /* -> so !(PAS_OS(DARWIN) || PAS_OS(LINUX) || PAS_OS(WINDOWS)) */
     PAS_UNUSED_PARAM(cache);
     PAS_UNUSED_PARAM(begin_segment);
     PAS_UNUSED_PARAM(begin_node_index);
@@ -1023,7 +1023,7 @@ static void decommit_allocator_range(pas_thread_local_cache* cache,
     PAS_UNUSED_PARAM(end_of_possible_decommit);
     PAS_UNUSED_PARAM(end_segment);
     PAS_UNUSED_PARAM(end_node_index);
-#endif /* -> so end of !(PAS_OS(DARWIN) || PAS_OS(LINUX)) */
+#endif /* -> so end of !(PAS_OS(DARWIN) || PAS_OS(LINUX) || PAS_OS(WINDOWS)) */
 }
 
 static void stop_allocator(pas_thread_local_cache* cache,

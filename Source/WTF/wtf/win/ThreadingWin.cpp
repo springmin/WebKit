@@ -213,7 +213,9 @@ void Thread::detach()
 
 auto Thread::suspend(const ThreadSuspendLocker&) -> Expected<void, PlatformSuspendError>
 {
-    RELEASE_ASSERT_WITH_MESSAGE(this != &Thread::currentSingleton(), "We do not support suspending the current thread itself.");
+    // currentMayBeNull, not currentSingleton: the libpas scavenger calls this while holding
+    // the heap lock, and currentSingleton would lazy-allocate a Thread for it.
+    RELEASE_ASSERT_WITH_MESSAGE(this != Thread::currentMayBeNull(), "We do not support suspending the current thread itself.");
     DWORD result = SuspendThread(m_handle);
     if (result != (DWORD)-1)
         return { };
