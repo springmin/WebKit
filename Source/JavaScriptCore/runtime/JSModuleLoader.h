@@ -166,13 +166,26 @@ public:
     ModuleRegistryEntry* ensureRegistered(JSGlobalObject*, const Identifier& key, ScriptFetchParameters::Type);
 
 #if USE(BUN_JSC_ADDITIONS)
-    ModuleRegistryEntry* registryEntry(const Identifier& key, ScriptFetchParameters::Type type = ScriptFetchParameters::Type::JavaScript) { return getRegisteredMayBeNull(key, type); }
-    const ModuleMap<WriteBarrier<ModuleRegistryEntry>>& moduleMap() const { return m_moduleMap; }
-    bool removeEntry(const Identifier& key, ScriptFetchParameters::Type type = ScriptFetchParameters::Type::JavaScript)
+    ModuleRegistryEntry* registryEntry(const Identifier& key)
     {
-        m_loadedModules.remove({ key.impl(), type });
-        m_resolutionFailures.removeIf([&](auto& entry) { return entry.key.first == key.impl() || entry.key.second == key.impl(); });
-        return m_moduleMap.remove({ key.impl(), type });
+        // Bun's old JS loader keyed the registry by specifier alone, so look
+        // across every (specifier, type) bucket and return the first hit.
+        auto* impl = key.impl();
+        for (auto& [k, entry] : m_moduleMap) {
+            if (k.first == impl)
+                return entry.get();
+        }
+        return nullptr;
+    }
+    const ModuleMap<WriteBarrier<ModuleRegistryEntry>>& moduleMap() const { return m_moduleMap; }
+    bool removeEntry(const Identifier& key)
+    {
+        // Bun's registry is conceptually flat (one entry per specifier), so
+        // delete every (specifier, type) variant — text/json/HostDefined etc.
+        auto* impl = key.impl();
+        m_loadedModules.removeIf([&](auto& entry) { return entry.key.first == impl; });
+        m_resolutionFailures.removeIf([&](auto& entry) { return entry.key.first == impl || entry.key.second == impl; });
+        return m_moduleMap.removeIf([&](auto& entry) { return entry.key.first == impl; });
     }
     void clearAll()
     {

@@ -1090,6 +1090,7 @@ JSPromise* JSModuleLoader::loadModuleSync(JSGlobalObject* globalObject, const Id
     JSPromise* result = loadModule(globalObject, moduleName, parameters, scriptFetcher, /* evaluate */ true, /* dynamic */ false, /* useImportMap */ false);
     RETURN_IF_EXCEPTION(scope, result);
 
+    scope.release();
     drainSynchronousModuleQueue(globalObject);
     return result;
 }
