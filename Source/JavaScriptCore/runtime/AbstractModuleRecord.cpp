@@ -230,6 +230,12 @@ void AbstractModuleRecord::setImportedModule(JSGlobalObject* globalObject, const
 {
     VM& vm = globalObject->vm();
     m_dependencies.set(moduleName.string(), WriteBarrier<AbstractModuleRecord>(vm, this, record));
+    // innerModuleLinking/innerModuleEvaluation walk loadedModules() via
+    // getImportedModule(), so records that are linked outside the loader (Bun's
+    // node:vm SourceTextModule) need this map populated too.
+    ModuleRequest request { moduleName, nullptr };
+    ModuleMapKey key { moduleName.impl(), request.type() };
+    m_loadedModules.set(key, LoadedModuleRequest { vm, request, record, this });
 }
 
 auto AbstractModuleRecord::resolveImport(JSGlobalObject* globalObject, const Identifier& localName) -> Resolution
