@@ -2718,95 +2718,89 @@ static_assert(alignof(CacheEntry<UnlinkedModuleProgramCodeBlock>) <= Encoder::ca
 // When adding or updating an entry: confirm the value is identical on
 // Linux, macOS x64, macOS arm64, and Windows before landing.
 // ---------------------------------------------------------------------------
-#define BUN_CACHED_SIZE(T, N) \
-    template<> struct CachedSerializedSize<T> { static constexpr size_t value = (N); }; \
-    static_assert(sizeof(T) == (N), \
-        #T " sizeof changed. The bytecode cache stores raw struct images that " \
+// N first, type as __VA_ARGS__ so multi-arg templates (CachedPair<A, B>) don't
+// need a wrapper alias to survive preprocessor comma-splitting.
+#define BUN_CACHED_SIZE(N, /* T */ ...) \
+    template<> struct CachedSerializedSize<__VA_ARGS__> { static constexpr size_t value = (N); }; \
+    static_assert(sizeof(__VA_ARGS__) == (N), \
+        #__VA_ARGS__ " sizeof changed. The bytecode cache stores raw struct images that " \
         "must be identical across all 64-bit platforms. Verify the new size " \
         "matches on Linux/macOS-x64/macOS-arm64/Windows before updating.");
 
 // Root entries (Encoder::malloc<T>).
-BUN_CACHED_SIZE(CacheEntry<UnlinkedProgramCodeBlock>, 88)
-BUN_CACHED_SIZE(CacheEntry<UnlinkedModuleProgramCodeBlock>, 88)
-BUN_CACHED_SIZE(CachedFunctionCodeBlock, 424)
+BUN_CACHED_SIZE(88, CacheEntry<UnlinkedProgramCodeBlock>)
+BUN_CACHED_SIZE(88, CacheEntry<UnlinkedModuleProgramCodeBlock>)
+BUN_CACHED_SIZE(424, CachedFunctionCodeBlock)
 
 // Code blocks behind CachedPtr.
-BUN_CACHED_SIZE(CachedProgramCodeBlock, 504)
-BUN_CACHED_SIZE(CachedModuleCodeBlock, 432)
-BUN_CACHED_SIZE(CachedCodeBlockRareData, 128)
-BUN_CACHED_SIZE(CachedInstructionStream, 16)
-BUN_CACHED_SIZE(CachedExpressionInfo, 24)
+BUN_CACHED_SIZE(504, CachedProgramCodeBlock)
+BUN_CACHED_SIZE(432, CachedModuleCodeBlock)
+BUN_CACHED_SIZE(128, CachedCodeBlockRareData)
+BUN_CACHED_SIZE(16, CachedInstructionStream)
+BUN_CACHED_SIZE(24, CachedExpressionInfo)
 
 // Function executables.
-BUN_CACHED_SIZE(CachedFunctionExecutable, 120)
-BUN_CACHED_SIZE(CachedFunctionExecutableRareData, 88)
-BUN_CACHED_SIZE(CachedWriteBarrier<CachedFunctionExecutable>, 8)
-BUN_CACHED_SIZE(CachedClassElementDefinition, 56)
-BUN_CACHED_SIZE(CachedJSTextPosition, 12)
+BUN_CACHED_SIZE(120, CachedFunctionExecutable)
+BUN_CACHED_SIZE(88, CachedFunctionExecutableRareData)
+BUN_CACHED_SIZE(8, CachedWriteBarrier<CachedFunctionExecutable>)
+BUN_CACHED_SIZE(56, CachedClassElementDefinition)
+BUN_CACHED_SIZE(12, CachedJSTextPosition)
 
 // Strings & identifiers.
-BUN_CACHED_SIZE(CachedString, 16)
-BUN_CACHED_SIZE(CachedIdentifier, 24)
-BUN_CACHED_SIZE(CachedUniquedStringImpl, 16)
-BUN_CACHED_SIZE(CachedStringImpl, 16)
-BUN_CACHED_SIZE(CachedOptional<CachedString>, 8)
-BUN_CACHED_SIZE(CachedRefPtr<CachedUniquedStringImpl>, 8)
-using CachedPackedUniquedStringImplRefPtr = CachedRefPtr<CachedUniquedStringImpl, UniquedStringImpl, WTF::PackedPtrTraits<UniquedStringImpl>>;
-BUN_CACHED_SIZE(CachedPackedUniquedStringImplRefPtr, 8)
+BUN_CACHED_SIZE(16, CachedString)
+BUN_CACHED_SIZE(24, CachedIdentifier)
+BUN_CACHED_SIZE(16, CachedUniquedStringImpl)
+BUN_CACHED_SIZE(16, CachedStringImpl)
+BUN_CACHED_SIZE(8, CachedOptional<CachedString>)
+BUN_CACHED_SIZE(8, CachedRefPtr<CachedUniquedStringImpl>)
+BUN_CACHED_SIZE(8, CachedRefPtr<CachedUniquedStringImpl, UniquedStringImpl, WTF::PackedPtrTraits<UniquedStringImpl>>)
 
 // Source providers (only struct whose layout would otherwise differ across ABIs;
 // alignas(8) on m_sourceLength keeps it at 104 everywhere).
-BUN_CACHED_SIZE(CachedSourceProvider, 16)
-BUN_CACHED_SIZE(CachedStringSourceProvider, 104)
+BUN_CACHED_SIZE(16, CachedSourceProvider)
+BUN_CACHED_SIZE(104, CachedStringSourceProvider)
 #if ENABLE(WEBASSEMBLY)
-BUN_CACHED_SIZE(CachedWebAssemblySourceProvider, 112)
+BUN_CACHED_SIZE(112, CachedWebAssemblySourceProvider)
 #endif
 
 // CachedJSValue payload variants.
-BUN_CACHED_SIZE(CachedJSValue, 16)
-BUN_CACHED_SIZE(CachedSymbolTable, 48)
-BUN_CACHED_SIZE(CachedSymbolTableRareData, 24)
-BUN_CACHED_SIZE(CachedScopedArgumentsTable, 16)
-BUN_CACHED_SIZE(CachedImmutableButterfly, 16)
-BUN_CACHED_SIZE(CachedRegExp, 24)
-BUN_CACHED_SIZE(CachedTemplateObjectDescriptor, 40)
-BUN_CACHED_SIZE(CachedBigInt, 16)
-BUN_CACHED_SIZE(CachedBitVector, 16)
+BUN_CACHED_SIZE(16, CachedJSValue)
+BUN_CACHED_SIZE(48, CachedSymbolTable)
+BUN_CACHED_SIZE(24, CachedSymbolTableRareData)
+BUN_CACHED_SIZE(16, CachedScopedArgumentsTable)
+BUN_CACHED_SIZE(16, CachedImmutableButterfly)
+BUN_CACHED_SIZE(24, CachedRegExp)
+BUN_CACHED_SIZE(40, CachedTemplateObjectDescriptor)
+BUN_CACHED_SIZE(16, CachedBigInt)
+BUN_CACHED_SIZE(16, CachedBitVector)
 
 // Jump tables / handlers / environments.
-BUN_CACHED_SIZE(CachedSimpleJumpTable, 32)
-BUN_CACHED_SIZE(CachedStringJumpTable, 40)
-BUN_CACHED_SIZE(UnlinkedHandlerInfo, 16)
-BUN_CACHED_SIZE(CachedTDZEnvironmentLink, 16)
-BUN_CACHED_SIZE(CachedCompactTDZEnvironment, 24)
-BUN_CACHED_SIZE(CachedVariableEnvironmentRareData, 24)
+BUN_CACHED_SIZE(32, CachedSimpleJumpTable)
+BUN_CACHED_SIZE(40, CachedStringJumpTable)
+BUN_CACHED_SIZE(16, UnlinkedHandlerInfo)
+BUN_CACHED_SIZE(16, CachedTDZEnvironmentLink)
+BUN_CACHED_SIZE(24, CachedCompactTDZEnvironment)
+BUN_CACHED_SIZE(24, CachedVariableEnvironmentRareData)
 
 // CachedVector / CachedHashMap element types.
-using CachedHashSetRefPtrUSI = CachedHashSet<CachedRefPtr<CachedUniquedStringImpl>, IdentifierRepHash>;
-BUN_CACHED_SIZE(CachedHashSetRefPtrUSI, 16)
-using CachedPairStringImplOffsetLocation = CachedPair<CachedRefPtr<CachedStringImpl>, UnlinkedStringJumpTable::OffsetLocation>;
-BUN_CACHED_SIZE(CachedPairStringImplOffsetLocation, 16)
-using CachedPairRefPtrSymbolTableEntry = CachedPair<CachedRefPtr<CachedUniquedStringImpl>, CachedSymbolTableEntry>;
-BUN_CACHED_SIZE(CachedPairRefPtrSymbolTableEntry, 16)
-using CachedPairPackedRefPtrPrivateName = CachedPair<CachedPackedUniquedStringImplRefPtr, PrivateNameEntry>;
-BUN_CACHED_SIZE(CachedPairPackedRefPtrPrivateName, 16)
-using CachedPairPackedRefPtrVarEnvEntry = CachedPair<CachedPackedUniquedStringImplRefPtr, VariableEnvironmentEntry>;
-BUN_CACHED_SIZE(CachedPairPackedRefPtrVarEnvEntry, 16)
-using CachedPairUnsignedTypeProfilerRange = CachedPair<unsigned, UnlinkedCodeBlock::RareData::TypeProfilerExpressionRange>;
-BUN_CACHED_SIZE(CachedPairUnsignedTypeProfilerRange, 12)
-using CachedPairUnsignedInt = CachedPair<unsigned, int>;
-BUN_CACHED_SIZE(CachedPairUnsignedInt, 8)
+BUN_CACHED_SIZE(16, CachedHashSet<CachedRefPtr<CachedUniquedStringImpl>, IdentifierRepHash>)
+BUN_CACHED_SIZE(16, CachedPair<CachedRefPtr<CachedStringImpl>, UnlinkedStringJumpTable::OffsetLocation>)
+BUN_CACHED_SIZE(16, CachedPair<CachedRefPtr<CachedUniquedStringImpl>, CachedSymbolTableEntry>)
+BUN_CACHED_SIZE(16, CachedPair<CachedRefPtr<CachedUniquedStringImpl, UniquedStringImpl, WTF::PackedPtrTraits<UniquedStringImpl>>, PrivateNameEntry>)
+BUN_CACHED_SIZE(16, CachedPair<CachedRefPtr<CachedUniquedStringImpl, UniquedStringImpl, WTF::PackedPtrTraits<UniquedStringImpl>>, VariableEnvironmentEntry>)
+BUN_CACHED_SIZE(12, CachedPair<unsigned, UnlinkedCodeBlock::RareData::TypeProfilerExpressionRange>)
+BUN_CACHED_SIZE(8, CachedPair<unsigned, int>)
 
 // Primitives that flow through CachedArray<T>/CachedJSValue. EncodedJSValue is
 // int64_t, which resolves to long on LP64 and long long on LLP64; specializing
 // via the typedef covers both.
-BUN_CACHED_SIZE(EncodedJSValue, 8)
-BUN_CACHED_SIZE(double, 8)
-BUN_CACHED_SIZE(int, 4)
-BUN_CACHED_SIZE(unsigned, 4)
-BUN_CACHED_SIZE(unsigned char, 1)
-BUN_CACHED_SIZE(ScopeOffset, 4)
-BUN_CACHED_SIZE(SourceCodeRepresentation, 1)
+BUN_CACHED_SIZE(8, EncodedJSValue)
+BUN_CACHED_SIZE(8, double)
+BUN_CACHED_SIZE(4, int)
+BUN_CACHED_SIZE(4, unsigned)
+BUN_CACHED_SIZE(1, unsigned char)
+BUN_CACHED_SIZE(4, ScopeOffset)
+BUN_CACHED_SIZE(1, SourceCodeRepresentation)
 
 #undef BUN_CACHED_SIZE
 #endif
