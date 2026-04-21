@@ -68,8 +68,8 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
 #include "WriteBarrier.h"
 #include <wtf/BumpPointerAllocator.h>
 #include <wtf/CheckedArithmetic.h>
+#include <wtf/FastMalloc.h>
 #include <wtf/Forward.h>
-#include <wtf/Gigacage.h>
 #include <wtf/HashMap.h>
 #include <wtf/LazyRef.h>
 #include <wtf/LazyUniqueRef.h>
@@ -544,6 +544,11 @@ public:
     WriteBarrier<Structure> moduleProgramExecutableStructure;
     WriteBarrier<Structure> promiseReactionStructure;
     WriteBarrier<Structure> jsMicrotaskDispatcherStructure;
+    WriteBarrier<Structure> moduleLoaderStructure;
+    WriteBarrier<Structure> moduleRegistryEntryStructure;
+    WriteBarrier<Structure> moduleLoadingContextStructure;
+    WriteBarrier<Structure> moduleLoaderPayloadStructure;
+    WriteBarrier<Structure> moduleGraphLoadingStateStructure;
     WriteBarrier<Structure> promiseCombinatorsContextStructure;
     WriteBarrier<Structure> promiseCombinatorsGlobalContextStructure;
     WriteBarrier<Structure> regExpStructure;
@@ -1227,6 +1232,7 @@ public:
 
     void notifyDebuggerHookInjected() { m_isDebuggerHookInjected = true; }
     bool isDebuggerHookInjected() const { return m_isDebuggerHookInjected; }
+    int64_t incrementModuleAsyncEvaluationCount() { return m_moduleAsyncEvaluationCount++; }
 
 #if ENABLE(WEBASSEMBLY_DEBUGGER)
     JS_EXPORT_PRIVATE Wasm::DebugState* NODELETE debugState();
@@ -1364,6 +1370,36 @@ private:
     WTF::Function<void(VM&, SourceProvider*, LineColumn&, String&)> m_computeLineColumnWithSourcemap;
 #endif
     uintptr_t m_currentWeakRefVersion { 0 };
+
+    int64_t m_moduleAsyncEvaluationCount { 0 };
+
+#if USE(BUN_JSC_ADDITIONS)
+public:
+    struct SynchronousModuleTask {
+        InternalMicrotask task;
+        uint8_t payload;
+        JSValue arg0;
+        JSValue arg1;
+        JSValue arg2;
+    };
+    // While non-null, internal-microtask reactions for already-settled promises
+    // are appended here instead of the global microtask queue.
+    // JSModuleLoader::loadModuleSync points this at a stack-allocated frame and
+    // drains it in a loop so require(esm) can load+link+evaluate without
+    // yielding to user microtasks and without the O(module-count) C++ recursion
+    // that direct re-entry into runInternalMicrotask would cause.
+    //
+    // The Vector's heap buffer is NOT covered by conservative stack scanning,
+    // so VM::visitAggregateImpl walks the full prev-linked chain and marks
+    // every queued JSValue. The chain exists because module evaluation can
+    // re-enter loadModuleSync (require(esm) inside an evaluated module).
+    struct SynchronousModuleQueue {
+        Vector<SynchronousModuleTask> tasks;
+        SynchronousModuleQueue* prev { nullptr };
+    };
+    SynchronousModuleQueue* m_synchronousModuleQueue { nullptr };
+private:
+#endif
 
     bool m_hasSideData { false };
     bool m_hasTerminationRequest { false };

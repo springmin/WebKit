@@ -40,6 +40,7 @@ enum class InternalMicrotask : uint8_t {
     PromiseResolveThenableJobWithInternalMicrotask,
 
     PromiseResolveWithoutHandlerJob,
+    PromiseFulfillWithoutHandlerJob,
 
     PromiseRaceResolveJob,
     PromiseAllResolveJob,
@@ -47,8 +48,6 @@ enum class InternalMicrotask : uint8_t {
     PromiseAnyResolveJob,
     PromiseFinallyReactionJob,
     PromiseFinallyAwaitJob,
-
-    InternalPromiseAllResolveJob,
 
     PromiseReactionJob,
 
@@ -61,6 +60,24 @@ enum class InternalMicrotask : uint8_t {
     AsyncGeneratorResumeNext,
 
     InvokeFunctionJob,
+    AsyncModuleExecutionResume,
+    AsyncModuleExecutionDone,
+    ModuleRegistryFetchSettled,
+    ModuleRegistryModuleSettled,
+    ModuleGraphLoadingError,
+    ModuleLoadStep,
+    ModuleLoadTopSettled,
+    ModuleLoadTopRejected,
+    ModuleLoadSpecifierTransform,
+    ModuleLoadCombinedLoadSettled,
+    ModuleLoadCombinedStateSettled,
+    ModuleLoadLinkEvaluateSettled,
+    ModuleLoadReturnRecord,
+    ModuleLoadReturnModuleKey,
+    ModuleLoadStoreError,
+    DynamicImportLoadSettled,
+    DynamicImportEvaluateSettled,
+    ImportModuleNamespace,
     Opaque, // Dispatch must handle everything.
 #if USE(BUN_JSC_ADDITIONS)
     BunPerformMicrotaskJob, // Bun's performMicrotask function with async context
@@ -70,6 +87,21 @@ enum class InternalMicrotask : uint8_t {
 
 #if USE(BUN_JSC_ADDITIONS)
 constexpr unsigned maxMicrotaskArguments = 4;
+
+// True for the contiguous block of module-loader pipeline tasks plus
+// PromiseFulfillWithoutHandlerJob (used only by JSPromise::pipeFrom, which
+// itself is called only by the loader). These are the reactions that
+// VM::m_synchronousModuleQueue is allowed to divert; everything else
+// (AsyncFunctionResume, AsyncGenerator*, user .then() handlers) must keep
+// going through the global microtask queue so require(esm) doesn't observably
+// reorder a user `await`/`.then()` relative to one queued before the require.
+constexpr bool isModuleLoaderInternalMicrotask(InternalMicrotask task)
+{
+    if (task == InternalMicrotask::PromiseFulfillWithoutHandlerJob)
+        return true;
+    return static_cast<uint8_t>(task) >= static_cast<uint8_t>(InternalMicrotask::AsyncModuleExecutionResume)
+        && static_cast<uint8_t>(task) <= static_cast<uint8_t>(InternalMicrotask::ImportModuleNamespace);
+}
 #else
 constexpr unsigned maxMicrotaskArguments = 3;
 #endif
