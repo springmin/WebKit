@@ -23,6 +23,7 @@
 #include "DateInstance.h"
 #include "HeapSnapshotBuilder.h"
 #include "RegExpObject.h"
+#include "HeapSnapshot.h"
 
 namespace JSC {
 
@@ -30,13 +31,16 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(BunV8HeapSnapshotBuilder);
 
 BunV8HeapSnapshotBuilder::BunV8HeapSnapshotBuilder(HeapProfiler& profiler)
     : m_profiler(profiler)
+    , m_previousSnapshot(profiler.mostRecentSnapshot())
 {
+    m_snapshot = makeUnique<HeapSnapshot>(m_previousSnapshot);
+
     initializeTypeNames();
 
     // V8's snapshot has a synthetic "(root)" with a "(GC roots)" child; DevTools'
     // calculateDistances BFS uses shortcut edges from root as user roots
     // (distance=1) and assigns baseSystemDistance to anything reachable only
-    // through (GC roots). Node id is 2*index+1 to match V8's odd-ID convention.
+    // through (GC roots). Synthetic IDs occupy 1..kSyntheticIdCount.
     m_nodes.append({
         .id = 1,
         .typeIndex = static_cast<unsigned>(V8NodeType::Synthetic),
@@ -47,7 +51,7 @@ BunV8HeapSnapshotBuilder::BunV8HeapSnapshotBuilder(HeapProfiler& profiler)
         .parentNodeId = std::nullopt,
     });
     m_nodes.append({
-        .id = 3,
+        .id = 2,
         .typeIndex = static_cast<unsigned>(V8NodeType::Synthetic),
         .name = "(GC roots)"_s,
         .selfSize = 0,
@@ -103,17 +107,17 @@ BunV8HeapSnapshotBuilder::~BunV8HeapSnapshotBuilder() = default;
 
 String BunV8HeapSnapshotBuilder::json()
 {
-    m_profiler.clearSnapshots();
     VM& vm = m_profiler.vm();
     PreventCollectionScope preventCollectionScope(vm.heap);
     {
-
         ASSERT(!m_profiler.activeHeapAnalyzer());
         m_profiler.setActiveHeapAnalyzer(this);
-
         vm.heap.collectNow(Sync, CollectionScope::Full);
         m_profiler.setActiveHeapAnalyzer(nullptr);
     }
+
+    m_snapshot->finalize();
+    m_profiler.appendSnapshot(WTF::move(m_snapshot));
 
     JSLockHolder lock { vm };
     DeferGC deferGC(vm);
@@ -122,17 +126,17 @@ String BunV8HeapSnapshotBuilder::json()
 
 Vector<uint8_t> BunV8HeapSnapshotBuilder::jsonBytes()
 {
-    m_profiler.clearSnapshots();
     VM& vm = m_profiler.vm();
     PreventCollectionScope preventCollectionScope(vm.heap);
     {
-
         ASSERT(!m_profiler.activeHeapAnalyzer());
         m_profiler.setActiveHeapAnalyzer(this);
-
         vm.heap.collectNow(Sync, CollectionScope::Full);
         m_profiler.setActiveHeapAnalyzer(nullptr);
     }
+
+    m_snapshot->finalize();
+    m_profiler.appendSnapshot(WTF::move(m_snapshot));
 
     JSLockHolder lock { vm };
     DeferGC deferGC(vm);
@@ -152,9 +156,21 @@ unsigned BunV8HeapSnapshotBuilder::analyzeNodeInternal(JSCell* cell)
     auto typeIndex = getNodeTypeIndex(cell);
     unsigned index = m_nodes.size();
 
+    // Reuse the identifier from a prior snapshot if this cell survived;
+    // Heap::removeDeadHeapSnapshotNodes() prunes dead entries on every GC so an
+    // address reused for a new object misses here. Only new cells are appended
+    // to m_snapshot — that's the contract for HeapSnapshot::appendNode().
+    unsigned identifier;
+    if (auto existing = m_previousSnapshot ? m_previousSnapshot->nodeForCell(cell) : std::nullopt)
+        identifier = existing->identifier;
+    else {
+        identifier = HeapSnapshotBuilder::getNextObjectIdentifier();
+        m_snapshot->appendNode(HeapSnapshotNode(cell, identifier));
+    }
+
     m_nodes.append({
         .cell = cell,
-        .id = 2 * index + 1,
+        .id = identifier + kSyntheticIdCount,
         .typeIndex = typeIndex,
         .selfSize = cell->estimatedSizeInBytes(m_profiler.vm()),
         .edges = {},

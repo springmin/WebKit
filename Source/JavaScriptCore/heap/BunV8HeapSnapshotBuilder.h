@@ -17,6 +17,7 @@ namespace JSC {
 
 class JSCell;
 class HeapProfiler;
+class HeapSnapshot;
 
 class JS_EXPORT_PRIVATE BunV8HeapSnapshotBuilder final : public HeapAnalyzer {
     WTF_MAKE_TZONE_ALLOCATED(BunV8HeapSnapshotBuilder);
@@ -42,6 +43,9 @@ public:
 private:
     static constexpr unsigned kRootNodeIndex = 0;
     static constexpr unsigned kGcRootsNodeIndex = 1;
+    // Synthetic-node IDs occupy 1..kSyntheticIdCount; real-object IDs are
+    // identifier + kSyntheticIdCount so the spaces never collide.
+    static constexpr unsigned kSyntheticIdCount = 2;
 
     String generateV8HeapSnapshot();
     Vector<uint8_t> generateV8HeapSnapshotBytes();
@@ -118,6 +122,8 @@ private:
     Lock m_cellToNodeIdMutex;
     HashMap<JSCell*, unsigned> m_cellToNodeId;
     Vector<unsigned> m_globalObjectNodeIndices;
+    std::unique_ptr<HeapSnapshot> m_snapshot;
+    HeapSnapshot* m_previousSnapshot { nullptr };
 
     // TODO: make this not so inefficient
     Vector<String> m_strings;

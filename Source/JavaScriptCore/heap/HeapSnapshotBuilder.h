@@ -146,9 +146,10 @@ public:
     };
     void setClient(Client* client) { m_client = client; }
 
+    static NodeIdentifier NODELETE getNextObjectIdentifier();
+
 private:
     static NodeIdentifier nextAvailableObjectIdentifier;
-    static NodeIdentifier NODELETE getNextObjectIdentifier();
 
     // Finalized snapshots are not modified during building. So searching them
     // for an existing node can be done concurrently without a lock.
