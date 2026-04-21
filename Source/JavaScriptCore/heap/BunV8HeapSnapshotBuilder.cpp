@@ -402,13 +402,16 @@ String BunV8HeapSnapshotBuilder::getDetailedNodeType(JSCell* cell)
     switch (cell->type()) {
     case JSType::StringType: {
         auto* string = jsCast<JSString*>(cell);
-        // V8 names cons/sliced strings with a fixed literal rather than
-        // resolving them; this also avoids flattening large ropes here.
-        if (string->isRope())
+        static constexpr unsigned heapSnapshotStringLimit = 1024;
+        // V8 never resolves cons strings for the node name. We do, because
+        // seeing the content is useful when debugging — but only when the
+        // resolve is cheap. JSString::length() is O(1) on ropes, so gate on
+        // that to avoid flattening huge ropes just to take 1024 chars.
+        static constexpr unsigned heapSnapshotRopeResolveLimit = 16384;
+        if (string->isRope() && string->length() > heapSnapshotRopeResolveLimit)
             return "(concatenated string)"_s;
         auto value = string->tryGetValue(true);
         if (!value->isEmpty()) {
-            static constexpr unsigned heapSnapshotStringLimit = 1024;
             if (value->length() > heapSnapshotStringLimit)
                 return value->left(heapSnapshotStringLimit);
             return value;
