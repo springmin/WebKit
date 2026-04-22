@@ -928,7 +928,6 @@ macro metadataMemoryMakePointer(offsetField, memoryIndexField, wasmAddrReg, size
     mulp constexpr (sizeof(JSWebAssemblyInstance::WasmMemoryBaseAndSize)), scratch
     # FIXME: it's probably worth trying to use a loadpair here, but that requires a separate x86 codepath
     loadp (constexpr (JSWebAssemblyInstance::offsetOfCachedMemoryBaseSizePair(0) + sizeof(void*))) [wasmInstance, scratch], scratch2 # bounds checking size
-    subp size - 1, scratch2 # wasmAddrReg + (size-1) >= scratch2 is equivalent to wasmAddrReg >= scratch2 - (size-1)
     bpaeq wasmAddrReg, scratch2, .outOfBounds
     loadp (constexpr (JSWebAssemblyInstance::offsetOfCachedMemoryBaseSizePair(0))) [wasmInstance, scratch], scratch2 # memory base
     addp scratch2, wasmAddrReg
