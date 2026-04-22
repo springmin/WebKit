@@ -179,6 +179,12 @@ struct AtomicMemoryAccessMetadata {
     InstructionLengthMetadata instructionLength;
 };
 
+struct SIMDMemoryAccessMetadata {
+    uint8_t memoryIndex;
+    uint64_t offset;
+    InstructionLengthMetadata instructionLength;
+};
+
 struct MemorySizeMetadata {
     uint8_t memoryIndex;
 };

@@ -149,6 +149,16 @@ void FunctionIPIntMetadataGenerator::addAtomicMemoryAccess(uint8_t memoryIndex, 
     appendMetadata(md);
 }
 
+void FunctionIPIntMetadataGenerator::addSIMDMemoryAccess(uint8_t memoryIndex, uint64_t offset, size_t length)
+{
+    IPInt::SIMDMemoryAccessMetadata md {
+        .memoryIndex = memoryIndex,
+        .offset = offset,
+        .instructionLength = { .length = safeCast<uint8_t>(length) }
+    };
+    appendMetadata(md);
+}
+
 void FunctionIPIntMetadataGenerator::addReturnData(const FunctionSignature& sig, const CallInformation& returnCC)
 {
     m_uINTBytecode.reserveInitialCapacity(sig.returnCount() + 1);
