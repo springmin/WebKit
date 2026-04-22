@@ -383,10 +383,6 @@ X86_INSTRUCTIONS =
      "atomicloadi",
      "atomicloadq",
      "fence",
-     "adcq",
-     "sbcq",
-     "umulhq",
-     "smulhq",
     ]
 
 X86_SIMD_INSTRUCTIONS =
@@ -468,13 +464,7 @@ ARM64_INSTRUCTIONS =
      "storepaird",
      "loadpairv",
      "storepairv",
-     "addlshiftp",
-     "addqs",
-     "subqs",
-     "adcq",
-     "sbcq",
-     "smulhq",
-     "umulhq"
+     "addlshiftp"
     ]
 
 ARM64_SIMD_INSTRUCTIONS =
