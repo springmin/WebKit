@@ -76,7 +76,7 @@ void JSModuleRecord::finishCreation(JSGlobalObject* globalObject, VM& vm)
 #if USE(BUN_JSC_ADDITIONS)
 size_t JSModuleRecord::estimatedSize(JSCell* cell, VM& vm)
 {
-    const auto& thisObject = jsCast<JSModuleRecord*>(cell);
+    const auto& thisObject = uncheckedDowncast<JSModuleRecord>(cell);
     size_t size = Base::estimatedSize(cell, vm);
     const SourceCode& sourceCode = thisObject->sourceCode();
     StringView view = sourceCode.provider() ? sourceCode.provider()->source() : StringView();

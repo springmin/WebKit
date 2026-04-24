@@ -121,7 +121,7 @@ void ErrorInstance::setStackFrames(VM& vm, WTF::Vector<StackFrame>&& stackFrames
 size_t ErrorInstance::estimatedSize(JSCell* cell, VM& vm)
 {
     size_t size = sizeof(ErrorInstance);
-    ErrorInstance* errorInstance = jsCast<ErrorInstance*>(cell);
+    ErrorInstance* errorInstance = uncheckedDowncast<ErrorInstance>(cell);
 
     {
         Locker locker { errorInstance->cellLock() };

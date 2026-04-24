@@ -136,6 +136,10 @@ class JITThunks;
 class MegamorphicCache;
 class MicrotaskQueue;
 class NativeExecutable;
+#if USE(BUN_JSC_ADDITIONS)
+class QueuedTask;
+enum class InternalMicrotask : uint8_t;
+#endif
 class Debugger;
 class DeferredWorkTimer;
 class PinballCompletion;

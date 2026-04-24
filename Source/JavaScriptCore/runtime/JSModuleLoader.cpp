@@ -376,7 +376,7 @@ JSPromise* JSModuleLoader::loadModule(JSGlobalObject* globalObject, const Identi
     }
 
 #if USE(BUN_JSC_ADDITIONS)
-    AbstractModuleRecord::ModuleRequest request { specifier, WTFMove(contextParameters) };
+    AbstractModuleRecord::ModuleRequest request { specifier, WTF::move(contextParameters) };
 #else
     AbstractModuleRecord::ModuleRequest request { specifier, ScriptFetchParameters::create(type) };
 #endif
@@ -688,7 +688,7 @@ JSPromise* JSModuleLoader::hostLoadImportedModule(JSGlobalObject* globalObject, 
                     // fulfill/reject. The ModuleRegistryFetchSettled reaction on
                     // fetchPromise lands on the sync queue and drives the rest of
                     // the chain (including loadPromise).
-                    JSPromise* promise = fetch(globalObject, identifierToJSValue(vm, resolved), jsUndefined(), scriptFetcher);
+                    JSPromise* promise = fetch(globalObject, identifierToJSValue(vm, resolved), nullptr, scriptFetcher.copyRef());
                     RETURN_IF_EXCEPTION(scope, nullptr);
                     if (promise->status() == JSPromise::Status::Fulfilled)
                         fetchPromise->fulfillPromise(vm, globalObject, promise->result());
@@ -701,10 +701,10 @@ JSPromise* JSModuleLoader::hostLoadImportedModule(JSGlobalObject* globalObject, 
                     // mode). Replay that step inline. The queued
                     // normal-microtask copy will see modulePromise already
                     // settled and bail in moduleRegistryFetchSettled's handler.
-                    JSPromise* makePromise = makeModule(globalObject, resolved, jsCast<JSSourceCode*>(fetchPromise->result()));
+                    JSPromise* makePromise = makeModule(globalObject, resolved, uncheckedDowncast<JSSourceCode>(fetchPromise->result()));
                     RETURN_IF_EXCEPTION(scope, nullptr);
                     if (makePromise->status() == JSPromise::Status::Fulfilled) {
-                        mapEntry->fetchComplete(globalObject, jsCast<AbstractModuleRecord*>(makePromise->result()));
+                        mapEntry->fetchComplete(globalObject, uncheckedDowncast<AbstractModuleRecord>(makePromise->result()));
                         modulePromise->fulfillPromise(vm, globalObject, makePromise->result());
                     } else if (makePromise->status() == JSPromise::Status::Rejected)
                         modulePromise->rejectPromise(vm, globalObject, makePromise->result());
@@ -1101,7 +1101,7 @@ JSPromise* JSModuleLoader::loadModuleSync(JSGlobalObject* globalObject, const Id
         vm.m_synchronousModuleQueue = queue.prev;
     });
 
-    JSPromise* result = loadModule(globalObject, moduleName, WTFMove(parameters), WTFMove(scriptFetcher), /* evaluate */ true, /* dynamic */ false, /* useImportMap */ false);
+    JSPromise* result = loadModule(globalObject, moduleName, WTF::move(parameters), WTF::move(scriptFetcher), /* evaluate */ true, /* dynamic */ false, /* useImportMap */ false);
     RETURN_IF_EXCEPTION(scope, result);
 
     scope.release();
@@ -1163,7 +1163,7 @@ JSPromise* JSModuleLoader::makeModule(JSGlobalObject* globalObject, const Identi
         return promise;
     }
     case SourceProviderSourceType::BunTranspiledModule: {
-        RELEASE_AND_RETURN(scope, jsCast<JSPromise*>(JSValue::decode(Bun__analyzeTranspiledModule(globalObject, moduleKey, sourceCode, promise))));
+        RELEASE_AND_RETURN(scope, uncheckedDowncast<JSPromise>(JSValue::decode(Bun__analyzeTranspiledModule(globalObject, moduleKey, sourceCode, promise))));
     }
 #endif
     default:

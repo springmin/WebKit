@@ -71,7 +71,7 @@ void Exception::visitChildrenImpl(JSCell* cell, Visitor& visitor)
 
 size_t Exception::estimatedSize(JSCell* cell, VM& vm)
 {
-    Exception* thisObject = jsCast<Exception*>(cell);
+    Exception* thisObject = uncheckedDowncast<Exception>(cell);
     return Base::estimatedSize(cell, vm) + thisObject->m_stack.sizeInBytes();
 }
 

@@ -946,7 +946,7 @@ protected:
         ASSERT(classInfo());
         ASSERT(structure()->isObject());
         ASSERT(structure()->hasPolyProto() || getPrototypeDirect().isNull() || Heap::heap(this) == Heap::heap(getPrototypeDirect()));
-        ASSERT(jsDynamicCast<JSObject*>(this));
+        ASSERT(is<JSObject>(*this));
     }
 #endif
 

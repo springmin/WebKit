@@ -210,7 +210,7 @@ bool JSModuleNamespaceObject::put(JSCell* cell, JSGlobalObject* globalObject, Pr
     auto scope = DECLARE_THROW_SCOPE(vm);
 
 #if USE(BUN_JSC_ADDITIONS)
-    auto* thisObject = jsCast<JSModuleNamespaceObject*>(cell);
+    auto* thisObject = uncheckedDowncast<JSModuleNamespaceObject>(cell);
     if (thisObject->m_isOverridingValue) {
         return true;
     } else if (propertyName == vm.propertyNames->__esModule && !thisObject->m_exports.contains(propertyName.uid())) [[unlikely]] {

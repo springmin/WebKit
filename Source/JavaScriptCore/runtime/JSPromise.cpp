@@ -41,6 +41,7 @@
 #include "JSPromiseReaction.h"
 #include "Microtask.h"
 #include "ObjectConstructor.h"
+#include "TopExceptionScope.h"
 #if USE(BUN_JSC_ADDITIONS)
 #include "InternalFieldTuple.h"
 #endif
@@ -340,7 +341,7 @@ void JSPromise::performPromiseThenWithContext(VM& vm, JSGlobalObject* globalObje
     JSValue reactionsOrResult = this->reactionsOrResult();
     switch (status()) {
     case JSPromise::Status::Pending: {
-        auto* reaction = JSPromiseReaction::create(vm, promiseOrCapability, onFulfilled, onRejected, context, reactionsOrResult ? jsCast<JSPromiseReaction*>(reactionsOrResult) : nullptr);
+        auto* reaction = JSPromiseReaction::create(vm, promiseOrCapability, onFulfilled, onRejected, context, reactionsOrResult ? uncheckedDowncast<JSPromiseReaction>(reactionsOrResult) : nullptr);
         setReactionsOrResult(vm, reaction);
         markAsHandled();
         break;

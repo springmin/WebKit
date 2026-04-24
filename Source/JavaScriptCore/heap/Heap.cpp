@@ -42,6 +42,7 @@
 #include "HeapIterationScope.h"
 #include "HeapProfiler.h"
 #include "HeapSnapshot.h"
+#include "JSCJSValueInlines.h"
 #include "HeapSubspaceTypes.h"
 #include "HeapVerifier.h"
 #include "IncrementalSweeper.h"

@@ -756,7 +756,7 @@ const GlobalObjectMethodTable* JSGlobalObject::baseGlobalObjectMethodTable()
 #if USE(BUN_JSC_ADDITIONS)
 JSC_DEFINE_HOST_FUNCTION(enqueueJob, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {
-    auto* job = jsCast<JSFunction*>(callFrame->argument(0));
+    auto* job = uncheckedDowncast<JSFunction>(callFrame->argument(0));
     ASSERT(job->realm() == globalObject);
     JSValue argument0 = callFrame->argument(1);
     JSValue argument1 = callFrame->argument(2);
@@ -898,7 +898,7 @@ JSC_DEFINE_HOST_FUNCTION(promiseResolveWithThen, (JSGlobalObject* globalObject, 
 {
     VM& vm = globalObject->vm();
     ASSERT(callFrame->argumentCount() == 2);
-    JSObject* constructor = jsCast<JSObject*>(callFrame->uncheckedArgument(0));
+    JSObject* constructor = uncheckedDowncast<JSObject>(callFrame->uncheckedArgument(0));
     JSValue argument = callFrame->uncheckedArgument(1);
 
     JSObject* promise = JSPromise::promiseResolve(globalObject, constructor, argument);
@@ -2018,7 +2018,7 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
         });
 #if USE(BUN_JSC_ADDITIONS)
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::enqueueJob)].initLater([] (const Initializer<JSCell>& init) {
-            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 0, "enqueueJob"_s, enqueueJob, ImplementationVisibility::Public));
+            init.set(JSFunction::create(init.vm, init.owner, 0, "enqueueJob"_s, enqueueJob, ImplementationVisibility::Public));
         });
 #endif
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::resolvePromise)].initLater([] (const Initializer<JSCell>& init) {
@@ -2077,7 +2077,7 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
         });
 #if USE(BUN_JSC_ADDITIONS)
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::promiseResolveWithThen)].initLater([] (const Initializer<JSCell>& init) {
-            init.set(JSFunction::create(init.vm, jsCast<JSGlobalObject*>(init.owner), 2, "promiseResolveWithThen"_s, promiseResolveWithThen, ImplementationVisibility::Private));
+            init.set(JSFunction::create(init.vm, init.owner, 2, "promiseResolveWithThen"_s, promiseResolveWithThen, ImplementationVisibility::Private));
         });
 #endif
     m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::performPromiseThen)].initLater([] (const Initializer<JSCell>& init) {
@@ -2258,7 +2258,7 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
     // Link Time Constant would be faster, but it seems OpGetInternalField does not expect having a linkTimeConstant,
     // so `@getInternalField(@asyncContext, 0)` will crash. If we can read/write to the internal field from JS in a better way, that could improve perf.
     // m_linkTimeConstants[static_cast<unsigned>(LinkTimeConstant::asyncContext)].initLater([](const Initializer<JSCell>& init) {
-    //     auto* globalObject = jsCast<JSGlobalObject*>(init.owner);
+    //     auto* globalObject = uncheckedDowncast<JSGlobalObject>(init.owner);
     //     init.set(AsyncContext::create(init.vm, AsyncContext::createStructure(init.vm, globalObject, globalObject->objectPrototype())));
     // });
     m_internalFieldTupleStructure.set(vm, this, InternalFieldTuple::createStructure(vm, this));

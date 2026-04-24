@@ -109,7 +109,7 @@ DEFINE_VISIT_CHILDREN(AbstractModuleRecord);
 size_t AbstractModuleRecord::estimatedSize(JSCell* cell, VM& vm)
 {
     size_t size = Base::estimatedSize(cell, vm);
-    auto* thisObject = jsCast<AbstractModuleRecord*>(cell);
+    auto* thisObject = uncheckedDowncast<AbstractModuleRecord>(cell);
     size += thisObject->m_starExportEntries.capacity() * sizeof(ExportEntry);
     size += thisObject->m_requestedModules.capacity() * sizeof(ModuleRequest);
     size += thisObject->m_exportEntries.byteSize();
@@ -1063,7 +1063,7 @@ unsigned AbstractModuleRecord::innerModuleEvaluation(JSGlobalObject* globalObjec
         // *become* EvaluatingAsync during the recursive call below are a
         // legitimate TLA dependency and must still be awaited.
         bool depWasAlreadyEvaluatingAsync = false;
-        if (auto* depCyclic = jsDynamicCast<CyclicModuleRecord*>(requiredModule))
+        if (auto* depCyclic = dynamicDowncast<CyclicModuleRecord>(requiredModule))
             depWasAlreadyEvaluatingAsync = depCyclic->status() == Status::EvaluatingAsync;
 #endif
         // 11.b. Set index to ? InnerModuleEvaluation(requiredModule, stack, index).

@@ -1405,7 +1405,7 @@ void runInternalMicrotask(JSGlobalObject* globalObject, VM& vm, InternalMicrotas
         // Extract async context from the context tuple and set it up before calling thenable's then method
         InternalFieldTuple* asyncContextData = nullptr;
         JSValue restoreAsyncContext;
-        if (auto* tuple = jsDynamicCast<InternalFieldTuple*>(context)) {
+        if (auto* tuple = dynamicDowncast<InternalFieldTuple>(context)) {
             JSValue asyncContext = tuple->getInternalField(1);
             if (!asyncContext.isUndefined()) {
                 asyncContextData = globalObject->m_asyncContextData.get();
@@ -1500,7 +1500,7 @@ void runInternalMicrotask(JSGlobalObject* globalObject, VM& vm, InternalMicrotas
         JSValue asyncContext = jsUndefined();
 
         if (!contextArg.isEmpty() && contextArg.isCell()) {
-            if (auto* tuple = jsDynamicCast<InternalFieldTuple*>(contextArg)) {
+            if (auto* tuple = dynamicDowncast<InternalFieldTuple>(contextArg)) {
                 userContext = tuple->getInternalField(0);
                 asyncContext = tuple->getInternalField(1);
             } else {
@@ -1738,7 +1738,7 @@ void runInternalMicrotask(JSGlobalObject* globalObject, VM& vm, InternalMicrotas
 #if USE(BUN_JSC_ADDITIONS)
         // Extract context from InternalFieldTuple if wrapped
         JSValue contextArg = arguments[2];
-        if (auto* tuple = jsDynamicCast<InternalFieldTuple*>(contextArg))
+        if (auto* tuple = dynamicDowncast<InternalFieldTuple>(contextArg))
             contextArg = tuple->getInternalField(0);
         RELEASE_AND_RETURN(scope, asyncFromSyncIteratorContinueOrDone(globalObject, vm, contextArg, arguments[1], static_cast<JSPromise::Status>(payload), task == InternalMicrotask::AsyncFromSyncIteratorDone));
 #else
@@ -1868,14 +1868,14 @@ void runInternalMicrotask(JSGlobalObject* globalObject, VM& vm, InternalMicrotas
         JSValue asyncContext = jsUndefined();
 
         if (contextArg.isCell()) {
-            if (auto* tuple = jsDynamicCast<InternalFieldTuple*>(contextArg)) {
-                context = jsCast<JSPromiseCombinatorsGlobalContext*>(tuple->getInternalField(0));
+            if (auto* tuple = dynamicDowncast<InternalFieldTuple>(contextArg)) {
+                context = uncheckedDowncast<JSPromiseCombinatorsGlobalContext>(tuple->getInternalField(0));
                 asyncContext = tuple->getInternalField(1);
             } else {
-                context = jsCast<JSPromiseCombinatorsGlobalContext*>(contextArg);
+                context = uncheckedDowncast<JSPromiseCombinatorsGlobalContext>(contextArg);
             }
         } else {
-            context = jsCast<JSPromiseCombinatorsGlobalContext*>(contextArg);
+            context = uncheckedDowncast<JSPromiseCombinatorsGlobalContext>(contextArg);
         }
 
         // Set up async context before calling onFinally
@@ -1891,7 +1891,7 @@ void runInternalMicrotask(JSGlobalObject* globalObject, VM& vm, InternalMicrotas
 
         scope.release();
         promiseFinallyReactionJob(globalObject, vm,
-            jsCast<JSPromise*>(arguments[0]),
+            uncheckedDowncast<JSPromise>(arguments[0]),
             arguments[1],
             context,
             static_cast<JSPromise::Status>(payload));
