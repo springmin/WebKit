@@ -1,0 +1,197 @@
+ARG MARCH_FLAG="-march=armv8-a+crc -mtune=cortex-a78"
+ARG WEBKIT_RELEASE_TYPE=Release
+ARG LTO_FLAG=""
+ARG LLVM_VERSION="21"
+ARG NDK_VERSION="r27c"
+ARG NDK_SHA256="59c2f6dc96743b5daf5d1626684640b20a6bd2b1d85b13156b90333741bad5cc"
+ARG ANDROID_API="28"
+ARG ANDROID_ARCH="aarch64"
+ARG DEFAULT_CFLAGS="-mno-omit-leaf-frame-pointer -g -fno-omit-frame-pointer -ffunction-sections -fdata-sections -faddrsig -fno-unwind-tables -fno-asynchronous-unwind-tables -DU_STATIC_IMPLEMENTATION=1 "
+ARG ICU_VERSION="75_1"
+ARG ICU_RELEASE_TAG="release-75-1"
+ARG ICU_SHA256="cb968df3e4d2e87e8b11c49a5d01c787bd13b9545280fc6642f826527618caef"
+
+FROM ubuntu:24.04 AS base
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+ARG LLVM_VERSION
+ARG NDK_VERSION
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget unzip xz-utils ca-certificates \
+    cmake ninja-build make git \
+    ruby ruby-getoptlong perl python3 rsync file cpio \
+    lsb-release software-properties-common gnupg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Host clang (same version Bun uses) — we cross-compile via --target/--sysroot,
+# not via the NDK's bundled clang. apt.llvm.org installs version-suffixed names
+# only (ld.lld-21, not ld.lld), so add unversioned links for -fuse-ld=lld.
+RUN wget -qO- https://apt.llvm.org/llvm.sh | bash -s -- ${LLVM_VERSION} && \
+    for t in clang clang++ ld.lld lld llvm-ar llvm-ranlib; do \
+      ln -sf /usr/bin/${t}-${LLVM_VERSION} /usr/local/bin/${t}; \
+    done
+ENV CC=clang-${LLVM_VERSION}
+ENV CXX=clang++-${LLVM_VERSION}
+ENV AR=llvm-ar-${LLVM_VERSION}
+ENV RANLIB=llvm-ranlib-${LLVM_VERSION}
+ENV LD=lld-${LLVM_VERSION}
+
+# Android NDK — sysroot, libc++, compiler-rt only.
+ARG NDK_SHA256
+RUN wget -q https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux.zip -O /tmp/ndk.zip \
+    && echo "${NDK_SHA256}  /tmp/ndk.zip" | sha256sum -c - \
+    && unzip -q /tmp/ndk.zip -d /opt \
+    && mv /opt/android-ndk-${NDK_VERSION} /opt/android-ndk \
+    && rm /tmp/ndk.zip
+ENV ANDROID_NDK_ROOT=/opt/android-ndk
+ENV NDK_SYSROOT=/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/sysroot
+
+# Symlink NDK compiler-rt builtins + libunwind into host clang's resource dir.
+# clang's driver hardcodes the lookup path; apt.llvm.org's clang uses the
+# old-style flat layout (lib/linux/libclang_rt.builtins-<arch>-android.a)
+# while tarball builds use per-triple (lib/<triple>/libclang_rt.builtins.a),
+# so populate BOTH. Both target arches done here so the base layer is
+# arch-independent and cacheable.
+ARG ANDROID_API
+RUN set -eux; \
+    RES=$($CC -print-resource-dir); \
+    NDK_RT=/opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/$(ls /opt/android-ndk/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/)/lib/linux; \
+    mkdir -p $RES/lib/linux; \
+    for A in aarch64 x86_64; do \
+      ln -sf $NDK_RT/libclang_rt.builtins-${A}-android.a $RES/lib/linux/; \
+      mkdir -p $RES/lib/linux/${A}; \
+      ln -sf $NDK_RT/${A}/libunwind.a $RES/lib/linux/${A}/; \
+      DIR=$RES/lib/${A}-unknown-linux-android${ANDROID_API}; \
+      mkdir -p $DIR; \
+      ln -sf $NDK_RT/libclang_rt.builtins-${A}-android.a $DIR/libclang_rt.builtins.a; \
+      ln -sf $NDK_RT/${A}/libunwind.a $DIR/libunwind.a; \
+    done; \
+    echo 'int main(){return 0;}' | $CC --target=aarch64-unknown-linux-android${ANDROID_API} --sysroot=$NDK_SYSROOT --rtlib=compiler-rt -fuse-ld=lld -xc - -o /tmp/t && file /tmp/t
+
+RUN mkdir -p /output/lib /output/include /output/include/JavaScriptCore /output/include/wtf /output/include/bmalloc /output/include/unicode
+
+# ───────────────────────────────────────────────────────────────────────────
+# ICU — cross-compiled. ICU's autoconf build runs generated tools (gennorm2,
+# etc.) at build time, so a host build is required first; the target build
+# points at it via --with-cross-build.
+# ───────────────────────────────────────────────────────────────────────────
+FROM base AS build_icu
+
+ARG MARCH_FLAG
+ARG LTO_FLAG
+ARG DEFAULT_CFLAGS
+ARG ANDROID_API
+ARG ANDROID_ARCH
+
+ARG ICU_VERSION
+ARG ICU_RELEASE_TAG
+ARG ICU_SHA256
+ADD --checksum=sha256:${ICU_SHA256} https://github.com/unicode-org/icu/releases/download/${ICU_RELEASE_TAG}/icu4c-${ICU_VERSION}-src.tgz /icu.tgz
+
+# Host build (tools only — no LTO, fast).
+RUN mkdir -p /icu-host && cd /icu-host \
+    && tar -xf /icu.tgz --strip-components=1 \
+    && cd source \
+    && CC=$CC CXX=$CXX CFLAGS="-Os" CXXFLAGS="-Os" \
+       ./configure --disable-shared --enable-static --disable-samples --disable-tests \
+    && make -j$(nproc)
+
+# Target build.
+RUN --mount=type=tmpfs,target=/icu \
+    export TARGET_TRIPLE="${ANDROID_ARCH}-unknown-linux-android${ANDROID_API}" && \
+    export CROSS_FLAGS="--target=${TARGET_TRIPLE} --sysroot=${NDK_SYSROOT}" && \
+    export CFLAGS="${CROSS_FLAGS} ${DEFAULT_CFLAGS} ${MARCH_FLAG} -Os -std=c17 ${LTO_FLAG}" && \
+    export CXXFLAGS="${CROSS_FLAGS} ${DEFAULT_CFLAGS} ${MARCH_FLAG} -Os -std=c++20 -fno-exceptions ${LTO_FLAG} -fno-c++-static-destructors" && \
+    export LDFLAGS="${CROSS_FLAGS} --rtlib=compiler-rt -fuse-ld=lld" && \
+    cd /icu && tar -xf /icu.tgz --strip-components=1 && rm /icu.tgz && cd source && \
+    { ./configure --host=${ANDROID_ARCH}-linux-android \
+        --with-cross-build=/icu-host/source \
+        --enable-static --disable-shared --with-data-packaging=static \
+        --disable-samples --disable-tests --disable-debug \
+      || { cat config.log; exit 1; }; } && \
+    make -j$(nproc) && \
+    cp lib/*.a /output/lib && \
+    cp -r i18n/unicode/* common/unicode/* /output/include/unicode
+
+# ───────────────────────────────────────────────────────────────────────────
+# WebKit (JSCOnly) — cross-compiled via CMake's built-in Android support.
+# CMAKE_SYSTEM_NAME=Android + CMAKE_ANDROID_NDK lets CMake derive sysroot,
+# libc++, and compiler-rt paths; we override CMAKE_<LANG>_COMPILER so the
+# host clang ${LLVM_VERSION} is used instead of the NDK's bundled clang.
+# ───────────────────────────────────────────────────────────────────────────
+FROM base AS build_webkit
+
+ARG MARCH_FLAG
+ARG WEBKIT_RELEASE_TYPE
+ARG LTO_FLAG
+ARG DEFAULT_CFLAGS
+ARG ANDROID_API
+ARG ANDROID_ARCH
+
+COPY . /webkit
+WORKDIR /webkit
+COPY --from=build_icu /output /icu
+
+ENV WEBKIT_OUT_DIR=/webkitbuild
+
+# NOTE: NOT using CMAKE_SYSTEM_NAME=Android — that module force-selects the
+# NDK's bundled clang and silently overrides CMAKE_{C,CXX}_COMPILER. Instead,
+# treat as a generic Linux cross-compile and pass --target/--sysroot in CFLAGS;
+# WebKit's source detects Android via __ANDROID__ (set by --target=*-android*),
+# and we set ANDROID=ON so cmake `if(ANDROID)` blocks fire.
+RUN --mount=type=tmpfs,target=/webkitbuild \
+    export TARGET_TRIPLE="${ANDROID_ARCH}-unknown-linux-android${ANDROID_API}" && \
+    export CROSS="--target=${TARGET_TRIPLE} --sysroot=${NDK_SYSROOT}" && \
+    export CFLAGS="${CROSS} ${DEFAULT_CFLAGS} ${MARCH_FLAG} ${LTO_FLAG} -isystem /icu/include -ffile-prefix-map=/webkit/Source=vendor/WebKit/Source -ffile-prefix-map=/webkitbuild/=." && \
+    export CXXFLAGS="${CROSS} -isystem ${NDK_SYSROOT}/usr/include/c++/v1 ${DEFAULT_CFLAGS} ${MARCH_FLAG} ${LTO_FLAG} -isystem /icu/include -fno-c++-static-destructors -ffile-prefix-map=/webkit/Source=vendor/WebKit/Source -ffile-prefix-map=/webkitbuild/=." && \
+    cd /webkitbuild && \
+    cmake \
+    -DCMAKE_SYSTEM_NAME=Linux \
+    -DCMAKE_SYSTEM_PROCESSOR=${ANDROID_ARCH} \
+    -DCMAKE_SYSROOT=${NDK_SYSROOT} \
+    -DANDROID=ON \
+    -DCMAKE_C_COMPILER=$(which $CC) \
+    -DCMAKE_CXX_COMPILER=$(which $CXX) \
+    -DCMAKE_AR=$(which $AR) \
+    -DCMAKE_RANLIB=$(which $RANLIB) \
+    -DPORT=JSCOnly \
+    -DENABLE_STATIC_JSC=ON \
+    -DENABLE_BUN_SKIP_FAILING_ASSERTIONS=ON \
+    -DCMAKE_BUILD_TYPE=${WEBKIT_RELEASE_TYPE} \
+    -DUSE_THIN_ARCHIVES=OFF \
+    -DUSE_BUN_JSC_ADDITIONS=ON \
+    -DUSE_BUN_EVENT_LOOP=ON \
+    -DENABLE_FTL_JIT=ON \
+    -DENABLE_API_TESTS=OFF \
+    -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+    -DALLOW_LINE_AND_COLUMN_NUMBER_IN_BUILTINS=ON \
+    -DENABLE_REMOTE_INSPECTOR=ON \
+    -DCMAKE_EXE_LINKER_FLAGS="${CROSS} --rtlib=compiler-rt -fuse-ld=lld" \
+    -DCMAKE_C_FLAGS="$CFLAGS" \
+    -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
+    -DICU_ROOT=/icu \
+    -DICU_INCLUDE_DIR=/icu/include \
+    -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH \
+    -DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=BOTH \
+    -DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=BOTH \
+    -G Ninja \
+    /webkit && \
+    cmake --build /webkitbuild --config ${WEBKIT_RELEASE_TYPE} --target jsc && \
+    cp -r $WEBKIT_OUT_DIR/lib/*.a /output/lib && \
+    cp $WEBKIT_OUT_DIR/*.h /output/include && \
+    cp $WEBKIT_OUT_DIR/*.json /output && \
+    find $WEBKIT_OUT_DIR/JavaScriptCore/DerivedSources/ -name "*.h" -exec sh -c 'cp "$1" "/output/include/JavaScriptCore/$(basename "$1")"' sh {} \; && \
+    find $WEBKIT_OUT_DIR/JavaScriptCore/DerivedSources/ -name "*.json" -exec sh -c 'cp "$1" "/output/$(basename "$1")"' sh {} \; && \
+    find $WEBKIT_OUT_DIR/JavaScriptCore/Headers/JavaScriptCore/ -name "*.h" -exec cp {} /output/include/JavaScriptCore/ \; && \
+    find $WEBKIT_OUT_DIR/JavaScriptCore/PrivateHeaders/JavaScriptCore/ -name "*.h" -exec cp {} /output/include/JavaScriptCore/ \; && \
+    cp -r $WEBKIT_OUT_DIR/WTF/Headers/wtf/ /output/include && \
+    cp -r $WEBKIT_OUT_DIR/bmalloc/Headers/bmalloc/ /output/include && \
+    mkdir -p /output/Source/JavaScriptCore && \
+    cp -r /webkit/Source/JavaScriptCore/Scripts /output/Source/JavaScriptCore && \
+    cp /webkit/Source/JavaScriptCore/create_hash_table /output/Source/JavaScriptCore
+
+FROM scratch AS artifact
+
+COPY --from=build_icu /output /
+COPY --from=build_webkit /output /

@@ -67,6 +67,18 @@ else ()
 
         unix/UniStdExtrasUnix.cpp
     )
+
+    if (ANDROID)
+        list(REMOVE_ITEM WTF_SOURCES unix/LoggingUnix.cpp)
+        list(APPEND WTF_SOURCES
+            android/LoggingAndroid.cpp
+            android/RefPtrAndroid.cpp
+        )
+        list(APPEND WTF_PUBLIC_HEADERS
+            android/RefPtrAndroid.h
+        )
+        list(APPEND WTF_LIBRARIES log)
+    endif ()
 endif ()
 
 if (WIN32)
@@ -93,6 +105,14 @@ elseif (APPLE)
 
         ${WTF_DERIVED_SOURCES_DIR}/mach_excServer.c
         ${WTF_DERIVED_SOURCES_DIR}/mach_excUser.c
+    )
+elseif (ANDROID)
+    list(APPEND WTF_SOURCES
+        linux/CurrentProcessMemoryStatus.cpp
+        linux/MemoryFootprintLinux.cpp
+        linux/RealTimeThreads.cpp
+
+        generic/MemoryPressureHandlerGeneric.cpp
     )
 elseif (CMAKE_SYSTEM_NAME MATCHES "Linux")
     list(APPEND WTF_SOURCES
