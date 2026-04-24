@@ -71,7 +71,18 @@ public:
     Cost operator*(float scalar) const { return Cost(m_value * scalar); }
     Cost operator/(float scalar) const { return Cost(m_value / scalar); }
 
+#if COMPILER(CLANG) && OS(WINDOWS)
+    // clang-cl emits MSVC STL's consteval _Literal_zero ctor as non-immediate
+    // when <=> is defaulted inside a class template, referencing the
+    // _Literal_zero_is_expected poison symbol at link time.
+    friend constexpr bool operator==(const Cost& a, const Cost& b) { return a.m_value == b.m_value; }
+    friend constexpr bool operator<(const Cost& a, const Cost& b) { return a.m_value < b.m_value; }
+    friend constexpr bool operator>(const Cost& a, const Cost& b) { return a.m_value > b.m_value; }
+    friend constexpr bool operator<=(const Cost& a, const Cost& b) { return a.m_value <= b.m_value; }
+    friend constexpr bool operator>=(const Cost& a, const Cost& b) { return a.m_value >= b.m_value; }
+#else
     friend auto operator<=>(const Cost&, const Cost&) = default;
+#endif
 
 private:
     float m_value { 0.0f };
