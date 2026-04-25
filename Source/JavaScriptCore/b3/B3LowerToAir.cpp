@@ -3957,28 +3957,13 @@ private:
             Value* left = m_value->child(0);
             Value* right = m_value->child(1);
 
-            if (right->isInt(0xff)) {
-                appendUnOp<ZeroExtend8To32, ZeroExtend8To32>(left);
-                return;
-            }
-
-            if (right->isInt(0xffff)) {
-                appendUnOp<ZeroExtend16To32, ZeroExtend16To32>(left);
-                return;
-            }
-
-            if (right->isInt64(0xffffffff) || right->isInt32(0xffffffff)) {
-                appendUnOp<Move32, Move32>(left);
-                return;
-            }
-
-            // UBFX Pattern: dest = (src >> lsb) & mask 
+            // UBFX Pattern: dest = (src >> lsb) & mask
             // Where: mask = (1 << width) - 1
             auto tryAppendUBFX = [&] () -> bool {
                 Air::Opcode opcode = opcodeForType(ExtractUnsignedBitfield32, ExtractUnsignedBitfield64, m_value->type());
-                if (!isValidForm(opcode, Arg::Tmp, Arg::Imm, Arg::Imm, Arg::Tmp)) 
+                if (!isValidForm(opcode, Arg::Tmp, Arg::Imm, Arg::Imm, Arg::Tmp))
                     return false;
-                if (left->opcode() != ZShr)
+                if (left->opcode() != ZShr && left->opcode() != SShr)
                     return false;
 
                 Value* srcValue = left->child(0);
@@ -4002,6 +3987,21 @@ private:
 
             if (tryAppendUBFX())
                 return;
+
+            if (right->isInt(0xff)) {
+                appendUnOp<ZeroExtend8To32, ZeroExtend8To32>(left);
+                return;
+            }
+
+            if (right->isInt(0xffff)) {
+                appendUnOp<ZeroExtend16To32, ZeroExtend16To32>(left);
+                return;
+            }
+
+            if (right->isInt64(0xffffffff) || right->isInt32(0xffffffff)) {
+                appendUnOp<Move32, Move32>(left);
+                return;
+            }
 
             // BIC Pattern: d = n & (m ^ -1)
             auto tryAppendBIC = [&] (Value* left, Value* right) -> bool {
@@ -5368,6 +5368,30 @@ private:
             return;
         }
 
+        case B3::VectorRelaxedMin: {
+            SIMDValue* value = m_value->as<SIMDValue>();
+            append(Air::VectorRelaxedMin, Arg::simdInfo(value->simdInfo()), tmp(m_value->child(0)), tmp(m_value->child(1)), tmp(m_value));
+            return;
+        }
+
+        case B3::VectorRelaxedMax: {
+            SIMDValue* value = m_value->as<SIMDValue>();
+            append(Air::VectorRelaxedMax, Arg::simdInfo(value->simdInfo()), tmp(m_value->child(0)), tmp(m_value->child(1)), tmp(m_value));
+            return;
+        }
+
+        case B3::VectorRelaxedQ15Mulr:
+            emitSIMDMonomorphicBinaryOp(Air::VectorRelaxedQ15Mulr);
+            return;
+
+        case B3::VectorRelaxedDotI8x16I7x16:
+            append(Air::VectorRelaxedDotI8x16I7x16, tmp(m_value->child(0)), tmp(m_value->child(1)), tmp(m_value), m_code.newTmp(FP));
+            return;
+
+        case B3::VectorRelaxedDotI8x16I7x16Add:
+            append(Air::VectorRelaxedDotI8x16I7x16Add, tmp(m_value->child(0)), tmp(m_value->child(1)), tmp(m_value->child(2)), tmp(m_value), m_code.newTmp(FP), m_code.newTmp(FP));
+            return;
+
         case Fence: {
             FenceValue* fence = m_value->as<FenceValue>();
             if (!fence->write && !fence->read)
@@ -5911,7 +5935,12 @@ private:
                 break;
             }
 
-            if (value->offset())
+            // The overflow check (3-arg form) compares ptrPlusImm against the original
+            // pointer Tmp with a 64-bit branch. For Int32 pointers (memory32), Move32
+            // above already zero-extends and ZExt32(ptr) + offset cannot overflow 64 bits,
+            // so the check is unnecessary — and unsafe, since the Int32 pointer Tmp's upper
+            // bits are undefined and a Branch64 against it may spuriously fire.
+            if (value->offset() && ptr->type() == Int64)
                 append(Inst(Air::WasmBoundsCheck, value, ptrPlusImm, limit, pointer));
             else
                 append(Inst(Air::WasmBoundsCheck, value, ptrPlusImm, limit));

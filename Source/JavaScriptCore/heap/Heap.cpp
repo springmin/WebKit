@@ -42,6 +42,7 @@
 #include "HeapIterationScope.h"
 #include "HeapProfiler.h"
 #include "HeapSnapshot.h"
+#include "JSCJSValueInlines.h"
 #include "HeapSubspaceTypes.h"
 #include "HeapVerifier.h"
 #include "IncrementalSweeper.h"
@@ -70,10 +71,12 @@
 #include "MarkingConstraintSet.h"
 #include "MegamorphicCache.h"
 #include "ModuleLoadingContext.h"
+#include "ModuleProgramExecutable.h"
 #include "ModuleRegistryEntry.h"
 #include "NumberObject.h"
 #include "PinballCompletion.h"
 #include "PreventCollectionScope.h"
+#include "ProgramExecutable.h"
 #include "SamplingProfiler.h"
 #include "ShadowChicken.h"
 #include "SpaceTimeMutatorScheduler.h"
@@ -2300,6 +2303,7 @@ void Heap::finalize()
     }
     vm().keyAtomStringCache.clear();
     vm().stringSplitCache.clear();
+    vm().jsonAtomStringCache.clearJSStrings();
 
     m_possiblyAccessedStringsFromConcurrentThreads.clear();
 

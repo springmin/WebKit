@@ -24,7 +24,7 @@ Structure* InternalFieldTuple::createStructure(VM& vm, JSGlobalObject* globalObj
 template<typename Visitor>
 void InternalFieldTuple::visitChildrenImpl(JSCell* cell, Visitor& visitor)
 {
-    auto* thisObject = jsCast<InternalFieldTuple*>(cell);
+    auto* thisObject = uncheckedDowncast<InternalFieldTuple>(cell);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
     Base::visitChildren(thisObject, visitor);
 }

@@ -317,7 +317,7 @@ unsigned BunV8HeapSnapshotBuilder::getNodeTypeIndex(JSCell* cell)
         return static_cast<unsigned>(V8NodeType::Synthetic);
 
     if (cell->isString()) {
-        JSString* str = jsCast<JSString*>(cell);
+        JSString* str = uncheckedDowncast<JSString>(cell);
         if (str->isSubstring())
             return static_cast<unsigned>(V8NodeType::SlicedString);
         if (str->isRope())
@@ -346,8 +346,7 @@ unsigned BunV8HeapSnapshotBuilder::getNodeTypeIndex(JSCell* cell)
     case JSType::GetterSetterType:
     case JSType::CustomGetterSetterType:
     case JSType::APIValueWrapperType:
-    case JSType::JSSourceCodeType:
-    case JSType::JSScriptFetchParametersType: {
+    case JSType::JSSourceCodeType: {
         return static_cast<unsigned>(V8NodeType::Code);
     }
     case JSType::HeapBigIntType:
@@ -401,7 +400,7 @@ String BunV8HeapSnapshotBuilder::getDetailedNodeType(JSCell* cell)
 
     switch (cell->type()) {
     case JSType::StringType: {
-        auto* string = jsCast<JSString*>(cell);
+        auto* string = uncheckedDowncast<JSString>(cell);
         static constexpr unsigned heapSnapshotStringLimit = 1024;
         // V8 never resolves cons strings for the node name. We do, because
         // seeing the content is useful when debugging — but only when the
@@ -423,7 +422,7 @@ String BunV8HeapSnapshotBuilder::getDetailedNodeType(JSCell* cell)
         break;
     }
     case JSType::RegExpObjectType: {
-        auto* object = jsCast<RegExpObject*>(cell);
+        auto* object = uncheckedDowncast<RegExpObject>(cell);
         auto* regExp = object->regExp();
         if (!regExp)
             return "RegExp"_s;
@@ -435,7 +434,7 @@ String BunV8HeapSnapshotBuilder::getDetailedNodeType(JSCell* cell)
         break;
     }
     case JSType::SymbolType: {
-        auto* symbol = jsCast<Symbol*>(cell);
+        auto* symbol = uncheckedDowncast<Symbol>(cell);
         auto description = symbol->description();
         if (!description.isEmpty()) {
             return makeString("Symbol("_s, description, ')');
@@ -477,14 +476,14 @@ String BunV8HeapSnapshotBuilder::getDetailedNodeType(JSCell* cell)
 
     if (object) {
         // For functions, try to get the display name
-        if (JSFunction* function = jsDynamicCast<JSFunction*>(cell)) {
+        if (JSFunction* function = dynamicDowncast<JSFunction>(cell)) {
             String displayName = function->nameWithoutGC(m_profiler.vm());
             if (!displayName.isEmpty())
                 return displayName;
         }
 
         // For functions, try to get the display name
-        if (InternalFunction* function = jsDynamicCast<InternalFunction*>(cell)) {
+        if (InternalFunction* function = dynamicDowncast<InternalFunction>(cell)) {
             String displayName = function->name();
             if (!displayName.isEmpty())
                 return displayName;
@@ -571,7 +570,7 @@ std::optional<BunV8HeapSnapshotBuilder::TraceLocation> BunV8HeapSnapshotBuilder:
     if (!cell || !cell->isCallable())
         return std::nullopt;
 
-    JSFunction* function = jsDynamicCast<JSFunction*>(cell);
+    JSFunction* function = dynamicDowncast<JSFunction>(cell);
     if (!function || !function->executable() || function->isHostFunction())
         return std::nullopt;
 
