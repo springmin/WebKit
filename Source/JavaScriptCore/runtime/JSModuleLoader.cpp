@@ -477,6 +477,13 @@ JSPromise* JSModuleLoader::importModule(JSGlobalObject* globalObject, JSString* 
 #endif
             fetchParams = ScriptFetchParameters::create(type.value());
     }
+#if USE(BUN_JSC_ADDITIONS)
+    if (!attributes.isEmpty()) {
+        if (!fetchParams)
+            fetchParams = ScriptFetchParameters::create(ScriptFetchParameters::Type::None);
+        fetchParams->setAttributes(WTF::move(attributes));
+    }
+#endif
 
     if (globalObject->globalObjectMethodTable()->moduleLoaderImportModule)
         RELEASE_AND_RETURN(scope, globalObject->globalObjectMethodTable()->moduleLoaderImportModule(globalObject, this, moduleName, WTF::move(fetchParams), referrer));

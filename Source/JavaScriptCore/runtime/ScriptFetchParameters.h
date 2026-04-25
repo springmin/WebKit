@@ -28,6 +28,10 @@
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 #include <wtf/text/WTFString.h>
+#if USE(BUN_JSC_ADDITIONS)
+#include <wtf/HashMap.h>
+#include <wtf/text/UniquedStringImpl.h>
+#endif
 
 namespace JSC {
 
@@ -80,6 +84,10 @@ public:
     {
         return adoptRef(*new ScriptFetchParameters(hostDefinedImportType));
     }
+
+    using AttributesMap = UncheckedKeyHashMap<RefPtr<UniquedStringImpl>, String>;
+    const AttributesMap& attributes() const { return m_attributes; }
+    void setAttributes(AttributesMap&& attributes) { m_attributes = WTF::move(attributes); }
 #endif
 
     static std::optional<Type> parseType(StringView string)
@@ -100,6 +108,7 @@ private:
     Type m_type { Type::None };
 #if USE(BUN_JSC_ADDITIONS)
     String m_hostDefinedImportType = String();
+    AttributesMap m_attributes;
 #endif
     
 };

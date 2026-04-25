@@ -338,12 +338,17 @@ UncheckedKeyHashMap<RefPtr<UniquedStringImpl>, String> retrieveImportAttributesF
         result.add(key.impl(), WTF::move(valueString));
     }
 
+#if !USE(BUN_JSC_ADDITIONS)
+    // Node (and Bun) accept arbitrary attribute keys; the host hook decides what to do with them.
     for (auto& [key, value] : result) {
         if (!supportedImportAttributes.contains(key.get())) [[unlikely]] {
             throwTypeError(globalObject, scope, makeString("dynamic import's options.with includes unsupported attribute \""_s, StringView(key.get()), "\""_s));
             return { };
         }
     }
+#else
+    UNUSED_PARAM(supportedImportAttributes);
+#endif
 
     return result;
 }
