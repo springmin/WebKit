@@ -55,13 +55,7 @@ RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/nul
     && rm -rf /var/lib/apt/lists/*
 
 # Install GCC 13 toolchain
-# add-apt-repository hits the Launchpad API to validate the PPA exists, which
-# is unnecessary and fails when Launchpad's API is degraded. Write the source
-# entry and signing key directly instead.
-RUN . /etc/os-release \
-    && curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x60C317803A41BA51845E371A1E9377A2BA9EF27F" \
-        | gpg --dearmor -o /etc/apt/trusted.gpg.d/ubuntu-toolchain-r.gpg \
-    && echo "deb http://ppa.launchpad.net/ubuntu-toolchain-r/test/ubuntu ${UBUNTU_CODENAME} main" > /etc/apt/sources.list.d/ubuntu-toolchain-r.list \
+RUN add-apt-repository ppa:ubuntu-toolchain-r/test \
     && apt-get update \
     && apt-get install -y \
         gcc-13 \
