@@ -250,11 +250,6 @@ inline GetterSetter* JSGlobalObject::regExpProtoStickyGetter() const { return st
 inline GetterSetter* JSGlobalObject::regExpProtoUnicodeGetter() const { return std::bit_cast<GetterSetter*>(linkTimeConstant(LinkTimeConstant::regExpProtoUnicodeGetter)); }
 inline GetterSetter* JSGlobalObject::regExpProtoUnicodeSetsGetter() const { return std::bit_cast<GetterSetter*>(linkTimeConstant(LinkTimeConstant::regExpProtoUnicodeSetsGetter)); }
 
-ALWAYS_INLINE VM& getVM(JSGlobalObject* globalObject)
-{
-    return globalObject->vm();
-}
-
 template<typename T>
 inline unsigned JSGlobalObject::WeakCustomGetterOrSetterHash<T>::hash(const Weak<T>& value)
 {
@@ -272,7 +267,8 @@ inline bool JSGlobalObject::WeakCustomGetterOrSetterHash<T>::equal(const Weak<T>
 }
 
 template<typename T>
-inline unsigned JSGlobalObject::WeakCustomGetterOrSetterHash<T>::hash(const PropertyName& propertyName, typename T::CustomFunctionPointer functionPointer, const ClassInfo* classInfo)
+template<typename U>
+inline unsigned JSGlobalObject::WeakCustomGetterOrSetterHash<T>::hash(const PropertyName& propertyName, typename U::CustomFunctionPointer functionPointer, const ClassInfo* classInfo)
 {
     if (!propertyName.isNull())
         return WTF::computeHash(functionPointer, propertyName.uid()->existingSymbolAwareHash(), classInfo);
