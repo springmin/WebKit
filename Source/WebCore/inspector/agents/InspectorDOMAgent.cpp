@@ -100,7 +100,6 @@
 #include "LocalFrameView.h"
 #include "MutationEvent.h"
 #include "Node.h"
-#include "NodeInlines.h"
 #include "NodeList.h"
 #include "Page.h"
 #include "PageInspectorController.h"
@@ -133,6 +132,7 @@
 #include <JavaScriptCore/InjectedScriptManager.h>
 #include <JavaScriptCore/InspectorDebuggerAgent.h>
 #include <JavaScriptCore/JSCInlines.h>
+#include <JavaScriptCore/TopExceptionScope.h>
 #include <pal/crypto/CryptoDigest.h>
 #include <wtf/Function.h>
 #include <wtf/Stopwatch.h>

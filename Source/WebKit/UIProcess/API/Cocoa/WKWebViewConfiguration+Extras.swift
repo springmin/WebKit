@@ -69,6 +69,14 @@ extension WKWebViewConfiguration {
         #if ENABLE_MODEL_ELEMENT_IMMERSIVE
         self.allowsImmersiveEnvironments = wrapped.allowsImmersiveEnvironments
         #endif
+
+        if let processPool = wrapped.processPool {
+            self.processPool = processPool
+        }
+
+        #if os(macOS)
+        self._requiresUserActionForEditingControlsManager = wrapped.requiresUserActionForEditingControlsManager
+        #endif
     }
 }
 

@@ -92,6 +92,7 @@
 #import <WebCore/Page.h>
 #import <WebCore/PageOverlayController.h>
 #import <WebCore/PlatformKeyboardEvent.h>
+#import <WebCore/PlatformRenderTheme.h>
 #import <WebCore/PluginDocument.h>
 #import <WebCore/PointerCharacteristics.h>
 #import <WebCore/Quirks.h>
@@ -100,7 +101,6 @@
 #import <WebCore/RenderElement.h>
 #import <WebCore/RenderObject.h>
 #import <WebCore/RenderStyle.h>
-#import <WebCore/RenderTheme.h>
 #import <WebCore/RenderView.h>
 #import <WebCore/ScrollView.h>
 #import <WebCore/TextIterator.h>
@@ -240,7 +240,7 @@ void WebPage::getPlatformEditorState(LocalFrame& frame, EditorState& result) con
 
 void WebPage::handleAcceptedCandidate(WebCore::TextCheckingResult acceptedCandidate)
 {
-    if (RefPtr frame = m_page->focusController().focusedLocalFrame())
+    if (RefPtr frame = m_page->focusController().localFocusedFrame())
         protect(frame->editor())->handleAcceptedCandidate(acceptedCandidate);
 }
 

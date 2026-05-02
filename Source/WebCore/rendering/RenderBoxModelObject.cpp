@@ -328,16 +328,20 @@ static bool hasDefiniteHeightByStyle(const RenderBlock& containingBlock)
         return true;
 
     if (containingBlock.isFlexItem()) {
-        auto& flexContainer = downcast<RenderFlexibleBox>(*containingBlock.parent());
-        // §9.8 rule 3: stretched cross-axis items have definite cross size.
-        if (flexContainer.mainAxisIsFlexItemInlineAxis(containingBlock))
-            return flexContainer.alignmentForFlexItem(containingBlock) == ItemPosition::Stretch;
-        // §9.8 rule 2: definite flex-basis makes post-flexing main size definite.
-        auto flexBasis = flexContainer.flexBasisForFlexItem(containingBlock);
-        if (!flexBasis.isAuto() && !flexBasis.isContent() && !flexBasis.isPercentOrCalculated() && !flexBasis.isIntrinsic())
+        auto hasDefiniteHeight = [&] {
+            auto& flexContainer = downcast<RenderFlexibleBox>(*containingBlock.parent());
+            // §9.8 rule 3: stretched cross-axis items have definite cross size.
+            if (flexContainer.mainAxisIsFlexItemInlineAxis(containingBlock))
+                return flexContainer.alignmentForFlexItem(containingBlock) == ItemPosition::Stretch;
+            // §9.8 rule 2: definite flex-basis makes post-flexing main size definite.
+            auto flexBasis = flexContainer.flexBasisForFlexItem(containingBlock);
+            if (!flexBasis.isAuto() && !flexBasis.isContent() && !flexBasis.isPercentOrCalculated() && !flexBasis.isIntrinsic())
+                return true;
+            // §9.8 rule 1: definite container main size makes all items definite.
+            return hasDefiniteHeightByStyle(flexContainer);
+        };
+        if (hasDefiniteHeight())
             return true;
-        // §9.8 rule 1: definite container main size makes all items definite.
-        return hasDefiniteHeightByStyle(flexContainer);
     }
 
     // Percentage and stretch heights are only definite if the ancestor they resolve against is definite.
@@ -368,6 +372,24 @@ static bool hasDefiniteHeightByStyle(const RenderBlock& containingBlock)
 
     return !logicalHeight.isAuto() && !logicalHeight.isIntrinsic();
 }
+
+#if ASSERT_ENABLED
+static void verifyDefiniteHeightConsistencyBetweenStyleAndContainingBlockChain(const RenderBlock& containingBlock, bool hasDefiniteHeightByStyleOnly)
+{
+    // The fast path is more correct than the slow path for these cases.
+    auto& logicalHeight = containingBlock.style().logicalHeight();
+    if (containingBlock.shouldComputeLogicalHeightFromAspectRatio() || containingBlock.stretchesToViewport() || logicalHeight.isStretch() || logicalHeight.isPercentOrCalculated() || logicalHeight.isIntrinsic())
+        return;
+
+    for (auto* ancestor = containingBlock.parent(); ancestor; ancestor = ancestor->parent()) {
+        // Only compare post-layout - the slow path's results are unreliable mid-layout.
+        if (ancestor->needsLayout())
+            return;
+    }
+    auto containingBlockHasDefiniteHeight = !containingBlock.hasAutoHeightOrContainingBlockWithAutoHeight(RenderBox::UpdatePercentageHeightDescendants::No);
+    ASSERT(hasDefiniteHeightByStyleOnly == containingBlockHasDefiniteHeight);
+}
+#endif
 
 LayoutSize RenderBoxModelObject::relativePositionOffset() const
 {
@@ -434,6 +456,9 @@ LayoutSize RenderBoxModelObject::relativePositionOffset() const
         return offset;
 
     auto containingBlockHasDefiniteHeight = hasDefiniteHeightByStyle(*containingBlock);
+#if ASSERT_ENABLED
+    verifyDefiniteHeightConsistencyBetweenStyleAndContainingBlockChain(*containingBlock, containingBlockHasDefiniteHeight);
+#endif
     auto availableHeight = [&] {
         auto* renderBox = dynamicDowncast<RenderBox>(*this);
         if (!renderBox || !renderBox->isGridItem())

@@ -73,7 +73,6 @@
 #include "EventLoop.h"
 #include "EventNames.h"
 #include "EventPath.h"
-#include "EventTargetInlines.h"
 #include "FloatRect.h"
 #include "FocusController.h"
 #include "FrameConsoleClient.h"
@@ -1117,7 +1116,7 @@ void LocalDOMWindow::focus(bool allowFocus)
         return;
 
     // Clear the current frame's focused node if a new frame is about to be focused.
-    RefPtr focusedFrame = page->focusController().focusedLocalFrame();
+    RefPtr focusedFrame = page->focusController().localFocusedFrame();
     if (focusedFrame && focusedFrame != frame)
         protect(focusedFrame->document())->setFocusedElement(nullptr);
 

@@ -90,7 +90,6 @@
 #include "EventLoop.h"
 #include "EventNames.h"
 #include "EventTargetForTesting.h"
-#include "EventTargetInlines.h"
 #include "ExtendableEvent.h"
 #include "ExtensionStyleSheets.h"
 #include "FetchRequest.h"
@@ -179,7 +178,6 @@
 #include "NavigatorBeacon.h"
 #include "NavigatorMediaDevices.h"
 #include "NetworkLoadInformation.h"
-#include "NodeInlines.h"
 #include "Page.h"
 #include "PageInspectorController.h"
 #include "PageOverlay.h"
@@ -189,6 +187,7 @@
 #include "PlatformMediaEngineConfigurationFactory.h"
 #include "PlatformMediaSession.h"
 #include "PlatformMediaSessionManager.h"
+#include "PlatformRenderTheme.h"
 #include "PlatformScreen.h"
 #include "PlatformStrategies.h"
 #include "PluginData.h"
@@ -6272,6 +6271,13 @@ String Internals::composedTreeAsText(Node& node)
     return WebCore::composedTreeAsText(downcast<ContainerNode>(node));
 }
 
+String Internals::composedTreeAsTextFromNode(Node& root, Node& startNode)
+{
+    if (!is<ContainerNode>(root))
+        return emptyString();
+    return WebCore::composedTreeAsTextFromNode(downcast<ContainerNode>(root), startNode);
+}
+
 bool Internals::isProcessingUserGesture()
 {
     return UserGestureIndicator::processingUserGesture();
@@ -8257,12 +8263,6 @@ String Internals::getComputedRole(Element& element) const
 
     RefPtr axObject = axObjectForElement(element);
     return axObject ? axObject->computedRoleString() : ""_s;
-}
-
-bool Internals::hasScopeBreakingHasSelectors() const
-{
-    contextDocument()->styleScope().flushPendingUpdate();
-    return !!contextDocument()->styleScope().resolver().ruleSets().scopeBreakingHasPseudoClassInvalidationRuleSet();
 }
 
 void Internals::setHistoryTotalStateObjectPayloadLimitOverride(uint32_t limit)

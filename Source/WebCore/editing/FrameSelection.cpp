@@ -70,8 +70,8 @@
 #include "LocalFrameView.h"
 #include "Logging.h"
 #include "MutableStyleProperties.h"
-#include "NodeInlines.h"
 #include "OpacityCaretAnimator.h"
+#include "PlatformRenderTheme.h"
 #include "PositionInlines.h"
 #include "PseudoClassChangeInvalidation.h"
 #include "Range.h"
@@ -206,7 +206,7 @@ FrameSelection::FrameSelection(Document* document)
     , m_caretAnimator(createCaretAnimator(this))
     , m_caretInsidePositionFixed(false)
     , m_absCaretBoundsDirty(true)
-    , m_focused(document && document->frame() && document->page() && document->page()->focusController().focusedLocalFrame() == document->frame())
+    , m_focused(document && document->frame() && document->page() && document->page()->focusController().localFocusedFrame() == document->frame())
     , m_isActive(isPageActive(document))
     , m_shouldShowBlockCursor(false)
     , m_pendingSelectionUpdate(false)

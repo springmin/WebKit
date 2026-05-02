@@ -59,6 +59,7 @@
 #include "Settings.h"
 #include "ShareableBitmap.h"
 #include "VideoFrameMetadata.h"
+#include <wtf/NativePromise.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/TextStream.h>
 
@@ -67,6 +68,7 @@
 #endif
 
 #if ENABLE(PICTURE_IN_PICTURE_API)
+#include "EventTarget.h"
 #include "HTMLVideoElementPictureInPicture.h"
 #include "PictureInPictureObserver.h"
 #endif
@@ -586,9 +588,6 @@ HTMLVideoElement::VideoPresentationMode HTMLVideoElement::toPresentationMode(HTM
 
 void HTMLVideoElement::webkitSetPresentationMode(VideoPresentationMode mode)
 {
-    if (mode == VideoPresentationMode::InWindow && !document().settings().inWindowFullscreenEnabled())
-        return;
-
     INFO_LOG(LOGIDENTIFIER, ", mode = ",  mode);
     if (!isChangingVideoFullscreenMode())
         setPresentationMode(mode);

@@ -39,5 +39,7 @@ Ref<XMLDocument> XMLDocument::createXHTML(LocalFrame* frame, const Settings& set
     return document;
 }
 
+XMLDocument::~XMLDocument() = default;
+
 } // namespace WebCore
 

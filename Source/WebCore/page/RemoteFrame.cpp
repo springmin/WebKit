@@ -33,10 +33,10 @@
 #include "HTMLFrameOwnerElement.h"
 #include "FrameInlines.h"
 #include "NodeDocument.h"
-#include "NodeInlines.h"
 #include "RemoteDOMWindow.h"
 #include "RemoteFrameClient.h"
 #include "RemoteFrameView.h"
+#include "ResourceTiming.h"
 #include "SecurityOrigin.h"
 #include <wtf/CompletionHandler.h>
 #include <wtf/HexNumber.h>
@@ -186,6 +186,11 @@ void RemoteFrame::updateScrollingMode()
 void RemoteFrame::reportMixedContentViolation(bool blocked, const URL& target) const
 {
     m_client->reportMixedContentViolation(blocked, target);
+}
+
+void RemoteFrame::addResourceTimingFromChild(ResourceTiming&& resourceTiming)
+{
+    m_client->addResourceTimingFromChild(WTF::move(resourceTiming));
 }
 
 SecurityOrigin* RemoteFrame::frameDocumentSecurityOrigin() const

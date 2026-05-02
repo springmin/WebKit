@@ -43,7 +43,6 @@
 #include "EventHandler.h"
 #include "EventListenerMap.h"
 #include "EventNames.h"
-#include "EventTargetInlines.h"
 #include "ExceptionCode.h"
 #include "ExceptionOr.h"
 #include "FocusController.h"
@@ -209,6 +208,36 @@ static String NODELETE stringOnlyIfHumanReadable(const String& string)
     if (StringEntropyHelpers::isProbablyHumanReadable(string))
         return string;
     return { };
+}
+
+static String shortenedURLString(const URL& url)
+{
+    auto shortenedURL = StringEntropyHelpers::removeHighEntropyComponents(url);
+    if (shortenedURL.protocolIsFile()) {
+        String lastComponent;
+        String secondToLastComponent;
+        for (auto component : shortenedURL.path().split('/')) {
+            std::swap(secondToLastComponent, lastComponent);
+            lastComponent = component.toString();
+        }
+
+        if (!secondToLastComponent.isEmpty())
+            shortenedURL.setPath(makeString(WTF::move(secondToLastComponent), '/', WTF::move(lastComponent)));
+
+        return shortenedURL.path().toString();
+    }
+
+    auto shortenedString = shortenedURL.string();
+    if (!shortenedURL.protocolIsInHTTPFamily())
+        return shortenedString;
+
+    if (auto endOfProtocol = shortenedString.find("://"_s); endOfProtocol != notFound)
+        shortenedString = shortenedString.substring(endOfProtocol + 3);
+
+    if (shortenedString.endsWith('/'))
+        shortenedString = shortenedString.left(shortenedString.length() - 1);
+
+    return shortenedString;
 }
 
 static void addBoxShadowIfNeeded(Node& node, const String& colorAsString)
@@ -552,34 +581,7 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
                 if (context.mergeParagraphs)
                     return { WTF::move(url) };
 
-                auto shortenedURLString = [&] {
-                    auto shortenedURL = StringEntropyHelpers::removeHighEntropyComponents(url);
-                    if (shortenedURL.protocolIsFile()) {
-                        String lastComponent;
-                        String secondToLastComponent;
-                        for (auto component : shortenedURL.path().split('/')) {
-                            std::swap(secondToLastComponent, lastComponent);
-                            lastComponent = component.toString();
-                        }
-
-                        if (!secondToLastComponent.isEmpty())
-                            shortenedURL.setPath(makeString(WTF::move(secondToLastComponent), '/', WTF::move(lastComponent)));
-
-                        return shortenedURL.path().toString();
-                    }
-
-                    auto shortenedString = shortenedURL.string();
-                    if (!shortenedURL.protocolIsInHTTPFamily())
-                        return shortenedString;
-
-                    if (auto endOfProtocol = shortenedString.find("://"_s); endOfProtocol != notFound)
-                        shortenedString = shortenedString.substring(endOfProtocol + 3);
-
-                    if (shortenedString.endsWith('/'))
-                        shortenedString = shortenedString.left(shortenedString.length() - 1);
-
-                    return shortenedString;
-                }();
+                auto shortenedString = shortenedURLString(url);
 
                 String target;
                 if (RefPtr anchor = dynamicDowncast<HTMLAnchorElement>(*element))
@@ -588,7 +590,7 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
                 return { LinkItemData {
                     WTF::move(target),
                     WTF::move(url),
-                    WTF::move(shortenedURLString)
+                    WTF::move(shortenedString)
                 } };
             }
         }
@@ -630,8 +632,15 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
     if (RefPtr iframe = dynamicDowncast<HTMLIFrameElement>(element)) {
         if (RefPtr contentFrame = iframe->contentFrame()) {
             if (RefPtr frameOrigin = contentFrame->frameDocumentSecurityOrigin()) {
+                bool isSameOriginAsParent = frameOrigin->isSameOriginAs(protect(element->document())->securityOrigin());
+                auto originString = frameOrigin->toString();
+                String shortenedOrigin;
+                if (!isSameOriginAsParent && !originString.isEmpty())
+                    shortenedOrigin = shortenedURLString(URL { originString });
                 return { IFrameData {
-                    .origin = frameOrigin->toString(),
+                    .origin = WTF::move(originString),
+                    .shortenedOrigin = WTF::move(shortenedOrigin),
+                    .isSameOriginAsParent = isSameOriginAsParent,
                     .identifier = contentFrame->frameID(),
                 } };
             }
@@ -2113,7 +2122,7 @@ static void focusAndInsertText(NodeIdentifier identifier, String&& text, bool re
     });
 }
 
-void handleInteraction(Interaction&& interaction, LocalFrame& frame, CompletionHandler<void(bool, String&&)>&& completion)
+static void dispatchInteraction(Interaction&& interaction, LocalFrame& frame, CompletionHandler<void(bool, String&&)>&& completion)
 {
     switch (interaction.action) {
     case Action::Click: {
@@ -2196,6 +2205,25 @@ void handleInteraction(Interaction&& interaction, LocalFrame& frame, CompletionH
         break;
     }
     completion(false, "Invalid action"_s);
+}
+
+void handleInteraction(Interaction&& interaction, LocalFrame& frame, CompletionHandler<void(bool, String&&, FloatRect)>&& completion)
+{
+    RefPtr<Node> targetNode;
+    if (auto location = interaction.locationInRootView) {
+        if (RefPtr view = frame.view()) {
+            if (RefPtr document = frame.document())
+                targetNode = findNodeAtRootViewLocation(*view, *document, *location);
+        }
+    } else if (auto identifier = interaction.nodeIdentifier)
+        targetNode = Node::fromIdentifier(*identifier);
+
+    dispatchInteraction(WTF::move(interaction), frame, [completion = WTF::move(completion), targetNode = WTF::move(targetNode)](bool success, String&& message) mutable {
+        FloatRect bounds;
+        if (targetNode)
+            bounds = rootViewBounds(*targetNode);
+        completion(success, WTF::move(message), bounds);
+    });
 }
 
 static String normalizedLabelText(const Element& element)

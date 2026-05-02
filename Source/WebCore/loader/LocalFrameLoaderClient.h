@@ -95,6 +95,7 @@ class ProtectionSpace;
 class RegistrableDomain;
 class RTCPeerConnectionHandler;
 class ResourceError;
+class ResourceTiming;
 class SecurityOrigin;
 class SharedBuffer;
 class SubstituteData;
@@ -369,10 +370,6 @@ public:
     virtual bool isParentProcessAFullWebBrowser() const { return false; }
 
     virtual void dispatchLoadEventToOwnerElementInAnotherProcess() = 0;
-
-#if ENABLE(WINDOW_PROXY_PROPERTY_ACCESS_NOTIFICATION)
-    virtual void didAccessWindowProxyPropertyViaOpener(SecurityOriginData&&, WindowProxyProperty) { }
-#endif
 
     virtual void documentLoaderDetached(NavigationIdentifier, LoadWillContinueInAnotherProcess) { }
 

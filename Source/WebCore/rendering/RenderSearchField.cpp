@@ -39,7 +39,6 @@
 #include "LocalFrame.h"
 #include "LocalFrameView.h"
 #include "LocalizedStrings.h"
-#include "NodeInlines.h"
 #include "Page.h"
 #include "PopupMenu.h"
 #include "RenderBoxInlines.h"
@@ -156,7 +155,7 @@ std::span<const RecentSearch> RenderSearchField::recentSearches()
     if (!m_searchPopup)
         m_searchPopup = page().chrome().createSearchPopupMenu(downcast<SearchInputType>(*inputElement().inputType()));
 
-    auto& recentSearches = downcast<SearchInputType>(*inputElement().inputType()).recentSearches();
+    auto& recentSearches = downcast<SearchInputType>(*inputElement().inputType().unsafeGet()).recentSearches();
 
     const AtomString& name = autosaveName();
     protect(m_searchPopup)->loadRecentSearches(name, recentSearches);

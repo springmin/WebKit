@@ -57,7 +57,6 @@
 #include "EditorClient.h"
 #include "ElementInlines.h"
 #include "EventNames.h"
-#include "EventTargetInlines.h"
 #include "FileList.h"
 #include "FloatPoint.h"
 #include "FloatRect.h"
@@ -94,7 +93,6 @@
 #include "Logging.h"
 #include "MouseEvent.h"
 #include "MouseEventWithHitTestResults.h"
-#include "NodeInlines.h"
 #include "NotImplemented.h"
 #include "PageInlines.h"
 #include "PageOverlayController.h"
@@ -3164,6 +3162,19 @@ void EventHandler::clearElementUnderMouse()
         return;
 
     imageOverlayController->elementUnderMouseDidChange(protect(m_frame), nullptr);
+}
+
+void EventHandler::dispatchMouseBoundaryEventsAfterFullscreenChange()
+{
+    if (!m_elementUnderMouse || !m_lastKnownMousePosition)
+        return;
+
+    auto modifiers = PlatformKeyboardEvent::currentStateOfModifierKeys();
+    PlatformMouseEvent syntheticEvent(valueOrDefault(m_lastKnownMousePosition), m_lastKnownMouseGlobalPosition,
+        MouseButton::None, PlatformEvent::Type::NoType, 0, modifiers,
+        MonotonicTime::now(), 0, SyntheticClickType::NoTap, MouseEventInputSource::UserDriven);
+    updateMouseEventTargetNode(eventNames().mouseoutEvent, nullptr, syntheticEvent, FireMouseOverOut::Yes);
+    m_lastKnownMousePosition = std::nullopt;
 }
 
 bool EventHandler::isElementAnAncestorOfLastElementUnderMouse(Element* element) const

@@ -34,6 +34,8 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(MathMLUnknownElement);
 
+MathMLUnknownElement::~MathMLUnknownElement() = default;
+
 } // namespace WebCore
 
 #endif // ENABLE(MATHML)

@@ -624,7 +624,7 @@ webkit.org/b/120839 animations/cross-fade-background-image.html [ ImageOnlyFailu
 Bug(WPE) ietestcenter/css3/flexbox/flexbox-align-stretch-001.htm [ ImageOnlyFailure ]
 Bug(WPE) ietestcenter/css3/flexbox/flexbox-layout-002.htm [ ImageOnlyFailure ]
 
-# webgl/1.0.3:
+# webgl/1.0.x:
 #  Timing out:
 #  One of these tests is DDoS-ing Mesa AMD drivers.
 webgl/1.0.x/conformance/glsl/bugs [ Skip ]
@@ -794,8 +794,8 @@ webkit.org/b/280604 webgl/webgl-worker.html [ Skip ]
 webkit.org/b/280604 webgl/webgl-fail-platform-context-creation-no-crash.html [ Skip ]
 
 # WEBGL2 flakies
-webkit.org/b/251107 webgl/2.0.0/conformance2/textures/image_bitmap_from_video/tex-2d-r8-red-unsigned_byte.html [ Pass Failure ]
-webkit.org/b/251107 webgl/2.0.0/conformance2/textures/video/tex-2d-rgba8ui-rgba_integer-unsigned_byte.html [ Pass Failure ]
+webkit.org/b/313803 webkit.org/b/251107 webgl/2.0.y/conformance2/textures/image_bitmap_from_video/tex-2d-r8-red-unsigned_byte.html [ Timeout ]
+webkit.org/b/313803 webkit.org/b/251107 webgl/2.0.y/conformance2/textures/video/tex-2d-rgba8ui-rgba_integer-unsigned_byte.html [ Timeout ]
 
 webkit.org/b/212147 http/tests/xmlhttprequest/url-with-credentials.html [ Failure ]
 
@@ -854,9 +854,12 @@ fast/canvas/toDataURL-alpha-permutation.html [ ImageOnlyFailure ]
 
 webgl/1.0.x/conformance/extensions/oes-texture-float-with-video.html [ Timeout ]
 webgl/1.0.x/conformance/extensions/oes-texture-half-float-with-video.html [ Timeout ]
+webgl/2.0.y/conformance2/textures/video [ Skip ]
+webgl/2.0.y/conformance2/textures/image_bitmap_from_video [ Skip ]
+webgl/2.0.y/conformance2/textures/misc/tex-image-with-bad-args-from-dom-elements.html [ Skip ]
 
-webkit.org/b/280603 webgl/2.0.0/conformance2/textures/video/tex-2d-r16f-red-float.html [ Failure Timeout Pass ]
-webkit.org/b/280603 webgl/2.0.0/conformance2/textures/video/tex-2d-rgb8ui-rgb_integer-unsigned_byte.html [ Timeout Pass ]
+webkit.org/b/280603 webgl/2.0.y/conformance2/textures/video/tex-2d-r16f-red-float.html [ Failure Timeout Pass ]
+webkit.org/b/280603 webgl/2.0.y/conformance2/textures/video/tex-2d-rgb8ui-rgb_integer-unsigned_byte.html [ Timeout Pass ]
 
 # Timing out since 259143@main.
 webkit.org/b/251554 imported/w3c/web-platform-tests/html/user-activation/consumption-crossorigin.sub.html [ Skip ]
@@ -914,7 +917,7 @@ imported/w3c/web-platform-tests/css/filter-effects/backdrop-filter-plus-filter.h
 webkit.org/b/264680 imported/w3c/web-platform-tests/webcodecs/videoFrame-construction.crossOriginSource.sub.html [ Failure Pass ]
 
 # Also webkit.org/b/266573
-webkit.org/b/266577 webgl/2.0.0/conformance2/textures/video/tex-2d-rgb16f-rgb-half_float.html [ Failure Timeout Pass ]
+webkit.org/b/266577 webgl/2.0.y/conformance2/textures/video/tex-2d-rgb16f-rgb-half_float.html [ Failure Timeout Pass ]
 
 webkit.org/b/285298 imported/w3c/web-platform-tests/webcodecs/videoFrame-canvasImageSource.html [ Failure ]
 
@@ -1102,6 +1105,8 @@ webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-v
 webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/voice_object/voice_voice_attribute.html [ ImageOnlyFailure ]
 webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/voice_object/voice_with_class.html [ ImageOnlyFailure ]
 webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/voice_object/voice_with_class_object_specific_selector.html [ ImageOnlyFailure ]
+webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/white-space_normal_wrapped.html [ ImageOnlyFailure ]
+webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/white-space_nowrap_wrapped.html [ ImageOnlyFailure ]
 webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/white-space_pre-line_wrapped.html [ ImageOnlyFailure ]
 webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue/text-decoration_line-through.html [ ImageOnlyFailure ]
 webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue/text-decoration_overline.html [ ImageOnlyFailure ]
@@ -1181,6 +1186,25 @@ webkit.org/b/306384 imported/w3c/web-platform-tests/css/css-position/sticky/posi
 webkit.org/b/306384 imported/w3c/web-platform-tests/css/css-scroll-snap/scroll-target-margin-002.html [ ImageOnlyFailure ]
 webkit.org/b/306384 imported/w3c/web-platform-tests/css/css-scroll-snap/scroll-target-margin-004.html [ ImageOnlyFailure ]
 webkit.org/b/306384 imported/w3c/web-platform-tests/css/css-scroll-snap/scroll-target-padding-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-scroll-snap/snap-after-relayout/resnap-on-reconstructing-frame.html [ Failure ]
+
+imported/w3c/web-platform-tests/css/css-scroll-snap/scroll-margin-focus.html [ Failure ]
+imported/w3c/web-platform-tests/css/css-scroll-snap/scroll-target-snap-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-scroll-snap/scroll-target-snap-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-scroll-snap/snap-after-initial-layout/initial-snap-matches-scroll.html [ Failure ]
+
+# Crash due to unimplemented event type
+imported/w3c/web-platform-tests/css/css-scroll-snap/input/snap-area-overflow-boundary-viewport-covering.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-scroll-snap/overscroll-snap.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-scroll-snap/snap-after-relayout/multiple-aligned-targets/common-to-both-axes-supercedes-first-in-tree-order.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-scroll-snap/snap-after-relayout/multiple-aligned-targets/prefer-common-to-both-axes.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-scroll-snap/snap-after-relayout/multiple-aligned-targets/prefer-first-in-tree-order.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-scroll-snap/snap-after-relayout/multiple-aligned-targets/prefer-focused-element.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-scroll-snap/snap-after-relayout/multiple-aligned-targets/prefer-focused-nested-containers.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-scroll-snap/snap-after-relayout/multiple-aligned-targets/prefer-inner-target.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-scroll-snap/snap-events/scrollsnapchanging/scrollsnapchanging-on-user-scroll.tentative.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-scroll-snap/snap-fling-in-large-area.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-scroll-snap/unrelated-gesture-scroll-during-snap.html [ Skip ]
 
 webkit.org/b/306466 imported/w3c/web-platform-tests/mathml/presentation-markup/operators/operator-dictionary-arabic-002.html [ ImageOnlyFailure Pass ]
 
@@ -1224,8 +1248,6 @@ webkit.org/b/308540 fast/repaint/border-radius-partial-repaint-corner.html [ Pas
 
 webkit.org/b/310411 [ arm64 ] fast/events/event-timing-back-forward-cache-duration.html [ Pass Failure ]
 
-webkit.org/b/311654 [ arm64 ] imported/w3c/web-platform-tests/event-timing/gap-keydown-keyup.html [ Failure ]
-webkit.org/b/309744 [ arm64 ] fast/events/monotonic-event-time.html [ Failure ]
 webkit.org/b/309627 [ arm64 ] fast/forms/textarea/textarea-placeholder-paint-order-2.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/309369 [ arm64 ] svg/custom/image-with-transform-clip-filter.svg [ Failure ]
@@ -1258,7 +1280,7 @@ webkit.org/b/309633 [ arm64 ] fast/text/hyphenate-locale.html [ Failure ]
 
 webkit.org/b/309634 [ arm64 ] http/tests/xmlhttprequest/binary-x-user-defined.html [ Failure ]
 
-webkit.org/b/309635 [ arm64 ] webgl/2.0.0/conformance2/textures/video/tex-2d-r8-red-unsigned_byte.html [ Pass Failure ]
+webkit.org/b/313803 webkit.org/b/309635 [ arm64 ] webgl/2.0.y/conformance2/textures/video/tex-2d-r8-red-unsigned_byte.html [ Timeout ]
 
 webkit.org/b/309636 [ arm64 ] webgl/tex-2d-video-no-change-wrap.html [ Pass Failure ]
 
@@ -1308,3 +1330,5 @@ webkit.org/b/313054 [ arm64 ] compositing/backing/animate-into-view-with-descend
 webkit.org/b/160119 [ arm64 ] editing/selection/caret-at-bidi-boundary.html [ Pass Timeout ]
 webkit.org/b/313055 [ arm64 ] fast/canvas/image-buffer-backend-variants.html [ Pass Failure Timeout ]
 webkit.org/b/313112 [ arm64 ] webrtc/video-mute.html [ Pass Failure Timeout ]
+
+imported/w3c/web-platform-tests/css/css-scroll-snap/scroll-target-margin-005.html [ Failure ]

@@ -34,6 +34,7 @@
 #include "DFGGraph.h"
 #include "DFGInsertionSet.h"
 #include "DFGPhase.h"
+#include "DOMJITCallDOMGetterSnippet.h"
 #include "GetterSetter.h"
 #include "JSCInlines.h"
 #include "TypeLocation.h"
@@ -1117,7 +1118,8 @@ private:
             break;
         }
 
-        case StringIndexOf: {
+        case StringIndexOf:
+        case StringLastIndexOf: {
             fixEdge<StringUse>(node->child1());
             fixEdge<StringUse>(node->child2());
             if (node->child3())

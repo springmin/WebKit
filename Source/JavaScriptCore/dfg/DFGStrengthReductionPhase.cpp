@@ -1399,6 +1399,43 @@ private:
             break;
         }
 
+        case StringLastIndexOf: {
+            Node* stringNode = m_node->child1().node();
+            String string = stringNode->tryGetString(m_graph);
+            if (!string)
+                break;
+
+            String searchString = m_node->child2()->tryGetString(m_graph);
+            if (!searchString)
+                break;
+
+            if (string.length() < searchString.length()) {
+                m_changed = true;
+                m_insertionSet.insertNode(m_nodeIndex, SpecNone, Check, m_node->origin, m_node->children.justChecks());
+                m_graph.convertToConstant(m_node, jsNumber(-1));
+                break;
+            }
+            unsigned maxStart = string.length() - searchString.length();
+            unsigned startPosition = maxStart;
+            if (m_node->child3()) {
+                if (!m_node->child3()->isInt32Constant())
+                    break;
+                int32_t pos = m_node->child3()->asInt32();
+                if (pos < 0)
+                    startPosition = 0;
+                else
+                    startPosition = std::min<unsigned>(pos, maxStart);
+            }
+
+            size_t result = string.reverseFind(searchString, startPosition);
+            int32_t indexResult = (result == notFound) ? -1 : static_cast<int32_t>(result);
+
+            m_changed = true;
+            m_insertionSet.insertNode(m_nodeIndex, SpecNone, Check, m_node->origin, m_node->children.justChecks());
+            m_graph.convertToConstant(m_node, jsNumber(indexResult));
+            break;
+        }
+
         case StringStartsWith:
         case StringEndsWith: {
             bool isStartsWith = m_node->op() == StringStartsWith;
@@ -1640,20 +1677,20 @@ private:
                 auto* wasmFunction = dynamicDowncast<WebAssemblyFunction>(function);
                 if (!wasmFunction)
                     break;
-                const auto& signature = Wasm::TypeInformation::getFunctionSignature(wasmFunction->typeIndex());
-                if (signature.argumentsOrResultsIncludeV128() || signature.argumentsOrResultsIncludeExnref())
+                Ref signature = wasmFunction->signature();
+                if (signature->argumentsOrResultsIncludeV128() || signature->argumentsOrResultsIncludeExnref())
                     break;
 
                 unsigned numPassedArgs = m_node->numChildren() - /* |callee| and |this| */ 2;
-                if (signature.argumentCount() > numPassedArgs)
+                if (signature->argumentCount() > numPassedArgs)
                     break;
 
-                if (!signature.returnsVoid() && signature.returnCount() != 1)
+                if (!signature->returnsVoid() && signature->returnCount() != 1)
                     break;
 
                 bool success = true;
-                for (unsigned index = 0; index < signature.argumentCount(); ++index) {
-                    auto type = signature.argumentType(index);
+                for (unsigned index = 0; index < signature->argumentCount(); ++index) {
+                    auto type = signature->argumentType(index);
                     Edge argument = m_graph.varArgChild(m_node, 2 + index);
                     switch (type.kind) {
                     case Wasm::TypeKind::I32: {
@@ -1688,9 +1725,9 @@ private:
                     }
                 }
 
-                if (!signature.returnsVoid()) {
-                    ASSERT(signature.returnCount() == 1);
-                    auto type = signature.returnType(0);
+                if (!signature->returnsVoid()) {
+                    ASSERT(signature->returnCount() == 1);
+                    auto type = signature->returnType(0);
                     switch (type.kind) {
                     case Wasm::TypeKind::I32:
                     case Wasm::TypeKind::I64:
@@ -1727,12 +1764,12 @@ private:
                 if (!success || !is64Bit() || !m_graph.m_plan.isFTL())
                     break;
 
-                unsigned numAllocatedArgs = static_cast<unsigned>(signature.argumentCount()) + /* |this| for wasm */ 1;
+                unsigned numAllocatedArgs = static_cast<unsigned>(signature->argumentCount()) + /* |this| for wasm */ 1;
                 m_graph.m_parameterSlots = std::max(m_graph.m_parameterSlots, Graph::parameterSlotsForArgCount(numAllocatedArgs));
 
                 unsigned checkIndex = checkIndexValue.value();
-                for (unsigned index = 0; index < signature.argumentCount(); ++index) {
-                    auto type = signature.argumentType(index);
+                for (unsigned index = 0; index < signature->argumentCount(); ++index) {
+                    auto type = signature->argumentType(index);
                     Edge argument = m_graph.varArgChild(m_node, 2 + index);
                     Node* argumentNode = argument.node();
                     switch (type.kind) {
@@ -1771,8 +1808,8 @@ private:
                     }
                 }
 
-                if (!signature.returnsVoid()) {
-                    auto type = signature.returnType(0);
+                if (!signature->returnsVoid()) {
+                    auto type = signature->returnType(0);
                     switch (type.kind) {
                     case Wasm::TypeKind::I32: {
                         m_node->setResult(NodeResultInt32);

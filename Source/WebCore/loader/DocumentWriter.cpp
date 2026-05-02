@@ -34,6 +34,7 @@
 #include "DOMImplementation.h"
 #include "DocumentInlines.h"
 #include "DocumentLoader.h"
+#include "DocumentPage.h"
 #include "DocumentView.h"
 #include "FrameLoader.h"
 #include "FrameLoaderStateMachine.h"
@@ -228,7 +229,7 @@ bool DocumentWriter::begin(const URL& urlReference, bool dispatch, Document* own
             return document->loader() && document->loader()->substituteData().isValid();
         };
 
-        if (currentHistoryItem && currentHistoryItem->policyContainer()) {
+        if (triggeringAction && triggeringAction->type() == NavigationType::BackForward && currentHistoryItem && currentHistoryItem->policyContainer()) {
             const auto& policyContainerFromHistory = currentHistoryItem->policyContainer();
             ASSERT(policyContainerFromHistory);
             document->inheritPolicyContainerFrom(*policyContainerFromHistory);

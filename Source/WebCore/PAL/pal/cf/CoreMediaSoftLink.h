@@ -241,8 +241,8 @@ SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMSetAttachment, void, (CMAttachme
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMRemoveAttachment, void, (CMAttachmentBearerRef target, CFStringRef key), (target, key))
 #define CMRemoveAttachment softLink_CoreMedia_CMRemoveAttachment
 
-SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMTimebaseCreateWithMasterClock, OSStatus, (CFAllocatorRef allocator, CMClockRef masterClock, CMTimebaseRef* timebaseOut), (allocator, masterClock, timebaseOut))
-#define CMTimebaseCreateWithMasterClock softLink_CoreMedia_CMTimebaseCreateWithMasterClock
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMTimebaseCreateWithSourceClock, OSStatus, (CFAllocatorRef allocator, CMClockRef masterClock, CMTimebaseRef* timebaseOut), (allocator, masterClock, timebaseOut))
+#define CMTimebaseCreateWithSourceClock softLink_CoreMedia_CMTimebaseCreateWithSourceClock
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMTimebaseGetTime, CMTime, (CMTimebaseRef timebase), (timebase))
 #define CMTimebaseGetTime softLink_CoreMedia_CMTimebaseGetTime
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMTimebaseGetRate, Float64, (CMTimebaseRef timebase), (timebase))
@@ -563,6 +563,10 @@ SOFT_LINK_FUNCTION_FOR_HEADER(PAL, CoreMedia, CMDerivedObjectCreate, OSStatus, (
 #define CMDerivedObjectCreate softLink_CoreMedia_CMDerivedObjectCreate
 
 #endif // PLATFORM(MAC)
+
+#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/CoreMediaSoftLinkAdditions.h>)
+#import <WebKitAdditions/CoreMediaSoftLinkAdditions.h>
+#endif
 
 #endif // USE(AVFOUNDATION)
 

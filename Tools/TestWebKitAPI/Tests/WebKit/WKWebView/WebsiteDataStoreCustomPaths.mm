@@ -270,12 +270,22 @@ static void runWebsiteDataStoreCustomPaths(ShouldEnableProcessPrewarming shouldE
     EXPECT_FALSE([WKWebsiteDataStore _defaultDataStoreExists]);
 }
 
+// FIXME when webkit.org/b/313786 is resolved.
+#if PLATFORM(MAC) && !defined(NDEBUG)
+TEST(WebKit, DISABLED_WebsiteDataStoreCustomPathsWithoutPrewarming)
+#else
 TEST(WebKit, WebsiteDataStoreCustomPathsWithoutPrewarming)
+#endif
 {
     runWebsiteDataStoreCustomPaths(ShouldEnableProcessPrewarming::No);
 }
 
+// FIXME when webkit.org/b/313786 is resolved.
+#if PLATFORM(MAC) && !defined(NDEBUG)
+TEST(WebKit, DISABLED_WebsiteDataStoreCustomPathsWithPrewarming)
+#else
 TEST(WebKit, WebsiteDataStoreCustomPathsWithPrewarming)
+#endif
 {
     runWebsiteDataStoreCustomPaths(ShouldEnableProcessPrewarming::Yes);
 }
@@ -1886,6 +1896,20 @@ TEST(WKWebsiteDataStore, DeleteEmptyServiceWorkerDirectory)
     RetainPtr websiteDataStoreConfiguration = adoptNS([[_WKWebsiteDataStoreConfiguration alloc] init]);
     websiteDataStoreConfiguration.get().generalStorageDirectory = generalStorageDirectory.get();
     RetainPtr websiteDataStore = adoptNS([[WKWebsiteDataStore alloc] _initWithConfiguration:websiteDataStoreConfiguration.get()]);
+
+    // Navigate to the origin whose empty database is on disk. This triggers the lazy per-origin
+    // import, which opens the database, finds it empty, and deletes the files. The navigation
+    // itself may fail (no internet) but the import is triggered regardless.
+    RetainPtr configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    [configuration setWebsiteDataStore:websiteDataStore.get()];
+    RetainPtr webView = adoptNS([[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configuration.get()]);
+    RetainPtr navigationDelegate = adoptNS([[TestNavigationDelegate alloc] init]);
+    [navigationDelegate setDidFinishNavigation:^(WKWebView *, WKNavigation *) { done = true; }];
+    [navigationDelegate setDidFailProvisionalNavigation:^(WKWebView *, WKNavigation *, NSError *) { done = true; }];
+    [webView setNavigationDelegate:navigationDelegate.get()];
+    done = false;
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://webkit.org/"]]];
+    TestWebKitAPI::Util::run(&done);
 
     // Verify record does not exist with empty database.
     __block RetainPtr<NSArray<WKWebsiteDataRecord *>> records;

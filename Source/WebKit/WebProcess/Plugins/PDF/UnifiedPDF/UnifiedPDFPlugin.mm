@@ -99,12 +99,12 @@
 #include <WebCore/Page.h>
 #include <WebCore/PageOverlay.h>
 #include <WebCore/PageOverlayController.h>
+#include <WebCore/PlatformRenderTheme.h>
 #include <WebCore/PlatformScreen.h>
 #include <WebCore/RenderEmbeddedObject.h>
 #include <WebCore/RenderLayer.h>
 #include <WebCore/RenderLayerBacking.h>
 #include <WebCore/RenderLayerCompositor.h>
-#include <WebCore/RenderTheme.h>
 #include <WebCore/ScreenProperties.h>
 #include <WebCore/ScrollAnimator.h>
 #include <WebCore/ScrollTypes.h>
@@ -118,6 +118,7 @@
 #include <algorithm>
 #include <pal/spi/cg/CoreGraphicsSPI.h>
 #include <wtf/Scope.h>
+#include <wtf/SetForScope.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/cocoa/TypeCastsCocoa.h>
 #include <wtf/spi/darwin/OSVariantSPI.h>
@@ -1351,6 +1352,9 @@ void UnifiedPDFPlugin::updateLayout(AdjustScaleAfterLayout shouldAdjustScale, st
     auto layoutSize = availableContentsRect().size();
     auto autoSizeMode = shouldUpdateAutoSizeScaleOverride.value_or(m_didLayoutWithValidDocument ? m_shouldUpdateAutoSizeScale : ShouldUpdateAutoSizeScale::Yes);
 
+    if (RefPtr corePage = page())
+        m_documentLayout.setShouldLeftAlignTrailingTwoUpPage(corePage->settings().twoUpPDFTrailingPageLeftAlignmentEnabled());
+
     Ref presentationController = *m_presentationController;
     auto computeAnchoringInfo = [&] {
         return presentationController->pdfPositionForCurrentView(PDFPresentationController::AnchorPoint::TopLeft, shouldAdjustScale == AdjustScaleAfterLayout::Yes || autoSizeMode == ShouldUpdateAutoSizeScale::Yes);
@@ -1650,6 +1654,7 @@ void UnifiedPDFPlugin::createScrollbarsController()
         return;
 
     page->chrome().client().ensureScrollbarsController(*page, *this);
+    updateScrollbarOverlayStyle();
 }
 
 DelegatedScrollingMode UnifiedPDFPlugin::scrollingMode() const
@@ -1709,6 +1714,24 @@ void UnifiedPDFPlugin::scrollbarStyleChanged(WebCore::ScrollbarStyle, bool force
         return;
 
     updateLayout();
+}
+
+void UnifiedPDFPlugin::updateScrollbarOverlayStyle()
+{
+    if (!isFullMainFramePlugin())
+        return;
+
+    RefPtr page = this->page();
+    if (!page)
+        return;
+
+    using enum WebCore::ScrollbarOverlayStyle;
+    setScrollbarOverlayStyle(page->useDarkAppearance() ? Light : Default);
+
+    if (m_scrollingNodeID) {
+        if (RefPtr scrollingCoordinator = page->scrollingCoordinator())
+            scrollingCoordinator->setScrollingNodeScrollableAreaGeometry(*m_scrollingNodeID, *this);
+    }
 }
 
 void UnifiedPDFPlugin::updateScrollbars()
@@ -4921,6 +4944,8 @@ void UnifiedPDFPlugin::effectiveAppearanceDidChange()
 
     if (RefPtr rootLayer = m_rootLayer)
         rootLayer->setBackgroundColor(pluginBackgroundColor());
+
+    updateScrollbarOverlayStyle();
 }
 
 ViewportConfiguration::Parameters UnifiedPDFPlugin::viewportParameters()

@@ -150,6 +150,8 @@ void InspectorCanvasAgent::internalEnable()
     {
         Locker locker { CanvasRenderingContext::instancesLock() };
         for (auto* context : CanvasRenderingContext::instances()) {
+            if (!context->isContextThread())
+                continue;
             if (!is<CanvasRenderingContext2D>(context)
                 && !is<ImageBitmapRenderingContext>(context)
 #if ENABLE(OFFSCREEN_CANVAS)
@@ -171,7 +173,7 @@ void InspectorCanvasAgent::internalEnable()
     {
         Locker locker { WebGLProgram::instancesLock() };
         for (auto& [program, contextWebGLBase] : WebGLProgram::instances()) {
-            if (contextWebGLBase && matchesCurrentContext(contextWebGLBase->canvasBase().scriptExecutionContext()))
+            if (contextWebGLBase && contextWebGLBase->isContextThread() && matchesCurrentContext(contextWebGLBase->canvasBase().scriptExecutionContext()))
                 didCreateWebGLProgram(*contextWebGLBase, *program);
         }
     }

@@ -122,6 +122,7 @@
 #import <WebCore/PaymentCoordinator.h>
 #import <WebCore/PlatformMediaSessionManager.h>
 #import <WebCore/PlatformMouseEvent.h>
+#import <WebCore/PlatformRenderTheme.h>
 #import <WebCore/PrintContext.h>
 #import <WebCore/Range.h>
 #import <WebCore/RemoteFrame.h>
@@ -132,7 +133,6 @@
 #import <WebCore/RenderElement.h>
 #import <WebCore/RenderLayer.h>
 #import <WebCore/RenderObjectInlines.h>
-#import <WebCore/RenderTheme.h>
 #import <WebCore/RenderedDocumentMarker.h>
 #import <WebCore/SVGImage.h>
 #import <WebCore/Settings.h>
@@ -775,7 +775,7 @@ void WebPage::getAccessibilityWebProcessDebugInfo(CompletionHandler<void(WebCore
     auto mode = WebCore::AXObjectCache::accessibilityMode();
     Vector<String> warnings;
 
-    RefPtr focusedFrame = [m_mockAccessibilityElement focusedLocalFrame];
+    RefPtr focusedFrame = [m_mockAccessibilityElement localFocusedFrame];
     RefPtr document = focusedFrame ? focusedFrame->document() : nullptr;
 
     if (document) {
@@ -2402,6 +2402,8 @@ bool WebPage::shouldAllowSingleClickToChangeSelection(WebCore::Node& targetNode,
 
 void WebPage::selectWithGesture(const IntPoint& point, GestureType gestureType, GestureRecognizerState gestureState, bool isInteractingWithFocusedElement, CompletionHandler<void(const WebCore::IntPoint&, GestureType, GestureRecognizerState, OptionSet<SelectionFlags>)>&& completionHandler)
 {
+    SetForScope userIsInteractingChange { m_userIsInteracting, true };
+
     if (gestureState == GestureRecognizerState::Began)
         updateFocusBeforeSelectingTextAtLocation(point);
 
@@ -2761,6 +2763,8 @@ void WebPage::setSelectionRange(WebCore::IntPoint point, WebCore::TextGranularit
 
 void WebPage::updateSelectionWithExtentPointAndBoundary(WebCore::IntPoint point, WebCore::TextGranularity granularity, bool isInteractingWithFocusedElement, TextInteractionSource source, CompletionHandler<void(bool)>&& callback)
 {
+    SetForScope userIsInteractingChange { m_userIsInteracting, true };
+
     RefPtr frame = m_page->focusController().focusedOrMainFrame();
     if (!frame)
         return callback(false);
@@ -2864,6 +2868,8 @@ void WebPage::updateSelectionWithExtentPoint(WebCore::IntPoint point, bool isInt
 
 void WebPage::selectTextWithGranularityAtPoint(WebCore::IntPoint point, WebCore::TextGranularity granularity, bool isInteractingWithFocusedElement, CompletionHandler<void()>&& completionHandler)
 {
+    SetForScope userIsInteractingChange { m_userIsInteracting, true };
+
 #if PLATFORM(IOS_FAMILY)
     if (!m_potentialTapNode) {
         setSelectionRange(point, granularity, isInteractingWithFocusedElement);
@@ -3312,7 +3318,7 @@ void WebPage::completeSyntheticClick(std::optional<WebCore::FrameIdentifier> fra
         return;
     }
 
-    RefPtr oldFocusedFrame = m_page->focusController().focusedLocalFrame();
+    RefPtr oldFocusedFrame = m_page->focusController().localFocusedFrame();
     RefPtr<Element> oldFocusedElement = oldFocusedFrame ? oldFocusedFrame->document()->focusedElement() : nullptr;
 
     SetForScope userIsInteractingChange { m_userIsInteracting, true };
@@ -3341,7 +3347,7 @@ void WebPage::completeSyntheticClick(std::optional<WebCore::FrameIdentifier> fra
     if (m_isClosed)
         return;
 
-    RefPtr newFocusedFrame = m_page->focusController().focusedLocalFrame();
+    RefPtr newFocusedFrame = m_page->focusController().localFocusedFrame();
     RefPtr<Element> newFocusedElement = newFocusedFrame ? newFocusedFrame->document()->focusedElement() : nullptr;
 
     if (nodeRespondingToClick.document().settings().contentChangeObserverEnabled()) {

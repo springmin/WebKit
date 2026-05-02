@@ -35,7 +35,6 @@
 #include "LegacyRenderSVGRoot.h"
 #include "LegacyRenderSVGViewportContainer.h"
 #include "LocalFrame.h"
-#include "NodeInlines.h"
 #include "NodeName.h"
 #include "RenderBoxInlines.h"
 #include "RenderObjectInlines.h"
@@ -788,12 +787,12 @@ bool SVGSVGElement::scrollToFragment(StringView fragmentIdentifier)
 
                 // If the viewElement has changed, remove the link from the SVGViewElement to the previously selected SVGSVGElement.
                 if (rootElement->m_currentViewElement != viewElement)
-                    RefPtr { rootElement->m_currentViewElement }->resetTargetElement();
+                    protect(rootElement->m_currentViewElement)->resetTargetElement();
             }
 
             if (rootElement->m_currentViewElement != viewElement) {
                 rootElement->m_currentViewElement = viewElement;
-                RefPtr { rootElement->m_currentViewElement }->setTargetElement(*rootElement);
+                protect(rootElement->m_currentViewElement)->setTargetElement(*rootElement);
             }
 
             rootElement->inheritViewAttributes(*viewElement);

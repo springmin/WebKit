@@ -31,9 +31,17 @@
 
 #import "AXObjectCacheInlines.h"
 #import "FontCascadeInlines.h"
+#import "StyleVerticalAlign.h"
 #import "TextIterator.h"
-#import "WebAccessibilityObjectWrapperBase.h"
 #import <wtf/cocoa/TypeCastsCocoa.h>
+
+#if PLATFORM(MAC)
+#import "WebAccessibilityObjectWrapperMac.h"
+#import <AppKit/NSAccessibilityConstants.h>
+#else
+#import "StyleSpeakAs.h"
+#import "WebAccessibilityObjectWrapperIOS.h"
+#endif
 
 namespace WebCore {
 
@@ -157,11 +165,7 @@ RetainPtr<NSArray> AccessibilityObject::contentForRange(const SimpleRange& range
 
 RetainPtr<NSAttributedString> AccessibilityObject::attributedStringForTextMarkerRange(AXTextMarkerRange&& textMarkerRange, SpellCheck spellCheck) const
 {
-#if PLATFORM(MAC)
-    auto range = rangeForTextMarkerRange(axObjectCache(), textMarkerRange);
-#else
     auto range = textMarkerRange.simpleRange();
-#endif
     return range ? attributedStringForRange(*range, spellCheck) : nil;
 }
 

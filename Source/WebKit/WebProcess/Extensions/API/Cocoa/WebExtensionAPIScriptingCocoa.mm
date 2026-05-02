@@ -48,6 +48,7 @@
 #import "WebExtensionTabIdentifier.h"
 #import "WebExtensionUtilities.h"
 #import "WebProcess.h"
+#import <WebCore/UserGestureIndicator.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
 static NSString * const allFramesKey = @"allFrames";
@@ -188,7 +189,8 @@ void WebExtensionAPIScripting::executeScript(NSDictionary *script, Ref<WebExtens
     if (!parseScriptInjectionOptions(script, parameters, outExceptionString))
         return;
 
-    WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::ScriptingExecuteScript(WTF::move(parameters)), [protectedThis = Ref { *this }, callback = WTF::move(callback)](Expected<Vector<WebKit::WebExtensionScriptInjectionResultParameters>, WebExtensionError>&& result) {
+    bool userGesture = WebCore::UserGestureIndicator::processingUserGesture();
+    WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::ScriptingExecuteScript(WTF::move(parameters), userGesture), [protectedThis = Ref { *this }, callback = WTF::move(callback)](Expected<Vector<WebKit::WebExtensionScriptInjectionResultParameters>, WebExtensionError>&& result) {
         if (!result)
             callback->reportError(result.error().createNSString().get());
         else
@@ -371,7 +373,7 @@ bool WebExtensionAPIScripting::parseTargetInjectionOptions(NSDictionary *targetI
     NSNumber *tabID = targetInfo[tabIDKey];
     auto tabIdentifier = toWebExtensionTabIdentifier(tabID.doubleValue);
     if (!tabIdentifier) {
-        *outExceptionString = toErrorString(nullString(), tabIDKey, @"'%@' is not a tab identifier", tabID).createNSString().autorelease();
+        *outExceptionString = toErrorString(nullString(), tabIDKey, makeString("'"_s, String([tabID description]), "' is not a tab identifier"_s)).createNSString().autorelease();
         return false;
     }
 
@@ -382,7 +384,7 @@ bool WebExtensionAPIScripting::parseTargetInjectionOptions(NSDictionary *targetI
         for (NSString *documentIdentifier in documentIdentifiers) {
             auto parsedUUID = WTF::UUID::parse(String(documentIdentifier));
             if (!parsedUUID) {
-                *outExceptionString = toErrorString(nullString(), documentIDsKey, @"'%@' is not a document identifier", documentIdentifier).createNSString().autorelease();
+                *outExceptionString = toErrorString(nullString(), documentIDsKey, makeString("'"_s, String(documentIdentifier), "' is not a document identifier"_s)).createNSString().autorelease();
                 return false;
             }
 
@@ -397,7 +399,7 @@ bool WebExtensionAPIScripting::parseTargetInjectionOptions(NSDictionary *targetI
         for (NSNumber *frameID in frameIDs) {
             auto frameIdentifier = toWebExtensionFrameIdentifier(frameID.doubleValue);
             if (!isValid(frameIdentifier)) {
-                *outExceptionString = toErrorString(nullString(), frameIDsKey, @"'%@' is not a frame identifier", frameID).createNSString().autorelease();
+                *outExceptionString = toErrorString(nullString(), frameIDsKey, makeString("'"_s, String([frameID description]), "' is not a frame identifier"_s)).createNSString().autorelease();
                 return false;
             }
 
@@ -587,7 +589,7 @@ bool WebExtensionAPIScripting::parseRegisteredContentScripts(NSArray *scripts, F
 
         NSArray *matchPatterns = script[matchesKey];
         if (firstTimeRegistration == FirstTimeRegistration::Yes && !matchPatterns.count) {
-            *outExceptionString = toErrorString(nullString(), matchesKey, @"it must specify at least one match pattern for script with ID '%@'", script[@"id"]).createNSString().autorelease();
+            *outExceptionString = toErrorString(nullString(), matchesKey, makeString("it must specify at least one match pattern for script with ID '"_s, String(script[@"id"]), "'"_s)).createNSString().autorelease();
             return false;
         }
 

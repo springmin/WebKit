@@ -95,6 +95,12 @@ else ()
     unset(_webm_parser_srcs)
 endif ()
 
+# dav1d provides the AV1 software decoder used by LibWebRTCDav1dDecoder.cpp (gated by ENABLE(AV1)).
+# aom is aggregated into the webrtc target via OBJECT library, so no separate WebCore link is needed.
+if (ENABLE_AV1)
+    list(APPEND WebCore_LIBRARIES dav1d)
+endif ()
+
 # FIXME: wgpu* symbols are undefined until WebGPU builds via CMake. This flag
 # suppresses ALL undefined symbols -- remove when WebGPU is enabled.
 # https://bugs.webkit.org/show_bug.cgi?id=312031
@@ -237,6 +243,7 @@ list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/platform/spi/mac"
     "${WEBCORE_DIR}/platform/video-codecs"
     "${WEBCORE_DIR}/plugins/mac"
+    "${WEBCORE_DIR}/rendering/cocoa"
     "${WebCore_PRIVATE_FRAMEWORK_HEADERS_DIR}"
 )
 
@@ -837,7 +844,9 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     platform/graphics/cocoa/AV1UtilitiesCocoa.h
     platform/graphics/cocoa/CMUtilities.h
+    platform/graphics/cocoa/CVPixelBufferUtilities.h
     platform/graphics/cocoa/ColorCocoa.h
+    platform/graphics/cocoa/CVPixelBufferUtilities.h
     platform/graphics/cocoa/DynamicContentScalingDisplayList.h
     platform/graphics/cocoa/FontCacheCoreText.h
     platform/graphics/cocoa/FontCascadeCocoaInlines.h
@@ -853,6 +862,8 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/cocoa/MediaPlayerPrivateWebM.h
     platform/graphics/cocoa/NullPlaybackSessionInterface.h
     platform/graphics/cocoa/NullVideoPresentationInterface.h
+    platform/graphics/cocoa/ShareableCVPixelBuffer.h
+    platform/graphics/cocoa/ShareableCVPixelFormat.h
     platform/graphics/cocoa/SourceBufferParser.h
     platform/graphics/cocoa/SourceBufferParserWebM.h
     platform/graphics/cocoa/SystemFontDatabaseCoreText.h

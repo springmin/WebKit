@@ -41,7 +41,6 @@
 #include "ElementInlines.h"
 #include "ElementTargetingTypes.h"
 #include "EventNames.h"
-#include "EventTargetInlines.h"
 #include "FrameDestructionObserverInlines.h"
 #include "FrameLoader.h"
 #include "HTMLArticleElement.h"
@@ -70,6 +69,7 @@
 #include "QuirksData.h"
 #include "RegistrableDomain.h"
 #include "RenderStyle+GettersInlines.h"
+#include "RenderView.h"
 #include "ResourceLoadObserver.h"
 #include "ResourceRequest.h"
 #include "SVGElementTypeHelpers.h"
@@ -838,6 +838,14 @@ bool Quirks::needsZillowFloorplanMarginQuirk() const
     QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
 
     return m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::NeedsZillowFloorplanMarginQuirk);
+}
+
+// yahoo.com rdar://170502516
+bool Quirks::needsYahooVolumeSliderQuirk() const
+{
+    QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
+
+    return m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::NeedsYahooVolumeSliderQuirk);
 }
 
 // Kugou Music rdar://74602294
@@ -1864,15 +1872,25 @@ bool Quirks::needsIPadMiniUserAgent(const URL& url)
     return false;
 }
 
-bool Quirks::needsIPhoneUserAgent(const URL& url)
+bool Quirks::needsIPhoneUserAgent(const URL& url, UseDesktopClassBrowsing useDesktopClassBrowsing)
 {
 #if PLATFORM(IOS_FAMILY)
-    if (url.host() == "shopee.sg"_s && url.path() == "/payment/account-linking/landing"_s)
-        return true;
-    if (url.host() == "spotify.com"_s || url.host().endsWith(".spotify.com"_s) || url.host().endsWith(".spotifycdn.com"_s))
-        return true;
+    switch (useDesktopClassBrowsing) {
+    case UseDesktopClassBrowsing::Unspecified:
+        if (url.host() == "shopee.sg"_s && url.path() == "/payment/account-linking/landing"_s)
+            return true;
+        break;
+    case UseDesktopClassBrowsing::No:
+        // rdar://175017084
+        if (url.host() == "spotify.com"_s || url.host().endsWith(".spotify.com"_s) || url.host().endsWith(".spotifycdn.com"_s))
+            return true;
+        break;
+    case UseDesktopClassBrowsing::Yes:
+        break;
+    }
 #else
     UNUSED_PARAM(url);
+    UNUSED_PARAM(useDesktopClassBrowsing);
 #endif
     return false;
 }
@@ -3001,6 +3019,12 @@ static void handleYCombinatorQuirks(QuirksData& quirksData, const URL& quirksURL
 }
 #endif
 
+static void handleYahooQuirks(QuirksData& quirksData, const URL& /* quirksURL */, const String& /* quirksDomainString */, const URL& /* documentURL */)
+{
+    // yahoo.com: rdar://170502516
+    quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::NeedsYahooVolumeSliderQuirk);
+}
+
 #if ENABLE(TOUCH_EVENTS)
 static void handleSoylentQuirks(QuirksData& quirksData, const URL& /* quirksURL */, const String& /* quirksDomainString */, const URL& /* documentURL */)
 {
@@ -3937,6 +3961,7 @@ void Quirks::determineRelevantQuirks()
         { "wpdevelopment"_s, &handleWPDevelopmentQuirks },
 #endif
         { "x"_s, &handleTwitterXQuirks },
+        { "yahoo"_s, &handleYahooQuirks },
 #if ENABLE(TEXT_AUTOSIZING)
         { "ycombinator"_s, &handleYCombinatorQuirks },
 #endif

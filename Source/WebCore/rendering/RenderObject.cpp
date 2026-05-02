@@ -49,10 +49,10 @@
 #include "LegacyRenderSVGRoot.h"
 #include "LocalFrame.h"
 #include "LocalFrameView.h"
-#include "NodeInlines.h"
 #include "Editing.h"
 #include "OutlinePainter.h"
 #include "Page.h"
+#include "PlatformRenderTheme.h"
 #include "PseudoElement.h"
 #include "ReferencedSVGResources.h"
 #include "RenderChildIterator.h"
@@ -1541,6 +1541,13 @@ void RenderObject::getTransformFromContainer(const LayoutSize& offsetInContainer
     CheckedPtr<RenderLayer> layer;
     if (hasLayer() && (layer = downcast<RenderLayerModelObject>(*this).layer()) && layer->transform())
         transform.multiply(layer->currentTransform());
+    else if (document().settings().layerBasedSVGEngineEnabled()) {
+        // Non-layered SVG elements: use the renderer's cached local SVG transform.
+        if (auto* svgModel = dynamicDowncast<RenderSVGModelObject>(*this)) {
+            if (auto svgTransform = svgModel->localTransform(); !svgTransform.isIdentity())
+                transform.multiply(TransformationMatrix(svgTransform));
+        }
+    }
 
     CheckedPtr perspectiveObject = parent();
 

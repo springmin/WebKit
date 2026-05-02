@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2025 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2026 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2009, 2010, 2011 Google Inc. All rights reserved.
  * Copyright (C) 2011 Igalia S.L.
  * Copyright (C) 2011 Motorola Mobility. All rights reserved.
@@ -77,7 +77,6 @@
 #include "LocalFrameInlines.h"
 #include "MarkupAccumulator.h"
 #include "MutableStyleProperties.h"
-#include "NodeInlines.h"
 #include "NodeList.h"
 #include "Page.h"
 #include "PageConfiguration.h"
@@ -206,6 +205,7 @@ Ref<Page> createPageForSanitizingWebContent(Document* destinationDocument)
     bool useDarkAppearance = false;
     bool useElevatedUserInterfaceLevel = false;
     std::optional<FontGenericFamilies> fontGenericFamilies;
+    DownloadableBinaryFontTrustedTypes fontTrustedTypes = DownloadableBinaryFontTrustedTypes::Any;
 
     if (destinationDocument) {
         if (RefPtr destinationPage = destinationDocument->page()) {
@@ -219,6 +219,7 @@ Ref<Page> createPageForSanitizingWebContent(Document* destinationDocument)
             useDarkAppearance = documentNeedsDarkAppearance && destinationPage->useDarkAppearance();
             useElevatedUserInterfaceLevel = destinationPage->useElevatedUserInterfaceLevel();
             fontGenericFamilies = destinationPage->settings().fontGenericFamilies();
+            fontTrustedTypes = destinationPage->settings().downloadableBinaryFontTrustedTypes();
         }
     }
 
@@ -233,6 +234,7 @@ Ref<Page> createPageForSanitizingWebContent(Document* destinationDocument)
     page->settings().setHTMLParserScriptingFlagPolicy(HTMLParserScriptingFlagPolicy::Enabled);
     page->settings().setAcceleratedCompositingEnabled(false);
     page->settings().setLinkPreloadEnabled(false);
+    page->settings().setDownloadableBinaryFontTrustedTypes(fontTrustedTypes);
 
     if (fontGenericFamilies)
         page->settings().fontGenericFamilies() = *fontGenericFamilies;
@@ -1670,10 +1672,10 @@ ExceptionOr<void> replaceChildrenWithFragment(ContainerNode& container, Ref<Docu
     SUPPRESS_UNCOUNTED_LOCAL auto* containerChild = dynamicDowncast<Text>(containerNode->firstChild());
     if (containerChild && !containerChild->nextSibling()) {
         if (RefPtr fragmentChild = singleTextChild(fragment); fragmentChild && canUseSetDataOptimization(*containerChild, mutation)) {
-            Ref { *containerChild }->setData(fragmentChild->data());
+            protect(*containerChild)->setData(fragmentChild->data());
             return { };
         }
-        return containerNode->replaceChild(fragment, Ref { *containerChild });
+        return containerNode->replaceChild(fragment, protect(*containerChild));
     }
 
     containerNode->removeChildren();

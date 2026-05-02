@@ -27,6 +27,7 @@
 #include "CollectingScope.h"
 #include "ConservativeRoots.h"
 #include "EdenGCActivityCallback.h"
+#include "EvalExecutable.h"
 #include "Exception.h"
 #include "FastMallocAlignedMemoryAllocator.h"
 #include "FullGCActivityCallback.h"
@@ -77,6 +78,7 @@
 #include "PinballCompletion.h"
 #include "PreventCollectionScope.h"
 #include "ProgramExecutable.h"
+#include "ProxyObject.h"
 #include "SamplingProfiler.h"
 #include "ShadowChicken.h"
 #include "SpaceTimeMutatorScheduler.h"
@@ -90,6 +92,7 @@
 #include "SynchronousStopTheWorldMutatorScheduler.h"
 #include "TypeProfiler.h"
 #include "TypeProfilerLog.h"
+#include "UnlinkedEvalCodeBlock.h"
 #include "VM.h"
 #include "VerifierSlotVisitorInlines.h"
 #include "WasmCallee.h"
@@ -438,6 +441,11 @@ Heap::Heap(VM& vm, HeapType heapType)
     , unlinkedFunctionExecutableSpaceAndSet ISO_SUBSPACE_INIT(*this, destructibleCellHeapCellType, UnlinkedFunctionExecutable) // Hash:0x3ba0f4e1
 
 {
+    if (Options::forceFencedBarrier()) {
+        m_mutatorShouldBeFenced = true;
+        m_barrierThreshold = tautologicalThreshold;
+    }
+
     m_worldState.store(0);
 
     for (unsigned i = 0, numberOfParallelThreads = heapHelperPool().numberOfThreads(); i < numberOfParallelThreads; ++i) {
@@ -906,10 +914,7 @@ void Heap::gatherVMRoots(ConservativeRoots& roots)
         vm.scanSideState(roots);
     }
 #endif
-#if ENABLE(WEBASSEMBLY)
-    vm.gatherEvacuatedStackRoots(roots);
-#endif
-#if !(ENABLE(DFG_JIT) || ENABLE(WEBASSEMBLY))
+#if !ENABLE(DFG_JIT)
     UNUSED_PARAM(roots);
     UNUSED_VARIABLE(vm);
 #endif
@@ -3137,7 +3142,36 @@ void Heap::addCoreConstraints()
         })),
         ConstraintVolatility::GreyedByMarking,
         ConstraintParallelism::Parallel);
-    
+
+#if ENABLE(WEBASSEMBLY)
+    m_constraintSet->add(
+        "Pbc", "Pinball Completions",
+        MAKE_MARKING_CONSTRAINT_EXECUTOR_PAIR(([this] (auto& visitor) {
+            // FIXME: Unlike the "Cs" constraint which is skipped during verification
+            // because conservative roots are not stable, this skip is only here because
+            // ConservativeRoots::genericAddPointer asserts isMarking(), which doesn't
+            // hold during verification. This constraint could run always otherwise, but
+            // that would require rethinking the assumptions in ConservativeRoots.
+            if (m_isMarkingForGCVerifier)
+                return;
+            IsoSubspace* subspace = m_pinballCompletionSpace.get();
+            if (!subspace)
+                return;
+            ASSERT(worldIsStopped());
+            // FIXME: Add a second CellState for PinballCompletion so we can skip
+            // pinballs whose conservative roots have already been gathered this cycle.
+            ConservativeRoots conservativeRoots(*this);
+            subspace->forEachMarkedCell([&](HeapCell* cell, HeapCell::Kind) {
+                auto* pinball = uncheckedDowncast<PinballCompletion>(static_cast<JSCell*>(cell));
+                pinball->gatherConservativeRoots(conservativeRoots);
+            });
+            SetRootMarkReasonScope rootScope(visitor, RootMarkReason::PinballCompletionConservativeRoots);
+            visitor.append(conservativeRoots);
+        })),
+        ConstraintVolatility::GreyedByMarking,
+        ConstraintConcurrency::Sequential);
+#endif
+
 #if ENABLE(JIT)
     if (Options::useJIT()) {
         m_constraintSet->add(

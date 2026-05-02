@@ -48,6 +48,7 @@
 #include "ApplePayShippingMethodUpdate.h"
 #include "ContextDestructionObserverInlines.h"
 #include "Document.h"
+#include "DocumentPage.h"
 #include "EventNames.h"
 #include "JSApplePayCouponCodeDetails.h"
 #include "JSApplePayError.h"
@@ -97,7 +98,7 @@ static ExceptionOr<ApplePayRequest> convertAndValidateApplePayRequest(Document& 
         return Exception { ExceptionCode::ExistingExceptionError };
     auto applePayRequest = applePayRequestConversion.releaseReturnValue();
 
-    auto validatedRequest = convertAndValidate(document, applePayRequest.version, applePayRequest, Ref { paymentCoordinator(document) }.get());
+    auto validatedRequest = convertAndValidate(document, applePayRequest.version, applePayRequest, protect(paymentCoordinator(document)).get());
     if (validatedRequest.hasException())
         return validatedRequest.releaseException();
 
@@ -166,7 +167,6 @@ static ExceptionOr<ApplePayLineItem> convertAndValidate(const PaymentItem& item,
     auto exception = validate(item.amount, expectedCurrency);
     if (exception.hasException())
         return exception.releaseException();
-
 
     ApplePayLineItem lineItem;
     lineItem.amount = item.amount.value;

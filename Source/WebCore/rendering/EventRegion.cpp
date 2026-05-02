@@ -33,6 +33,7 @@
 #include "PathUtilities.h"
 #include "RenderAncestorIterator.h"
 #include "RenderBox.h"
+#include "RenderElementInlines.h"
 #include "RenderObjectInlines.h"
 #include "RenderStyle+GettersInlines.h"
 #include "SimpleRange.h"
@@ -702,9 +703,9 @@ static EventTrackingRegionsEventType eventTypeForEventListenerType(EventListener
     case EventListenerRegionType::NonPassiveMouseDown:
         return EventTrackingRegionsEventType::Mousedown;
     case EventListenerRegionType::NonPassiveMouseUp:
-        return EventTrackingRegionsEventType::Mousemove;
-    case EventListenerRegionType::NonPassiveMouseMove:
         return EventTrackingRegionsEventType::Mouseup;
+    case EventListenerRegionType::NonPassiveMouseMove:
+        return EventTrackingRegionsEventType::Mousemove;
     case EventListenerRegionType::NonPassiveGestureChange:
         return EventTrackingRegionsEventType::Gesturechange;
     case EventListenerRegionType::NonPassiveGestureEnd:

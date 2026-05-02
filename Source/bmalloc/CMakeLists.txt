@@ -69,7 +69,6 @@ set(bmalloc_C_SOURCES
     libpas/src/libpas/pagesize64k_heap_config.c
     libpas/src/libpas/pas_alignment.c
     libpas/src/libpas/pas_all_heaps.c
-    libpas/src/libpas/pas_all_shared_page_directories.c
     libpas/src/libpas/pas_allocation_callbacks.c
     libpas/src/libpas/pas_allocation_result.c
     libpas/src/libpas/pas_baseline_allocator.c
@@ -161,6 +160,7 @@ set(bmalloc_C_SOURCES
     libpas/src/libpas/pas_physical_memory_transaction.c
     libpas/src/libpas/pas_primitive_heap_ref.c
     libpas/src/libpas/pas_probabilistic_guard_malloc_allocator.c
+    libpas/src/libpas/pas_process.c
     libpas/src/libpas/pas_ptr_worklist.c
     libpas/src/libpas/pas_race_test_hooks.c
     libpas/src/libpas/pas_random.c
@@ -176,14 +176,8 @@ set(bmalloc_C_SOURCES
     libpas/src/libpas/pas_segregated_heap.c
     libpas/src/libpas/pas_segregated_page.c
     libpas/src/libpas/pas_segregated_page_config.c
-    libpas/src/libpas/pas_segregated_page_config_kind_and_role.c
-    libpas/src/libpas/pas_segregated_partial_view.c
-    libpas/src/libpas/pas_segregated_shared_handle.c
-    libpas/src/libpas/pas_segregated_shared_page_directory.c
-    libpas/src/libpas/pas_segregated_shared_view.c
     libpas/src/libpas/pas_segregated_size_directory.c
     libpas/src/libpas/pas_segregated_view.c
-    libpas/src/libpas/pas_shared_page_directory_by_size.c
     libpas/src/libpas/pas_simple_free_heap_helpers.c
     libpas/src/libpas/pas_simple_large_free_heap.c
     libpas/src/libpas/pas_simple_type.c
@@ -280,7 +274,6 @@ set(bmalloc_PUBLIC_HEADERS
     libpas/src/libpas/pas_allocator_counts.h
     libpas/src/libpas/pas_allocator_index.h
     libpas/src/libpas/pas_allocator_scavenge_action.h
-    libpas/src/libpas/pas_all_shared_page_directories.h
     libpas/src/libpas/pas_baseline_allocator.h
     libpas/src/libpas/pas_baseline_allocator_result.h
     libpas/src/libpas/pas_baseline_allocator_table.h
@@ -323,7 +316,6 @@ set(bmalloc_PUBLIC_HEADERS
     libpas/src/libpas/pas_compact_atomic_enumerable_range_list_chunk_ptr.h
     libpas/src/libpas/pas_compact_atomic_page_sharing_pool_ptr.h
     libpas/src/libpas/pas_compact_atomic_ptr.h
-    libpas/src/libpas/pas_compact_atomic_segregated_partial_view_ptr.h
     libpas/src/libpas/pas_compact_atomic_segregated_size_directory_ptr.h
     libpas/src/libpas/pas_compact_atomic_segregated_view.h
     libpas/src/libpas/pas_compact_atomic_thread_local_cache_layout_node.h
@@ -335,7 +327,6 @@ set(bmalloc_PUBLIC_HEADERS
     libpas/src/libpas/pas_compact_heap_reservation.h
     libpas/src/libpas/pas_compact_ptr.h
     libpas/src/libpas/pas_compact_segregated_exclusive_view_ptr.h
-    libpas/src/libpas/pas_compact_segregated_shared_view_ptr.h
     libpas/src/libpas/pas_compact_segregated_size_directory_ptr.h
     libpas/src/libpas/pas_compact_tagged_atomic_ptr.h
     libpas/src/libpas/pas_compact_tagged_page_granule_use_count_ptr.h
@@ -483,6 +474,7 @@ set(bmalloc_PUBLIC_HEADERS
     libpas/src/libpas/pas_platform.h
     libpas/src/libpas/pas_primitive_heap_ref.h
     libpas/src/libpas/pas_probabilistic_guard_malloc_allocator.h
+    libpas/src/libpas/pas_process.h
     libpas/src/libpas/pas_ptr_hash_map.h
     libpas/src/libpas/pas_ptr_hash_set.h
     libpas/src/libpas/pas_ptr_min_heap.h
@@ -520,29 +512,17 @@ set(bmalloc_PUBLIC_HEADERS
     libpas/src/libpas/pas_segregated_page_config_inlines.h
     libpas/src/libpas/pas_segregated_page_config_kind.def
     libpas/src/libpas/pas_segregated_page_config_kind.h
-    libpas/src/libpas/pas_segregated_page_config_kind_and_role.h
     libpas/src/libpas/pas_segregated_page_config_utils.h
     libpas/src/libpas/pas_segregated_page_config_utils_inlines.h
     libpas/src/libpas/pas_segregated_page_config_variant.h
     libpas/src/libpas/pas_segregated_page.h
     libpas/src/libpas/pas_segregated_page_inlines.h
-    libpas/src/libpas/pas_segregated_page_role.h
-    libpas/src/libpas/pas_segregated_partial_view.h
-    libpas/src/libpas/pas_segregated_partial_view_inlines.h
-    libpas/src/libpas/pas_segregated_shared_handle.h
-    libpas/src/libpas/pas_segregated_shared_handle_inlines.h
-    libpas/src/libpas/pas_segregated_shared_page_directory.h
-    libpas/src/libpas/pas_segregated_shared_view.h
-    libpas/src/libpas/pas_segregated_shared_view_inlines.h
     libpas/src/libpas/pas_segregated_size_directory_creation_mode.h
     libpas/src/libpas/pas_segregated_size_directory.h
     libpas/src/libpas/pas_segregated_size_directory_inlines.h
     libpas/src/libpas/pas_segregated_view_allocator_inlines.h
     libpas/src/libpas/pas_segregated_view.h
     libpas/src/libpas/pas_segregated_view_kind.h
-    libpas/src/libpas/pas_shared_handle_or_page_boundary.h
-    libpas/src/libpas/pas_shared_handle_or_page_boundary_inlines.h
-    libpas/src/libpas/pas_shared_page_directory_by_size.h
     libpas/src/libpas/pas_simple_free_heap_declarations.def
     libpas/src/libpas/pas_simple_free_heap_definitions.def
     libpas/src/libpas/pas_simple_free_heap_helpers.h
@@ -610,7 +590,6 @@ set(bmalloc_PRIVATE_HEADERS
     libpas/src/libpas/pas_compact_page_granule_use_count_ptr.h
     libpas/src/libpas/pas_compact_segregated_biasing_directory_ptr.h
     libpas/src/libpas/pas_compact_segregated_heap_ptr.h
-    libpas/src/libpas/pas_compact_segregated_shared_page_directory_ptr.h
     libpas/src/libpas/pas_compact_segregated_view.h
     libpas/src/libpas/pas_compact_unsigned_ptr.h
     libpas/src/libpas/pas_generic_large_free_heap.h

@@ -150,6 +150,7 @@ class ResourceError;
 class ResourceLoader;
 class ResourceRequest;
 class ResourceResponse;
+class ResourceTiming;
 class RunLoopObserver;
 class SecurityOrigin;
 class SecurityOriginData;
@@ -251,7 +252,6 @@ enum class WheelEventProcessingSteps : uint8_t;
 enum class WheelScrollGestureState : uint8_t;
 enum class WillContinueLoading : bool;
 enum class WillInternallyHandleFailure : bool;
-enum class WindowProxyProperty : uint8_t;
 enum class WritingDirection : uint8_t;
 
 #if ENABLE(ATTACHMENT_ELEMENT)
@@ -764,6 +764,7 @@ public:
     PAL::SessionID NODELETE sessionID() const;
 
     WebFrameProxy* mainFrame() const { return m_mainFrame.get(); }
+    void setTopDocumentSyncData(Ref<WebCore::DocumentSyncData>&&);
     WebFrameProxy* focusedFrame() const { return m_focusedFrame.get(); }
     WebFrameProxy* focusedOrMainFrame() const { return m_focusedFrame ? m_focusedFrame.get() : m_mainFrame.get(); }
 
@@ -1124,10 +1125,10 @@ public:
     void executeEditCommand(const String& commandName, const String& argument, CompletionHandler<void()>&&);
     void validateCommand(const String& commandName, CompletionHandler<void(bool, int32_t)>&&);
 
-    const EditorState& NODELETE editorState() const LIFETIME_BOUND;
+    const EditorState& editorState() const LIFETIME_BOUND;
     bool canDelete() const { return hasSelectedRange() && isContentEditable(); }
-    bool NODELETE hasSelectedRange() const;
-    bool NODELETE isContentEditable() const;
+    bool hasSelectedRange() const;
+    bool isContentEditable() const;
 
     void increaseListLevel();
     void decreaseListLevel();
@@ -2243,9 +2244,9 @@ public:
 #if PLATFORM(COCOA)
     void createSandboxExtensionsIfNeeded(const Vector<String>& files, SandboxExtensionHandle& fileReadHandle, Vector<SandboxExtensionHandle>& fileUploadHandles);
 #endif
-    void editorStateChanged(EditorState&&);
+    void editorStateChanged(IPC::Connection&, EditorState&&);
     enum class ShouldMergeVisualEditorState : uint8_t { No, Yes, Default };
-    bool updateEditorState(EditorState&& newEditorState, ShouldMergeVisualEditorState = ShouldMergeVisualEditorState::Default);
+    bool updateEditorState(IPC::Connection&, EditorState&& newEditorState, ShouldMergeVisualEditorState = ShouldMergeVisualEditorState::Default);
     void scheduleFullEditorStateUpdate();
     void dispatchDidUpdateEditorState();
 
@@ -2582,7 +2583,7 @@ public:
 
 #if ENABLE(WRITING_TOOLS)
 #if PLATFORM(MAC)
-    bool NODELETE shouldEnableWritingToolsRequestedTool(WebCore::WritingTools::RequestedTool) const;
+    bool shouldEnableWritingToolsRequestedTool(WebCore::WritingTools::RequestedTool) const;
 #endif
 #if ENABLE(CONTEXT_MENUS)
     bool canHandleContextMenuWritingTools() const;
@@ -2745,7 +2746,7 @@ public:
 #if ENABLE(WRITING_TOOLS)
     void setWritingToolsActive(bool);
 
-    WebCore::WritingTools::Behavior NODELETE writingToolsBehavior() const;
+    WebCore::WritingTools::Behavior writingToolsBehavior() const;
 
     void willBeginWritingToolsSession(const std::optional<WebCore::WritingTools::Session>&, Vector<WebCore::JSHandleIdentifier>&& preservedNodeIdentifiers, CompletionHandler<void(const Vector<WebCore::WritingTools::Context>&)>&&);
 
@@ -2943,6 +2944,7 @@ public:
 #endif
 
     void networkRequestsInProgressDidChange();
+    void updateCanShortCircuitHorizontalWheelEvents();
 
     void takeNetworkActivity();
     void dropNetworkActivity();
@@ -3187,7 +3189,7 @@ private:
 #endif
 
     WebCore::Color platformUnderPageBackgroundColor() const;
-    void setCanShortCircuitHorizontalWheelEvents(bool canShortCircuitHorizontalWheelEvents) { m_canShortCircuitHorizontalWheelEvents = canShortCircuitHorizontalWheelEvents; }
+    void setCanShortCircuitHorizontalWheelEvents(bool);
 
     enum class ProcessLaunchReason {
         InitialProcess,
@@ -3320,7 +3322,7 @@ private:
     void didReceiveEventIPC(IPC::Connection&, WebEventType, bool handled, std::optional<WebCore::RemoteUserInputEventData>&&);
     void didUpdateRenderingAfterCommittingLoad();
 #if PLATFORM(IOS_FAMILY)
-    void interpretKeyEvent(EditorState&&, KeyEventInterpretationContext&&, CompletionHandler<void(bool)>&&);
+    void interpretKeyEvent(IPC::Connection&, EditorState&&, KeyEventInterpretationContext&&, CompletionHandler<void(bool)>&&);
     void showPlaybackTargetPicker(bool hasVideo, const WebCore::IntRect& elementRect, WebCore::RouteSharingPolicy, const String&);
 
     void updateStringForFind(const String&);
@@ -3506,10 +3508,6 @@ private:
 
     void logFrameNavigation(const WebFrameProxy&, const URL& pageURL, const WebCore::ResourceRequest&, const URL& redirectURL, bool wasPotentiallyInitiatedByUser);
 
-#if ENABLE(WINDOW_PROXY_PROPERTY_ACCESS_NOTIFICATION)
-    void didAccessWindowProxyPropertyViaOpenerForFrame(IPC::Connection&, WebCore::FrameIdentifier, const WebCore::SecurityOriginData&, WebCore::WindowProxyProperty);
-#endif
-
 #if ENABLE(APPLE_PAY)
     void resetPaymentCoordinator(ResetStateReason);
 #endif
@@ -3559,6 +3557,7 @@ private:
     bool useGPUProcessForDOMRenderingEnabled() const;
 
     void dispatchLoadEventToFrameOwnerElement(WebCore::FrameIdentifier);
+    void addResourceTimingFromSubframe(WebCore::FrameIdentifier parentFrameID, WebCore::ResourceTiming&&);
 
 #if ENABLE(EXTENSION_CAPABILITIES)
     void setMediaCapability(RefPtr<MediaCapability>&&);
@@ -3707,6 +3706,12 @@ private:
 
     bool m_isCallingCreateNewPage { false };
 
+    struct PendingBlobURLReleaseForOldPage {
+        WeakPtr<WebProcessProxy> oldProcess;
+        WebCore::PageIdentifier oldPageID;
+    };
+    std::optional<PendingBlobURLReleaseForOldPage> m_pendingBlobURLReleaseForOldPage;
+
     std::unique_ptr<WebPageLoadTiming> m_pageLoadTiming;
     std::unique_ptr<WebPageLoadTiming> m_pageLoadTimingPendingCommit;
     HashSet<WebCore::FrameIdentifier> m_framesWithSubresourceLoadingForPageLoadTiming;
@@ -3741,6 +3746,7 @@ private:
 #endif
 
     RefPtr<WebFrameProxy> m_mainFrame;
+    RefPtr<WebCore::DocumentSyncData> m_topDocumentSyncData;
     RefPtr<WebFrameProxy> m_focusedFrame;
 
     String m_userAgent;
@@ -3968,6 +3974,7 @@ private:
     bool m_mainFrameHasVerticalScrollbar { false };
 
     // Whether horizontal wheel events can be handled directly for swiping purposes.
+    bool m_canShortCircuitHorizontalWheelEventsForMainFrameProcess { true };
     bool m_canShortCircuitHorizontalWheelEvents { true };
 
     bool m_shouldUseImplicitRubberBandControl { false };

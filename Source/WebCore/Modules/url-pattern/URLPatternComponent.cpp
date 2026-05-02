@@ -33,9 +33,11 @@
 #include "URLPatternResult.h"
 #include <JavaScriptCore/JSCJSValueInlines.h>
 #include <JavaScriptCore/JSGlobalObject.h>
+#include <JavaScriptCore/JSObjectInlines.h>
 #include <JavaScriptCore/JSString.h>
 #include <JavaScriptCore/RegExpObject.h>
 #include <JavaScriptCore/StrongInlines.h>
+#include <JavaScriptCore/StructureInlines.h>
 #include <ranges>
 
 namespace WebCore {
@@ -91,7 +93,7 @@ bool URLPatternComponent::matchSpecialSchemeProtocol(ScriptExecutionContext& con
         return false;
     auto protocolRegex = JSC::RegExpObject::create(vm, contextObject->regExpStructure(), m_regularExpression.get(), true);
 
-    auto isSchemeMatch = std::ranges::find_if(specialSchemeList, [context = Ref { context }, &vm, &protocolRegex](const String& scheme) {
+    auto isSchemeMatch = std::ranges::find_if(specialSchemeList, [context = protect(context), &vm, &protocolRegex](const String& scheme) {
         auto maybeMatch = protocolRegex->exec(context->globalObject(), JSC::jsString(vm, scheme));
         return !maybeMatch.isNull();
     });

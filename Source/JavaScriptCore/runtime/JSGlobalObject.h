@@ -236,6 +236,7 @@ private:
     VM* const m_vm;
     Debugger* m_debugger { nullptr };
     QueuedTaskResult m_microtaskRunnability { QueuedTaskResult::Executed };
+    bool m_associatedContextIsFullyActive { true };
     Ref<MicrotaskQueue> m_microtaskQueue;
 
 // Our hashtable code-generator tries to access these properties, so we make them public.
@@ -315,6 +316,8 @@ public:
     LazyProperty<JSGlobalObject, JSFunction> m_objectProtoToStringFunction;
     LazyProperty<JSGlobalObject, JSFunction> m_arrayProtoToStringFunction;
     LazyProperty<JSGlobalObject, JSFunction> m_arrayProtoValuesFunction;
+    LazyProperty<JSGlobalObject, JSFunction> m_mapProtoEntriesFunction;
+    LazyProperty<JSGlobalObject, JSFunction> m_setProtoValuesFunction;
     LazyProperty<JSGlobalObject, JSFunction> m_numberProtoToStringFunction;
     WriteBarrier<JSFunction> m_objectProtoValueOfFunction;
     WriteBarrier<JSFunction> m_functionProtoHasInstanceSymbolFunction;
@@ -645,6 +648,7 @@ public:
     bool m_evalEnabled { true };
     bool m_webAssemblyEnabled { true };
     bool m_needsSiteSpecificQuirks { false };
+    bool m_canDoASCIIUCADUCETLocaleCompare { false };
     unsigned m_globalLexicalBindingEpoch { 1 };
     String m_evalDisabledErrorMessage;
     String m_webAssemblyDisabledErrorMessage;
@@ -669,7 +673,12 @@ public:
     struct WeakCustomGetterOrSetterHash {
         static unsigned hash(const Weak<T>&);
         static bool equal(const Weak<T>&, const Weak<T>&);
-        static unsigned hash(const PropertyName&, typename T::CustomFunctionPointer, const ClassInfo*);
+        // Templated on U=T so T::CustomFunctionPointer is a dependent name and lookup is
+        // deferred to call time; otherwise instantiating this struct (as a HashSet trait)
+        // requires JSCustomGetterFunction/JSCustomSetterFunction to be complete in every
+        // TU that includes this header, which fails under -fforce-emit-vtables.
+        template<typename U = T>
+        static unsigned hash(const PropertyName&, typename U::CustomFunctionPointer, const ClassInfo*);
 
         static constexpr bool safeToCompareToEmptyOrDeleted = false;
     };
@@ -781,6 +790,7 @@ public:
     JSIteratorConstructor* iteratorConstructor() const LIFETIME_BOUND { return m_iteratorConstructor.get(); }
 
     IntlCollator* defaultCollator() const LIFETIME_BOUND { return m_defaultCollator.get(this); }
+    bool canDoASCIIUCADUCETLocaleCompare() const { return m_canDoASCIIUCADUCETLocaleCompare; }
     IntlDateTimeFormat* defaultDateTimeFormat() const LIFETIME_BOUND { return m_defaultDateTimeFormat.get(this); }
     IntlDateTimeFormat* defaultDateFormat() const LIFETIME_BOUND { return m_defaultDateFormat.get(this); }
     IntlDateTimeFormat* defaultTimeFormat() const LIFETIME_BOUND { return m_defaultTimeFormat.get(this); }
@@ -793,8 +803,6 @@ public:
     JSFunction* parseIntFunction() const LIFETIME_BOUND { return m_parseIntFunction.get(this); }
     JSFunction* parseFloatFunction() const LIFETIME_BOUND { return m_parseFloatFunction.get(this); }
 
-    JSFunction* promiseEmptyOnFulfilledFunction() const;
-    JSFunction* promiseEmptyOnRejectedFunction() const;
     JSFunction* evalFunction() const;
     JSFunction* throwTypeErrorFunction() const;
     JSFunction* objectProtoToStringFunction() const LIFETIME_BOUND { return m_objectProtoToStringFunction.get(this); }
@@ -802,6 +810,10 @@ public:
     JSFunction* arrayProtoToStringFunction() const LIFETIME_BOUND { return m_arrayProtoToStringFunction.get(this); }
     JSFunction* arrayProtoValuesFunction() const LIFETIME_BOUND { return m_arrayProtoValuesFunction.get(this); }
     JSFunction* arrayProtoValuesFunctionConcurrently() const LIFETIME_BOUND { return m_arrayProtoValuesFunction.getConcurrently(); }
+    JSFunction* mapProtoEntriesFunction() const LIFETIME_BOUND { return m_mapProtoEntriesFunction.get(this); }
+    JSFunction* mapProtoEntriesFunctionConcurrently() const LIFETIME_BOUND { return m_mapProtoEntriesFunction.getConcurrently(); }
+    JSFunction* setProtoValuesFunction() const LIFETIME_BOUND { return m_setProtoValuesFunction.get(this); }
+    JSFunction* setProtoValuesFunctionConcurrently() const LIFETIME_BOUND { return m_setProtoValuesFunction.getConcurrently(); }
     JSFunction* iteratorProtocolFunction() const;
     JSFunction* promiseProtoThenFunction() const;
 #if USE(BUN_JSC_ADDITIONS)
@@ -1053,6 +1065,7 @@ public:
     static constexpr ptrdiff_t offsetOfVM() { return OBJECT_OFFSETOF(JSGlobalObject, m_vm); }
     static constexpr ptrdiff_t offsetOfGlobalLexicalEnvironment() { return OBJECT_OFFSETOF(JSGlobalObject, m_globalLexicalEnvironment); }
     static constexpr ptrdiff_t offsetOfGlobalLexicalBindingEpoch() { return OBJECT_OFFSETOF(JSGlobalObject, m_globalLexicalBindingEpoch); }
+    static constexpr ptrdiff_t offsetOfCanDoASCIIUCADUCETLocaleCompare() { return OBJECT_OFFSETOF(JSGlobalObject, m_canDoASCIIUCADUCETLocaleCompare); }
     static constexpr ptrdiff_t offsetOfVarInjectionWatchpoint() { return OBJECT_OFFSETOF(JSGlobalObject, m_varInjectionWatchpointSet); }
     static constexpr ptrdiff_t offsetOfVarReadOnlyWatchpoint() { return OBJECT_OFFSETOF(JSGlobalObject, m_varReadOnlyWatchpointSet); }
     static constexpr ptrdiff_t offsetOfFunctionProtoHasInstanceSymbolFunction() { return OBJECT_OFFSETOF(JSGlobalObject, m_functionProtoHasInstanceSymbolFunction); }
@@ -1282,6 +1295,8 @@ public:
     QueuedTaskResult microtaskRunnability() const { return m_microtaskRunnability; }
     void setMicrotaskRunnability(QueuedTaskResult runnability) { m_microtaskRunnability = runnability; }
 
+    void setAssociatedContextIsFullyActive(bool value) { m_associatedContextIsFullyActive = value; }
+
     MicrotaskQueue& microtaskQueue() const;
     JS_EXPORT_PRIVATE void setMicrotaskQueue(Ref<MicrotaskQueue>&&);
 
@@ -1332,6 +1347,11 @@ inline JSObject* JSScope::globalThis()
 inline JSObject* JSGlobalObject::globalThis() const
 { 
     return m_globalThis.get();
+}
+
+ALWAYS_INLINE VM& getVM(JSGlobalObject* globalObject)
+{
+    return globalObject->vm();
 }
 
 } // namespace JSC

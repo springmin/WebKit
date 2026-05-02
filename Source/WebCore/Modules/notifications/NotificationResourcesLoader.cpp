@@ -31,7 +31,6 @@
 
 #include "BitmapImage.h"
 #include "ContextDestructionObserverInlines.h"
-#include "EventTargetInlines.h"
 #include "GraphicsContext.h"
 #include "NotificationResources.h"
 #include "ResourceRequest.h"
@@ -155,7 +154,7 @@ NotificationResourcesLoader::ResourceLoader::~ResourceLoader() = default;
 void NotificationResourcesLoader::ResourceLoader::cancel()
 {
     auto completionHandler = std::exchange(m_completionHandler, nullptr);
-    Ref { *m_loader }->cancel();
+    protect(*m_loader)->cancel();
     m_loader = nullptr;
     if (completionHandler)
         completionHandler(this, nullptr);

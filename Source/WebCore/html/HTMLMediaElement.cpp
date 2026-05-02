@@ -63,7 +63,6 @@
 #include "DocumentView.h"
 #include "ElementChildIteratorInlines.h"
 #include "EventNames.h"
-#include "EventTargetInlines.h"
 #include "FourCC.h"
 #include "FrameDestructionObserverInlines.h"
 #include "FrameLoader.h"
@@ -102,14 +101,12 @@
 #include "MediaPlayer.h"
 #include "MediaQueryEvaluator.h"
 #include "MediaResourceLoader.h"
-#include "MediaResourceSniffer.h"
 #include "MediaSession.h"
 #include "MessageClientForTesting.h"
 #include "Navigator.h"
 #include "NavigatorMediaDevices.h"
 #include "NavigatorMediaSession.h"
 #include "NetworkingContext.h"
-#include "NodeInlines.h"
 #include "NodeName.h"
 #include "NowPlayingInfo.h"
 #include "OriginAccessPatterns.h"
@@ -118,6 +115,7 @@
 #include "PageInlines.h"
 #include "PictureInPictureSupport.h"
 #include "PlatformMediaSessionManager.h"
+#include "PlatformRenderTheme.h"
 #include "PlatformTextTrack.h"
 #include "ProgressTracker.h"
 #include "PseudoClassChangeInvalidation.h"
@@ -128,6 +126,7 @@
 #include "RenderVideo.h"
 #include "RenderView.h"
 #include "ResourceLoadInfo.h"
+#include "ScreenProperties.h"
 #include "ScriptController.h"
 #include "ScriptDisallowedScope.h"
 #include "ScriptExecutionContextInlines.h"
@@ -195,6 +194,7 @@
 #if ENABLE(MEDIA_SOURCE)
 #include "MediaSource.h"
 #include "MediaSourceInterfaceMainThread.h"
+
 #if ENABLE(MEDIA_SOURCE_IN_WORKERS)
 #include "MediaSourceHandle.h"
 #include "MediaSourceInterfaceWorker.h"
@@ -230,6 +230,7 @@
 #endif
 
 #if ENABLE(MEDIA_SESSION_COORDINATOR)
+#include "EventTarget.h"
 #include "MediaSessionCoordinator.h"
 #endif
 
@@ -269,7 +270,6 @@ struct LogArgument<URL> {
     }
 };
 }
-
 
 namespace WebCore {
 
@@ -677,6 +677,11 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document& docum
     m_shouldAudioPlaybackRequireUserGesture = page && page->requiresUserGestureForAudioPlayback() && !processingUserGestureForMedia();
     m_shouldVideoPlaybackRequireUserGesture = page && page->requiresUserGestureForVideoPlayback() && !processingUserGestureForMedia();
 
+#if PLATFORM(MAC)
+    if (auto data = screenData(primaryScreenDisplayID()))
+        m_screenReserved = data->reserved;
+#endif
+
     allMediaElements().add(*this);
 
     HTMLMEDIAELEMENT_RELEASE_LOG(Constructor);
@@ -839,8 +844,6 @@ HTMLMediaElement::~HTMLMediaElement()
 
     m_completelyLoaded = true;
 
-    cancelSniffer();
-
     if (RefPtr player = m_player) {
         player->invalidate();
         m_player = nullptr;
@@ -919,6 +922,12 @@ void HTMLMediaElement::registerWithDocument(Document& document)
 #endif
 
     document.addAudioProducer(*this);
+
+    m_screenPropertiesChangedObserver = ScreenPropertiesChangedObserver::create([weakThis = WeakPtr { *this }] (PlatformDisplayID displayId) {
+        if (RefPtr protectedThis = weakThis.get())
+            protectedThis->screenPropertiesChanged(displayId);
+    });
+    document.addScreenPropertiesChangedObserver(*m_screenPropertiesChangedObserver);
 }
 
 void HTMLMediaElement::unregisterWithDocument(Document& document)
@@ -947,6 +956,8 @@ void HTMLMediaElement::unregisterWithDocument(Document& document)
 #endif
 
     document.removeAudioProducer(*this);
+
+    m_screenPropertiesChangedObserver = nullptr;
 }
 
 void HTMLMediaElement::didMoveToNewDocument(Document& oldDocument, Document& newDocument)
@@ -1446,7 +1457,6 @@ void HTMLMediaElement::setSrcObject(std::optional<MediaProvider>&& mediaProvider
     // the UA must re-run the media element load algorithm.
     //
     // https://bugs.webkit.org/show_bug.cgi?id=124896
-
 
     // https://www.w3.org/TR/html51/semantics-embedded-content.html#dom-htmlmediaelement-srcobject
     // 4.7.14.2. Location of the media resource
@@ -2018,87 +2028,6 @@ void HTMLMediaElement::loadResource(const URL& initialURL, const ContentType& in
             contentType = ContentType { m_blob->type() };
     }
 
-    auto completionHandler = [url, player = m_player, logSiteIdentifier, weakThis = WeakPtr { *this }](SnifferPromise::Result&& result) {
-        RefPtr protectedThis = weakThis.get();
-        if (!protectedThis)
-            return;
-
-        if (!result) {
-            if (result.error() != PlatformMediaError::Cancelled)
-                protectedThis->mediaLoadingFailed(MediaPlayer::NetworkState::NetworkError);
-            return;
-        }
-
-        MediaPlayer::LoadOptions options = {
-            .contentType = *result,
-            .requiresRemotePlayback = !!protectedThis->m_remotePlaybackConfiguration,
-            .supportsLimitedMatroska = protectedThis->limitedMatroskaSupportEnabled(),
-        };
-
-#if ENABLE(MEDIA_SOURCE)
-#if USE(AVFOUNDATION)
-        if (protectedThis->document().settings().mediaSourcePrefersDecompressionSession())
-            options.videoRendererPreferences = videoRendererPreferences(protectedThis->document().settings(), protectedThis->m_forceStereoDecoding);
-#endif
-        if (!protectedThis->m_mediaSource && url.protocolIs(mediaSourceBlobProtocol) && !protectedThis->m_remotePlaybackConfiguration) {
-            if (RefPtr mediaSource = MediaSource::lookup(url.string()))
-                protectedThis->m_mediaSource = MediaSourceInterfaceMainThread::create(mediaSource.releaseNonNull());
-        }
-
-        if (RefPtr mediaSource = protectedThis->m_mediaSource) {
-            ALWAYS_LOG_WITH_THIS(protectedThis, logSiteIdentifier, "loading MSE blob");
-#if !RELEASE_LOG_DISABLED
-            mediaSource->setLogIdentifier(protectedThis->m_logIdentifier);
-#endif
-            if (url.protocolIs(mediaSourceBlobProtocol) && mediaSource->detachable()) {
-                protect(protectedThis->document())->addConsoleMessage(MessageSource::MediaSource, MessageLevel::Error, makeString("Unable to attach detachable MediaSource via blob URL, use srcObject attribute"_s));
-                return protectedThis->mediaLoadingFailed(MediaPlayer::NetworkState::FormatError);
-            }
-
-#if PLATFORM(IOS_FAMILY)
-            if (protectedThis->canShowWhileLocked())
-                options.videoRendererPreferences |= VideoRendererPreference::CanShowWhileLocked;
-#endif
-
-            if (!mediaSource->attachToElement(protectedThis.get())) {
-                // Forget our reference to the MediaSource, so we leave it alone
-                // while processing remainder of load failure.
-                protectedThis->m_mediaSource = nullptr;
-            } else  if (!mediaSource->client() || !player->load(url, options, *mediaSource->client())) {
-                // We have to detach the MediaSource before we forget the reference to it.
-                mediaSource->detachFromElement();
-                protectedThis->m_mediaSource = nullptr;
-            }
-            if (!protectedThis->m_mediaSource)
-                protectedThis->mediaLoadingFailed(MediaPlayer::NetworkState::FormatError);
-            else
-                protectedThis->mediaPlayerRenderingModeChanged();
-            return;
-        }
-#else
-        UNUSED_PARAM(logSiteIdentifier);
-#endif
-
-#if ENABLE(MEDIA_STREAM)
-        if (RefPtr mediaStreamSrcObject = protectedThis->m_mediaStreamSrcObject; mediaStreamSrcObject && !protectedThis->m_remotePlaybackConfiguration) {
-            ALWAYS_LOG_WITH_THIS(protectedThis, logSiteIdentifier, "loading media stream blob ", mediaStreamSrcObject->logIdentifier());
-            if (!player->load(protect(mediaStreamSrcObject->privateStream())))
-                protectedThis->mediaLoadingFailed(MediaPlayer::NetworkState::FormatError);
-            else
-                protectedThis->mediaPlayerRenderingModeChanged();
-            return;
-        }
-#endif
-#if PLATFORM(IOS_FAMILY)
-        if (protectedThis->canShowWhileLocked())
-            options.videoRendererPreferences |= VideoRendererPreference::CanShowWhileLocked;
-#endif
-        if (!player->load(url, options))
-            protectedThis->mediaLoadingFailed(MediaPlayer::NetworkState::FormatError);
-        else
-            protectedThis->mediaPlayerRenderingModeChanged();
-    };
-
     if (needsContentTypeToPlay() && !url.isEmpty()) {
         if (contentType.isEmpty() && url.protocolIsData())
             contentType = ContentType(mimeTypeFromDataURL(url.string()));
@@ -2108,10 +2037,74 @@ void HTMLMediaElement::loadResource(const URL& initialURL, const ContentType& in
             if (containerType.isEmpty() || containerType == applicationOctetStreamAtom() || containerType == textPlainContentTypeAtom())
                 contentType = ContentType::fromURL(url);
         }
-        m_lastContentTypeUsed = contentType;
     }
 
-    completionHandler(WTF::move(contentType));
+    MediaPlayer::LoadOptions options = {
+        .contentType = WTF::move(contentType),
+        .requiresRemotePlayback = !!m_remotePlaybackConfiguration,
+        .supportsLimitedMatroska = limitedMatroskaSupportEnabled(),
+    };
+
+#if ENABLE(MEDIA_SOURCE)
+#if USE(AVFOUNDATION)
+    if (document().settings().mediaSourcePrefersDecompressionSession())
+        options.videoRendererPreferences = videoRendererPreferences(document().settings(), m_forceStereoDecoding);
+#endif
+    if (!m_mediaSource && url.protocolIs(mediaSourceBlobProtocol) && !m_remotePlaybackConfiguration) {
+        if (RefPtr mediaSource = MediaSource::lookup(url.string()))
+            m_mediaSource = MediaSourceInterfaceMainThread::create(mediaSource.releaseNonNull());
+    }
+
+    if (RefPtr mediaSource = m_mediaSource) {
+        ALWAYS_LOG(logSiteIdentifier, "loading MSE blob");
+#if !RELEASE_LOG_DISABLED
+        mediaSource->setLogIdentifier(m_logIdentifier);
+#endif
+        if (url.protocolIs(mediaSourceBlobProtocol) && mediaSource->detachable()) {
+            protect(document())->addConsoleMessage(MessageSource::MediaSource, MessageLevel::Error, makeString("Unable to attach detachable MediaSource via blob URL, use srcObject attribute"_s));
+            return mediaLoadingFailed(MediaPlayer::NetworkState::FormatError);
+        }
+
+#if PLATFORM(IOS_FAMILY)
+        if (canShowWhileLocked())
+            options.videoRendererPreferences |= VideoRendererPreference::CanShowWhileLocked;
+#endif
+
+        if (!mediaSource->attachToElement(this)) {
+            // Forget our reference to the MediaSource, so we leave it alone
+            // while processing remainder of load failure.
+            m_mediaSource = nullptr;
+        } else  if (!mediaSource->client() || !player->load(url, options, *mediaSource->client())) {
+            // We have to detach the MediaSource before we forget the reference to it.
+            mediaSource->detachFromElement();
+            m_mediaSource = nullptr;
+        }
+        if (!m_mediaSource)
+            mediaLoadingFailed(MediaPlayer::NetworkState::FormatError);
+        else
+            mediaPlayerRenderingModeChanged();
+        return;
+    }
+#endif
+
+#if ENABLE(MEDIA_STREAM)
+    if (RefPtr mediaStreamSrcObject = m_mediaStreamSrcObject; mediaStreamSrcObject && !m_remotePlaybackConfiguration) {
+        ALWAYS_LOG(logSiteIdentifier, "loading media stream blob ", mediaStreamSrcObject->logIdentifier());
+        if (!player->load(protect(mediaStreamSrcObject->privateStream())))
+            mediaLoadingFailed(MediaPlayer::NetworkState::FormatError);
+        else
+            mediaPlayerRenderingModeChanged();
+        return;
+    }
+#endif
+#if PLATFORM(IOS_FAMILY)
+    if (canShowWhileLocked())
+        options.videoRendererPreferences |= VideoRendererPreference::CanShowWhileLocked;
+#endif
+    if (!player->load(url, options))
+        mediaLoadingFailed(MediaPlayer::NetworkState::FormatError);
+    else
+        mediaPlayerRenderingModeChanged();
 }
 
 bool HTMLMediaElement::needsContentTypeToPlay() const
@@ -2125,15 +2118,6 @@ bool HTMLMediaElement::needsContentTypeToPlay() const
             return false;
 #endif
     return !m_remotePlaybackConfiguration;
-}
-
-Ref<HTMLMediaElement::SnifferPromise> HTMLMediaElement::sniffForContentType(const URL& url)
-{
-    ResourceRequest request(URL { url });
-    request.setAllowCookies(true);
-    // https://mimesniff.spec.whatwg.org/#reading-the-resource-header defines a maximum size of 1445 bytes fetch.
-    m_sniffer = MediaResourceSniffer::create(mediaPlayerCreateResourceLoader(), WTF::move(request), 1445);
-    return Ref { *m_sniffer }->promise();
 }
 
 void HTMLMediaElement::mediaSourceWasDetached()
@@ -2895,7 +2879,7 @@ void HTMLMediaElement::startProgressEventTimer()
 
 void HTMLMediaElement::waitForSourceChange()
 {
-    ALWAYS_LOG(LOGIDENTIFIER);
+    HTMLMEDIAELEMENT_RELEASE_LOG(WaitForSourceChange);
 
     stopPeriodicTimers();
     m_loadState = WaitingForSource;
@@ -3111,42 +3095,6 @@ void HTMLMediaElement::setNetworkState(MediaPlayer::NetworkState state)
         m_networkState = NETWORK_EMPTY;
         updateBufferingState();
         updateStalledState();
-        return;
-    }
-
-    if (state == MediaPlayer::NetworkState::FormatError && m_readyState < HAVE_METADATA && m_loadState == LoadingFromSrcAttr && needsContentTypeToPlay() && m_firstTimePlaying && !m_sniffer && !m_networkErrorOccured && m_lastContentTypeUsed) {
-        // We couldn't find a suitable MediaPlayer, this could be due to the content-type having been initially set incorrectly.
-        auto url = m_blob ? m_blobURLForReading.url() : currentSrc();
-        sniffForContentType(url)->whenSettled(RunLoop::mainSingleton(), [weakThis = WeakPtr { *this }, url, player = m_player, lastContentType = *m_lastContentTypeUsed](auto&& result) {
-            RefPtr protectedThis = weakThis.get();
-            if (!protectedThis)
-                return;
-            if (!result) {
-                if (result.error() != PlatformMediaError::Cancelled)
-                    protectedThis->mediaLoadingFailed(MediaPlayer::NetworkState::NetworkError);
-                return;
-            }
-            player->reset();
-
-            MediaPlayer::LoadOptions options = {
-                .contentType = *result,
-                .requiresRemotePlayback = !!protectedThis->m_remotePlaybackConfiguration,
-                .supportsLimitedMatroska = protectedThis->limitedMatroskaSupportEnabled(),
-            };
-#if ENABLE(MEDIA_SOURCE) && USE(AVFOUNDATION)
-            if (protectedThis->document().settings().mediaSourcePrefersDecompressionSession())
-                options.videoRendererPreferences = videoRendererPreferences(protectedThis->document().settings(), protectedThis->m_forceStereoDecoding);
-#endif
-#if PLATFORM(IOS_FAMILY)
-            if (protectedThis->canShowWhileLocked())
-                options.videoRendererPreferences |= VideoRendererPreference::CanShowWhileLocked;
-#endif
-
-            if (result->isEmpty() || lastContentType == *result || !player->load(url, options))
-                protectedThis->mediaLoadingFailed(MediaPlayer::NetworkState::FormatError);
-            else
-                protectedThis->mediaPlayerRenderingModeChanged();
-        });
         return;
     }
 
@@ -6074,7 +6022,7 @@ void HTMLMediaElement::mediaPlayerVolumeChanged()
 
 void HTMLMediaElement::mediaPlayerMuteChanged()
 {
-    ALWAYS_LOG(LOGIDENTIFIER);
+    HTMLMEDIAELEMENT_RELEASE_LOG(MediaPlayerMuteChanged);
 
     beginProcessingMediaPlayerCallback();
     if (RefPtr player = m_player)
@@ -6152,7 +6100,7 @@ void HTMLMediaElement::mediaPlayerPlaybackStateChanged()
 
 void HTMLMediaElement::mediaPlayerResourceNotSupported()
 {
-    ALWAYS_LOG(LOGIDENTIFIER);
+    HTMLMEDIAELEMENT_RELEASE_LOG(MediaPlayerResourceNotSupported);
 
     // The MediaPlayer came across content which no installed engine supports.
     mediaLoadingFailed(MediaPlayer::NetworkState::FormatError);
@@ -6713,13 +6661,6 @@ void HTMLMediaElement::cancelPendingTasks()
     m_updateShouldAutoplayTaskCancellationGroup.cancel();
     if (m_volumeLocked)
         m_volumeRevertTaskCancellationGroup.cancel();
-    cancelSniffer();
-}
-
-void HTMLMediaElement::cancelSniffer()
-{
-    if (auto sniffer = std::exchange(m_sniffer, { }))
-        sniffer->cancel();
 }
 
 void HTMLMediaElement::userCancelledLoad()
@@ -6892,7 +6833,7 @@ void HTMLMediaElement::contextDestroyed()
 
 void HTMLMediaElement::stop()
 {
-    ALWAYS_LOG(LOGIDENTIFIER);
+    HTMLMEDIAELEMENT_RELEASE_LOG(Stop);
 
     Ref protectedThis { *this };
     stopWithoutDestroyingMediaPlayer();
@@ -6932,7 +6873,7 @@ void HTMLMediaElement::suspend(ReasonForSuspension reason)
 
 void HTMLMediaElement::resume()
 {
-    ALWAYS_LOG(LOGIDENTIFIER);
+    HTMLMEDIAELEMENT_RELEASE_LOG(Resume);
 
     setInActiveDocument(true);
 
@@ -7139,7 +7080,7 @@ void HTMLMediaElement::syncTextTrackBounds()
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
 void HTMLMediaElement::webkitShowPlaybackTargetPicker()
 {
-    ALWAYS_LOG(LOGIDENTIFIER);
+    HTMLMEDIAELEMENT_RELEASE_LOG(WebkitShowPlaybackTargetPicker);
     if (processingUserGestureForMedia())
         removeBehaviorRestrictionsAfterFirstUserGesture();
     protect(mediaSession())->showPlaybackTargetPicker();
@@ -7514,7 +7455,7 @@ bool HTMLMediaElement::videoUsesElementFullscreen() const
 
 void HTMLMediaElement::setPlayerIdentifierForVideoElement()
 {
-    ALWAYS_LOG(LOGIDENTIFIER);
+    HTMLMEDIAELEMENT_RELEASE_LOG(SetPlayerIdentifierForVideoElement);
 
     RefPtr page = document().page();
     if (!page || page->mediaPlaybackIsSuspended())
@@ -7623,7 +7564,7 @@ void HTMLMediaElement::enterFullscreen()
 
 void HTMLMediaElement::exitFullscreen()
 {
-    ALWAYS_LOG(LOGIDENTIFIER);
+    HTMLMEDIAELEMENT_RELEASE_LOG(ExitFullscreen);
 
     m_waitingToEnterFullscreen = false;
 
@@ -8228,13 +8169,8 @@ void HTMLMediaElement::createMediaPlayer() WTF_IGNORES_THREAD_SAFETY_ANALYSIS
         setIsPlayingToWirelessTarget(false);
 #endif
 
-    m_networkErrorOccured = false;
-    m_lastContentTypeUsed.reset();
-    if (RefPtr player = std::exchange(m_player, { })) {
-        // The sniffer completionHandler would have taken a reference to the old MediaPlayer.
-        cancelSniffer();
+    if (RefPtr player = std::exchange(m_player, { }))
         player->invalidate();
-    }
 
     m_player = MediaPlayer::create(*this);
     RefPtr player = m_player;
@@ -8249,6 +8185,10 @@ void HTMLMediaElement::createMediaPlayer() WTF_IGNORES_THREAD_SAFETY_ANALYSIS
     player->setPageIsVisible(!m_elementIsHidden);
     player->setViewportVisibility(viewportVisibility());
     player->setInFullscreenOrPictureInPicture(isInFullscreenOrPictureInPicture());
+
+#if PLATFORM(MAC)
+    player->setScreenReserved(m_screenReserved);
+#endif
 
     schedulePlaybackControlsManagerUpdate();
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA) && ENABLE(ENCRYPTED_MEDIA)
@@ -8744,9 +8684,6 @@ void HTMLMediaElement::mediaPlayerEngineFailedToLoad()
     RefPtr player = m_player;
     if (!player)
         return;
-
-    if (player->networkState() == MediaPlayer::NetworkState::NetworkError)
-        m_networkErrorOccured = true;
 
     if (RefPtr page = document().page())
         protect(page->diagnosticLoggingClient())->logDiagnosticMessageWithValue(DiagnosticLoggingKeys::engineFailedToLoadKey(), player->engineDescription(), player->platformErrorCode(), 4, ShouldSample::No);
@@ -9507,7 +9444,7 @@ void HTMLMediaElement::userDidInterfereWithAutoplay()
     if (currentTime() - playbackStartedTime() > AutoplayInterferenceTimeThreshold)
         return;
 
-    ALWAYS_LOG(LOGIDENTIFIER);
+    HTMLMEDIAELEMENT_RELEASE_LOG(UserDidInterfereWithAutoplay);
     handleAutoplayEvent(AutoplayEvent::UserDidInterfereWithPlayback);
     setAutoplayEventPlaybackState(AutoplayEventPlaybackState::None);
 }
@@ -9632,7 +9569,7 @@ void HTMLMediaElement::setBufferingPolicy(BufferingPolicy policy)
 
 void HTMLMediaElement::purgeBufferedDataIfPossible()
 {
-    ALWAYS_LOG(LOGIDENTIFIER);
+    HTMLMEDIAELEMENT_RELEASE_LOG(PurgeBufferedDataIfPossible);
 
     bool isPausedOrMSE = [&] {
 #if ENABLE(MEDIA_SOURCE)
@@ -9749,13 +9686,11 @@ void HTMLMediaElement::updateShouldPlay()
 
     auto canTransition = canTransitionFromAutoplayToPlay();
     if (canTransition) {
-        ALWAYS_LOG(LOGIDENTIFIER);
+        HTMLMEDIAELEMENT_RELEASE_LOG(UpdateShouldPlay);
         play();
     } else
         ALWAYS_LOG(LOGIDENTIFIER, "autoplay blocked with reason: ", canTransition.error());
-}
-
-void HTMLMediaElement::resetPlaybackSessionState()
+}void HTMLMediaElement::resetPlaybackSessionState()
 {
     if (RefPtr mediaSession = m_mediaSession)
         mediaSession->resetPlaybackSessionState();
@@ -9966,7 +9901,7 @@ void HTMLMediaElement::mediaStreamCaptureStarted()
 {
     auto canTransition = canTransitionFromAutoplayToPlay();
     if (canTransition) {
-        ALWAYS_LOG(LOGIDENTIFIER);
+        HTMLMEDIAELEMENT_RELEASE_LOG(MediaStreamCaptureStarted);
         play();
     } else
         ALWAYS_LOG(LOGIDENTIFIER, "autoplay blocked with reason: ", canTransition.error());
@@ -10446,7 +10381,7 @@ static ContentType inferredContentTypeFromURL(const URL& url)
 
 void HTMLMediaElement::rebuildMediaEngineForWirelessPlayback()
 {
-    ALWAYS_LOG(LOGIDENTIFIER);
+    HTMLMEDIAELEMENT_RELEASE_LOG(RebuildMediaEngineForWirelessPlayback);
 
     setReadyState(MediaPlayer::ReadyState::HaveNothing);
 
@@ -10469,6 +10404,28 @@ void HTMLMediaElement::rebuildMediaEngineForWirelessPlayback()
 }
 
 #endif // ENABLE(WIRELESS_PLAYBACK_MEDIA_PLAYER)
+
+void HTMLMediaElement::screenPropertiesChanged(PlatformDisplayID displayID)
+{
+    setPreferredDynamicRangeMode(preferredDynamicRangeMode(protect(document().view()).get()));
+#if PLATFORM(MAC)
+    if (auto data = screenData(displayID))
+        setScreenReserved(data->reserved);
+#else
+    UNUSED_PARAM(displayID);
+#endif
+}
+
+#if PLATFORM(MAC)
+void HTMLMediaElement::setScreenReserved(bool reserved)
+{
+    if (m_screenReserved == reserved)
+        return;
+    m_screenReserved = reserved;
+    if (RefPtr player = m_player)
+        player->setScreenReserved(reserved);
+}
+#endif
 
 } // namespace WebCore
 

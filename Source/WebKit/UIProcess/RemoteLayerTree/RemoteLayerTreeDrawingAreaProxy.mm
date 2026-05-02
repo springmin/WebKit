@@ -380,7 +380,7 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(IPC::Connection& connectio
         return;
 
     if (bundle.editorState) {
-        if (page->updateEditorState(EditorState { *bundle.editorState }, WebPageProxy::ShouldMergeVisualEditorState::Yes))
+        if (page->updateEditorState(connection, EditorState { *bundle.editorState }, WebPageProxy::ShouldMergeVisualEditorState::Yes))
             page->dispatchDidUpdateEditorState();
     }
 
@@ -457,7 +457,8 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(IPC::Connection& connectio
 WebCore::TrackingType RemoteLayerTreeDrawingAreaProxy::eventTrackingTypeForPoint(WebCore::EventTrackingRegions::EventType eventType, IntPoint location)
 {
     FloatPoint localLocation = location;
-    return eventRegionForPoint(remoteLayerTreeHost().rootLayer(), localLocation).transform([eventType, &localLocation](const WebCore::EventRegion& eventRegion) {
+    RetainPtr rootLayer = remoteLayerTreeHost().rootLayer();
+    return eventRegionForPoint(rootLayer.get(), localLocation).transform([eventType, &localLocation](const WebCore::EventRegion& eventRegion) {
         return eventRegion.eventTrackingTypeForPoint(eventType, roundedIntPoint(localLocation));
     }).value_or(WebCore::TrackingType::NotTracking);
 }

@@ -42,7 +42,6 @@
 #include "MarkedBlock.h"
 #include "MarkedSpace.h"
 #include "MutatorState.h"
-#include "Options.h"
 #include "PreciseSubspace.h"
 #include "StructureID.h"
 #include "Synchronousness.h"
@@ -304,13 +303,14 @@ class Heap;
     v(wrapForValidIteratorSpace, cellHeapCellType, JSWrapForValidIterator) \
     v(promiseCombinatorsContextSpace, cellHeapCellType, JSPromiseCombinatorsContext) \
     v(promiseCombinatorsGlobalContextSpace, cellHeapCellType, JSPromiseCombinatorsGlobalContext) \
-    v(promiseReactionSpace, cellHeapCellType, JSPromiseReaction) \
+    v(slimPromiseReactionSpace, cellHeapCellType, JSSlimPromiseReaction) \
+    v(fullPromiseReactionSpace, cellHeapCellType, JSFullPromiseReaction) \
     v(asyncFromSyncIteratorSpace, cellHeapCellType, JSAsyncFromSyncIterator) \
     v(regExpStringIteratorSpace, cellHeapCellType, JSRegExpStringIterator) \
     v(disposableStackSpace, cellHeapCellType, JSDisposableStack) \
     v(asyncDisposableStackSpace, cellHeapCellType, JSAsyncDisposableStack) \
     v(moduleLoaderSpace, destructibleCellHeapCellType, JSModuleLoader) \
-    v(moduleLoaderPayloadSpace, destructibleCellHeapCellType, ModuleLoaderPayload) \
+    v(moduleLoaderPayloadSpace, cellHeapCellType, ModuleLoaderPayload) \
     v(moduleGraphLoadingStateSpace, destructibleCellHeapCellType, ModuleGraphLoadingState) \
     \
     FOR_EACH_JSC_WEBASSEMBLY_DYNAMIC_ISO_SUBSPACE(v)
@@ -900,12 +900,12 @@ private:
     Lock m_parallelSlotVisitorLock;
     bool m_isSafeToCollect { false };
     bool m_isShuttingDown { false };
-    bool m_mutatorShouldBeFenced { Options::forceFencedBarrier() };
+    bool m_mutatorShouldBeFenced { false };
     bool m_isMarkingForGCVerifier { false };
     bool m_keepVerifierSlotVisitor { false };
     Lock m_wasmCalleesPendingDestructionLock;
 
-    unsigned m_barrierThreshold { Options::forceFencedBarrier() ? tautologicalThreshold : blackThreshold };
+    unsigned m_barrierThreshold { blackThreshold };
 
 #if PLATFORM(MAC)
     Seconds m_lastFullGCLength { 2_ms };

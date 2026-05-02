@@ -48,6 +48,7 @@
 #include "ScriptController.h"
 #include "ScriptDisallowedScope.h"
 #include "Settings.h"
+#include "WebCoreOpaqueRoot.h"
 #include <JavaScriptCore/HeapCellInlines.h>
 #include <JavaScriptCore/JSCJSValueStructure.h>
 #include <wtf/MainThread.h>
@@ -81,6 +82,11 @@ EventTarget::~EventTarget()
     // Explicitly tearing down since WeakPtrImpl can be alive longer than EventTarget.
     if (auto* eventTargetData = this->eventTargetData())
         eventTargetData->clear();
+}
+
+WebCoreOpaqueRoot EventTarget::opaqueRoot() const
+{
+    return WebCoreOpaqueRoot { const_cast<EventTarget*>(this) };
 }
 
 bool EventTarget::isPaymentRequest() const

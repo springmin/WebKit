@@ -1469,9 +1469,9 @@ size_t SourceBuffer::memoryCost() const
     return sizeof(SourceBuffer) + m_extraMemoryCost;
 }
 
-WebCoreOpaqueRoot SourceBuffer::opaqueRoot()
+WebCoreOpaqueRoot SourceBuffer::opaqueRoot() const
 {
-    return WebCoreOpaqueRoot { this };
+    return WebCoreOpaqueRoot { const_cast<SourceBuffer*>(this) };
 }
 
 void SourceBuffer::memoryPressure()

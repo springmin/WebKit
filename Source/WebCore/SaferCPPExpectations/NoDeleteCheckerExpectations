@@ -3,7 +3,6 @@ Modules/permissions/WorkerNavigatorPermissions.cpp
 Modules/streams/ReadableByteStreamController.cpp
 Modules/streams/ReadableStreamBYOBRequest.cpp
 Modules/webauthn/cbor/CBORValue.cpp
-Modules/websockets/WebSocketChannelInspector.cpp
 Modules/webtransport/WebTransportDatagramsWritable.cpp
 css/CSSComputedStyleDeclaration.cpp
 css/CSSPrimitiveValue.cpp
@@ -18,3 +17,5 @@ page/EventHandler.cpp
 [ iOS ] page/Quirks.cpp
 page/text-extraction/TextExtraction.cpp
 rendering/RenderGeometryMap.cpp
+rendering/svg/RenderSVGHiddenContainer.cpp
+rendering/svg/legacy/LegacyRenderSVGHiddenContainer.cpp

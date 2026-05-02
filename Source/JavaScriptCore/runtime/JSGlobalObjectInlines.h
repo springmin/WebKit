@@ -222,8 +222,6 @@ inline JSFunction* JSGlobalObject::promiseProtoThenFunction() const { return unc
 inline JSFunction* JSGlobalObject::performPromiseThenFunction() const { return uncheckedDowncast<JSFunction>(linkTimeConstant(LinkTimeConstant::performPromiseThen)); }
 inline JSFunction* JSGlobalObject::rejectPromiseFunction() const { return uncheckedDowncast<JSFunction>(linkTimeConstant(LinkTimeConstant::rejectPromiseWithFirstResolvingFunctionCallCheck)); };
 #endif
-inline JSFunction* JSGlobalObject::promiseEmptyOnFulfilledFunction() const { return uncheckedDowncast<JSFunction>(linkTimeConstant(LinkTimeConstant::promiseEmptyOnFulfilled)); }
-inline JSFunction* JSGlobalObject::promiseEmptyOnRejectedFunction() const { return uncheckedDowncast<JSFunction>(linkTimeConstant(LinkTimeConstant::promiseEmptyOnRejected)); }
 inline JSFunction* JSGlobalObject::regExpProtoExecFunction() const { return uncheckedDowncast<JSFunction>(linkTimeConstant(LinkTimeConstant::regExpBuiltinExec)); }
 inline JSFunction* JSGlobalObject::stringProtoSubstringFunction() const { return uncheckedDowncast<JSFunction>(linkTimeConstant(LinkTimeConstant::stringSubstring)); }
 inline JSFunction* JSGlobalObject::performProxyObjectHasFunction() const { return m_performProxyObjectHasFunction.get(); }
@@ -252,11 +250,6 @@ inline GetterSetter* JSGlobalObject::regExpProtoStickyGetter() const { return st
 inline GetterSetter* JSGlobalObject::regExpProtoUnicodeGetter() const { return std::bit_cast<GetterSetter*>(linkTimeConstant(LinkTimeConstant::regExpProtoUnicodeGetter)); }
 inline GetterSetter* JSGlobalObject::regExpProtoUnicodeSetsGetter() const { return std::bit_cast<GetterSetter*>(linkTimeConstant(LinkTimeConstant::regExpProtoUnicodeSetsGetter)); }
 
-ALWAYS_INLINE VM& getVM(JSGlobalObject* globalObject)
-{
-    return globalObject->vm();
-}
-
 template<typename T>
 inline unsigned JSGlobalObject::WeakCustomGetterOrSetterHash<T>::hash(const Weak<T>& value)
 {
@@ -274,7 +267,8 @@ inline bool JSGlobalObject::WeakCustomGetterOrSetterHash<T>::equal(const Weak<T>
 }
 
 template<typename T>
-inline unsigned JSGlobalObject::WeakCustomGetterOrSetterHash<T>::hash(const PropertyName& propertyName, typename T::CustomFunctionPointer functionPointer, const ClassInfo* classInfo)
+template<typename U>
+inline unsigned JSGlobalObject::WeakCustomGetterOrSetterHash<T>::hash(const PropertyName& propertyName, typename U::CustomFunctionPointer functionPointer, const ClassInfo* classInfo)
 {
     if (!propertyName.isNull())
         return WTF::computeHash(functionPointer, propertyName.uid()->existingSymbolAwareHash(), classInfo);

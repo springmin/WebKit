@@ -49,6 +49,7 @@
 #import "LocalizedDateCache.h"
 #import "NodeRenderStyle.h"
 #import "Page.h"
+#import "PlatformRenderTheme.h"
 #import "RenderBoxInlines.h"
 #import "RenderBoxModelObjectInlines.h"
 #import "RenderButton.h"
@@ -3596,7 +3597,6 @@ bool RenderThemeCocoa::paintMeterForVectorBasedControls(const RenderElement& ren
     }
 #endif
 
-
     return true;
 }
 
@@ -4273,7 +4273,6 @@ bool RenderThemeCocoa::paintSearchFieldDecorationsForVectorBasedControls(const R
     return false;
 }
 
-
 bool RenderThemeCocoa::adjustSearchFieldCancelButtonStyleForVectorBasedControls(RenderStyle& style, const Element* element) const
 {
 #if PLATFORM(MAC)
@@ -4765,17 +4764,6 @@ FloatSize RenderThemeCocoa::inflateRectForInteractionRegion(const RenderElement&
         const auto cssBorderWidth = box.style().usedZoom();
         rect.inflate(cssBorderWidth);
         return { cssBorderWidth, cssBorderWidth };
-    }
-
-    // These values were chosen to match UIKit.
-    auto appearance = box.style().usedAppearance();
-    if (appearance == StyleAppearance::SliderThumbHorizontal || appearance == StyleAppearance::SliderThumbVertical) {
-        static constexpr float thumbMinDimension = 48;
-        static constexpr float thumbHitAreaExpansion = 12.5;
-        if (rect.width() < thumbMinDimension || rect.height() < thumbMinDimension) {
-            rect.inflate(thumbHitAreaExpansion);
-            return { thumbHitAreaExpansion, thumbHitAreaExpansion };
-        }
     }
 
     return { 0, 0 };

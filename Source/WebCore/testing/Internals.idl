@@ -1179,6 +1179,7 @@ enum ContentsFormat {
     undefined setCanShowModalDialogOverride(boolean allow);
 
     DOMString composedTreeAsText(Node parent);
+    DOMString composedTreeAsTextFromNode(Node root, Node startNode);
 
     boolean isProcessingUserGesture();
     double lastHandledUserGestureTimestamp();
@@ -1502,8 +1503,6 @@ enum ContentsFormat {
 
     DOMString getComputedLabel(Element element);
     DOMString getComputedRole(Element element);
-
-    readonly attribute boolean hasScopeBreakingHasSelectors;
 
     sequence<PDFAnnotationRect> pdfAnnotationRectsForTesting(Element element);
     undefined setPDFTextAnnotationValueForTesting(Element element, unsigned long pageIndex, unsigned long annotationIndex, DOMString value);

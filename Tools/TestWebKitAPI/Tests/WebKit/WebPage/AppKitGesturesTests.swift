@@ -24,85 +24,234 @@
 #if HAVE_APPKIT_GESTURES_SUPPORT
 
 import Foundation
-import WebKit
+@_spi(WebKitAdditions_Testing) @_spi(Testing) import WebKit
 import SwiftUI
 import struct Swift.String
 import struct _Concurrency.Task
+private import struct TestWebKitAPILibrary.DOMRect
 import Testing
 private import TestWebKitAPILibrary
+private import Recap
+private import AppKit_Private.NSMenu_Private
+
+private actor Recap {
+    static let shared = Recap()
+
+    func play(events: @Sendable (_ composer: any RCPEventStreamComposer) -> Void) async {
+        let eventStream: RCPSyntheticEventStream = RCPSyntheticEventStream { composer in
+            guard let composer else {
+                preconditionFailure()
+            }
+            composer.senderProperties = ._wk_trackpadSender()
+            events(composer)
+        }
+
+        await RCPInlinePlayer.play(eventStream, options: .init())
+    }
+}
 
 @MainActor
+@Suite(.serialized)
 struct AppKitGesturesTests {
-    @Test
-    func clickingChangesSelection() async throws {
-        let page = WebPage()
+    private static let text = "Here's to the crazy ones."
 
-        let html = """
-            <div id="div" contenteditable style="font-size: 30px;">Here's to the crazy ones.</div>
-            """
+    private let recap = Recap.shared
 
-        try await page.load(html: html).wait()
+    private let page: WebPage = {
+        var configuration = WebPage.Configuration()
+        configuration.requiresUserActionForEditingControlsManager = true
+        return WebPage(configuration: configuration)
+    }()
 
+    private let window: NSWindow
+
+    init() async throws {
         let contentSize = NSSize(width: 800, height: 600)
 
-        let window = NSWindow(size: contentSize) {
+        self.window = NSWindow(size: contentSize) { [page] in
             WebView(page)
         }
 
-        window.setFrameOrigin(.zero)
-        window.makeKeyAndOrderFront(nil)
+        self.window.setFrameOrigin(.zero)
+        NSApp.activate(ignoringOtherApps: true)
+        self.window.makeKeyAndOrderFront(nil)
+    }
 
-        let selectCrazy = """
-            const textNode = document.getElementById("div").firstChild
+    @Test(arguments: [true, false])
+    func updatingTextRangeSelectionByUserInteractionUpdatesEditorState(contentEditable: Bool) async throws {
+        try await loadHTML(contentEditable: contentEditable)
 
-            const range = document.createRange();
-            range.setStart(textNode, 14);
-            range.setEnd(textNode, 19);
+        let toBounds = try await screenBoundsOfText("to")
+        let crazyBounds = try await screenBoundsOfText("crazy")
 
-            let selection = window.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(range);
-            """
+        let editorStateSnapshots = page.editorStateSnapshots()
 
-        try await page.callJavaScript(selectCrazy)
+        // Recap requires this test to be ran within an app host.
+        guard NSApp.isActive else {
+            return
+        }
 
-        let getSelectionBounds = """
-            const selection = window.getSelection();
+        await recap.play { composer in
+            composer._wk_click(toBounds.center)
 
-            const range = selection.getRangeAt(0);
-            return range.getBoundingClientRect().toJSON();
-            """
+            composer.advanceTime(0.1)
 
-        let crazyBoundsDictionary = try await #require(page.callJavaScript(getSelectionBounds) as? [String: Double])
-        let crazyBoundsInViewportCoordinates = CGRect(
-            x: crazyBoundsDictionary["x", default: 0],
-            y: crazyBoundsDictionary["y", default: 0],
-            width: crazyBoundsDictionary["width", default: 0],
-            height: crazyBoundsDictionary["height", default: 0],
+            composer.drag(withStart: toBounds.center, end: crazyBounds.center, duration: 1)
+
+            composer.advanceTime(0.1)
+
+            composer._wk_mouseUp()
+        }
+
+        let firstRangeEditorState = try await #require(
+            editorStateSnapshots.first { @Sendable state in
+                state.selectionType == .range
+            }
         )
+
+        #expect(firstRangeEditorState.postLayoutData != nil)
+    }
+
+    @Test(arguments: [true, false])
+    func clickingOnSelectedWordOpensContextMenu(contentEditable: Bool) async throws {
+        try await loadHTML(contentEditable: contentEditable)
+
+        let crazyRange = try #require(Self.text.utf16Range(of: "crazy"))
+        let crazySelection = JavaScriptSelection.range(
+            base: .init(in: "div", at: crazyRange.lowerBound),
+            extent: .init(in: "div", at: crazyRange.upperBound)
+        )
+        try await page.callJavaScript(JavaScriptMessages.SetSelection(crazySelection))
+
+        let crazyBoundsInScreenCoordinates = try await screenBoundsOfText("crazy")
+
+        await page.waitForNextPresentationUpdate()
+
+        // Recap requires this test to be ran within an app host.
+        guard NSApp.isActive else {
+            return
+        }
+
+        let future = Future()
+
+        let implementation: @convention(block) (NSMenu.Type, NSMenu, _NSViewMenuContext, NSView, (@convention(block) () -> Void)?) -> Void =
+            { _, menu, context, view, completion in
+                completion?()
+
+                #expect(view is WKWebView)
+
+                future.signal()
+            }
+
+        await withSwizzledObjectiveCClassMethod(
+            class: NSMenu.self,
+            replacing: #selector(NSMenu._popUpContextMenu(_:with:for:) as (NSMenu, _NSViewMenuContext, NSView) async -> Void),
+            with: implementation
+        ) {
+            await recap.play { composer in
+                composer._wk_click(crazyBoundsInScreenCoordinates.center)
+            }
+
+            await future.wait()
+        }
+
+        await page.waitForNextPresentationUpdate()
+
+        let newSelection = try await page.callJavaScript(JavaScriptMessages.GetSelection())
+
+        #expect(newSelection == crazySelection)
+    }
+
+    @Test(arguments: [true, false])
+    func doubleClickingInWordSelectsWord(contentEditable: Bool) async throws {
+        try await loadHTML(contentEditable: contentEditable)
+
+        let crazyRange = try #require(Self.text.utf16Range(of: "crazy"))
+        let crazySelection = JavaScriptSelection.range(
+            base: .init(in: "div", at: crazyRange.lowerBound),
+            extent: .init(in: "div", at: crazyRange.upperBound)
+        )
+
+        let crazyBoundsInScreenCoordinates = try await screenBoundsOfText("crazy")
+
+        try await page.callJavaScript(JavaScriptMessages.SetSelection(in: "div", offset: 0))
+
+        await page.waitForNextPresentationUpdate()
+
+        // Recap requires this test to be ran within an app host.
+        guard NSApp.isActive else {
+            return
+        }
+
+        await recap.play { composer in
+            composer._wk_click(crazyBoundsInScreenCoordinates.center)
+            composer.advanceTime(0.1)
+            composer._wk_click(crazyBoundsInScreenCoordinates.center)
+        }
+
+        await page.waitForNextPresentationUpdate()
+
+        let newSelection = try await page.callJavaScript(JavaScriptMessages.GetSelection())
+
+        #expect(newSelection == crazySelection)
+    }
+
+    @Test(arguments: [0.1, 0.5, 0.9])
+    func clickingInWordChangesSelection(fractionOfWordToClick: Double) async throws {
+        try await loadHTML(contentEditable: true)
+
+        let crazyRange = try #require(Self.text.utf16Range(of: "crazy"))
+
+        let crazyBoundsInScreenCoordinates = try await screenBoundsOfText("crazy")
+
+        let point = CGPoint(
+            x: crazyBoundsInScreenCoordinates.origin.x + (crazyBoundsInScreenCoordinates.size.width * fractionOfWordToClick),
+            y: crazyBoundsInScreenCoordinates.midY
+        )
+
+        try await page.callJavaScript(JavaScriptMessages.SetSelection(in: "div", offset: 0))
+
+        await page.waitForNextPresentationUpdate()
+
+        // Recap requires this test to be ran within an app host.
+        guard NSApp.isActive else {
+            return
+        }
+
+        await recap.play { composer in
+            composer._wk_click(point)
+        }
+
+        await page.waitForNextPresentationUpdate()
+
+        // This is a rough approximation of the heuristic the implementation uses.
+        let offset = fractionOfWordToClick < 0.2 ? crazyRange.lowerBound : crazyRange.upperBound
+
+        let newSelection = try await page.callJavaScript(JavaScriptMessages.GetSelection())
+        #expect(newSelection == .collapsed(.init(in: "div", at: offset)))
+    }
+
+    @Test
+    func clickingChangesSelection() async throws {
+        try await loadHTML(contentEditable: true)
+
+        let crazyRange = try #require(Self.text.utf16Range(of: "crazy"))
+        try await page.callJavaScript(JavaScriptMessages.SetSelection(in: "div", range: crazyRange))
+
+        let crazyBoundsInViewportCoordinates = try await CGRect(
+            page.callJavaScript(JavaScriptMessages.BoundingClientRect(in: "div", range: crazyRange))
+        )
+
+        let contentHeight = try #require(window.contentViewController?.view.frame.height)
 
         let crazyBoundsInAppKitCoordinates = CGRect(
             x: crazyBoundsInViewportCoordinates.minX,
-            y: contentSize.height - crazyBoundsInViewportCoordinates.maxY,
+            y: contentHeight - crazyBoundsInViewportCoordinates.maxY,
             width: crazyBoundsInViewportCoordinates.width,
             height: crazyBoundsInViewportCoordinates.height,
         )
 
-        let middleOfCrazy = CGPoint(x: crazyBoundsInAppKitCoordinates.midX, y: crazyBoundsInAppKitCoordinates.midY)
-
-        let moveSelectionToStart = """
-            const textNode = document.getElementById("div").firstChild
-
-            const range = document.createRange();
-            range.setStart(textNode, 0);
-            range.setEnd(textNode, 0);
-
-            let selection = window.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(range);
-            """
-
-        try await page.callJavaScript(moveSelectionToStart)
+        try await page.callJavaScript(JavaScriptMessages.SetSelection(in: "div", offset: 0))
 
         let waitForSelectionChange = """
             return await new Promise(resolve => {
@@ -118,11 +267,69 @@ struct AppKitGesturesTests {
         // Ensure the JS `selectionchange` event listener is installed before performing the click.
         await Task.yield()
 
-        page.click(at: middleOfCrazy)
+        page.click(at: crazyBoundsInAppKitCoordinates.center)
 
         let selection = try await newSelection
         let expected = "Here's to the cra".count
         #expect(selection == expected)
+    }
+}
+
+// MARK: Helpers
+
+@MainActor
+private func convertToCoreGraphicsScreenCoordinates(rectInViewportCoordinates: DOMRect, window: NSWindow) -> CGRect {
+    guard let contentViewController = window.contentViewController else {
+        preconditionFailure()
+    }
+
+    guard let screen = window.screen else {
+        preconditionFailure()
+    }
+
+    let inViewportCoordinates = CGRect(rectInViewportCoordinates)
+
+    let inWindowCoordinates = CGRect(
+        x: inViewportCoordinates.origin.x,
+        y: contentViewController.view.frame.height - inViewportCoordinates.origin.y - inViewportCoordinates.size.height,
+        width: inViewportCoordinates.size.width,
+        height: inViewportCoordinates.size.height,
+    )
+
+    let inAppKitScreenCoordinates = window.convertToScreen(inWindowCoordinates)
+
+    let inCoreGraphicsScreenCoordinates = CGRect(
+        x: inAppKitScreenCoordinates.origin.x,
+        y: screen.frame.maxY - inAppKitScreenCoordinates.maxY,
+        width: inAppKitScreenCoordinates.width,
+        height: inAppKitScreenCoordinates.height,
+    )
+
+    return inCoreGraphicsScreenCoordinates
+}
+
+extension AppKitGesturesTests {
+    private func loadHTML(contentEditable: Bool) async throws {
+        let html = """
+            <div \(contentEditable ? "contenteditable" : "") id="div" style="font-size: 30px;">\(Self.text)</div>
+            """
+
+        try await page.load(html: html).wait()
+    }
+
+    private func screenBoundsOfText(_ text: String) async throws -> CGRect {
+        let range = try #require(Self.text.utf16Range(of: text))
+
+        let viewportCoordinates = try await page.callJavaScript(
+            JavaScriptMessages.BoundingClientRect(in: "div", range: range)
+        )
+
+        let screenCoordinates = convertToCoreGraphicsScreenCoordinates(
+            rectInViewportCoordinates: viewportCoordinates,
+            window: window
+        )
+
+        return screenCoordinates
     }
 }
 

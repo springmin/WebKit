@@ -31,6 +31,7 @@
 #include "CSSRuleList.h"
 #include "CSSStyleProperties.h"
 #include "CookieStore.h"
+#include "Crypto.h"
 #include "CustomElementRegistry.h"
 #include "DocumentSecurityOrigin.h"
 #include "DocumentView.h"

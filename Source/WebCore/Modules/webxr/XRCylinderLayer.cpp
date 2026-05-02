@@ -24,9 +24,9 @@
  */
 
 #include "config.h"
+#include "XRCylinderLayer.h"
 
 #if ENABLE(WEBXR_LAYERS)
-#include "XRCylinderLayer.h"
 
 namespace WebCore {
 

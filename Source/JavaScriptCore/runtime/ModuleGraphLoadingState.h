@@ -57,21 +57,40 @@ public:
     inline static Structure* createStructure(VM&, JSGlobalObject*, JSValue);
     static ModuleGraphLoadingState* create(VM&, JSPromise*, RefPtr<ScriptFetcher>);
 
-    JSPromise* promise() const;
-    unsigned pendingModulesCount() const;
-    bool isLoading() const;
-    ScriptFetcher* scriptFetcher() const;
+    JSPromise* promise() const { return m_promise.get(); }
+    unsigned pendingModulesCount() const { return m_pendingModulesCount; }
+    bool isLoading() const { return m_isLoading; }
+    ScriptFetcher* scriptFetcher() const { return m_scriptFetcher.get(); }
 
-    void setPendingModulesCount(unsigned);
-    void setIsLoading(bool);
+    void setPendingModulesCount(unsigned count) { m_pendingModulesCount = count; }
+    void setIsLoading(bool loading) { m_isLoading = loading; }
 
     void appendVisited(VM&, CyclicModuleRecord*);
-    bool containsVisited(CyclicModuleRecord*) const;
+    bool containsVisited(const AbstractModuleRecord* record) const { return m_visitedSet.contains(record); }
     void iterateVisited(auto&& function) const
     {
         for (const auto& barrier : m_visited)
             function(barrier.get());
     }
+
+    // innerModuleLoading() drains this queue iteratively instead of recursing
+    // through hostLoadImportedModule -> continueModuleLoading. Entries are only
+    // present while a drain is on the stack and are otherwise reachable via the
+    // module registry / referrer.loadedModules, so raw pointers need no GC visit.
+    void enqueueInnerLoad(AbstractModuleRecord* record) { m_innerLoadQueue.append(record); }
+    AbstractModuleRecord* takeInnerLoad() { return m_innerLoadQueue.isEmpty() ? nullptr : m_innerLoadQueue.takeLast(); }
+    bool drainingInnerLoad() const { return m_drainingInnerLoad; }
+    void setDrainingInnerLoad(bool draining) { m_drainingInnerLoad = draining; }
+
+    // Combined-promise AND-join state used by top-level loadModule (mirrors ModuleLoaderPayload's same-named fields).
+    bool decrementRemaining()
+    {
+        ASSERT(m_remainingFulfillments > 0);
+        return !--m_remainingFulfillments;
+    }
+    JSValue fulfillment() const { return m_fulfillment.get(); }
+    void setFulfillment(VM& vm, JSValue value) { m_fulfillment.set(vm, this, value); }
+
 
 private:
     ModuleGraphLoadingState(VM&, Structure*, JSPromise*, RefPtr<ScriptFetcher>);
@@ -82,12 +101,19 @@ private:
     WriteBarrier<JSPromise> m_promise;
     // [[Visited]]
     Vector<WriteBarrier<CyclicModuleRecord>, 8> m_visited;
-    // Contains the same contents as m_visited, so no write barriers needed.
-    UncheckedKeyHashSet<CyclicModuleRecord*> m_visitedSet;
+    // Contains the same contents as m_visited, so no write barriers needed. Typed
+    // as AbstractModuleRecord* so the hot containsVisited() check can run before
+    // dynamicDowncast on the per-edge fast path.
+    UncheckedKeyHashSet<const AbstractModuleRecord*> m_visitedSet;
+    Vector<AbstractModuleRecord*, 8> m_innerLoadQueue;
+    // Slot used only at top-level loadModule to AND-join loadPromise and statePromise into combinedPromise.
+    WriteBarrier<Unknown> m_fulfillment;
     // [[PendingModulesCount]]
     unsigned m_pendingModulesCount { 1 };
+    uint8_t m_remainingFulfillments { 2 };
     // [[IsLoading]]
     bool m_isLoading { true };
+    bool m_drainingInnerLoad { false };
     // [[HostDefined]]
     const RefPtr<ScriptFetcher> m_scriptFetcher;
 };

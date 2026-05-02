@@ -390,7 +390,10 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/credentialmanagement/CredentialMediationRequirement.idl
     Modules/credentialmanagement/CredentialRequestOptions.idl
     Modules/credentialmanagement/CredentialsContainer.idl
+    Modules/credentialmanagement/FederatedCredentialRequestOptions.idl
+    Modules/credentialmanagement/IdentityCredentialRequestOptions.idl
     Modules/credentialmanagement/Navigator+Credentials.idl
+    Modules/credentialmanagement/OTPCredentialRequestOptions.idl
 
     Modules/encryptedmedia/MediaKeyEncryptionScheme.idl
     Modules/encryptedmedia/MediaKeyMessageEventInit.idl
@@ -2123,6 +2126,7 @@ set(WebCore_USER_AGENT_STYLE_SHEETS
     ${WEBCORE_DIR}/css/htmlSwitchControl.css
     ${WEBCORE_DIR}/css/mathml.css
     ${WEBCORE_DIR}/css/mathmlCoreExtras.css
+    ${WEBCORE_DIR}/css/mathmlCoreMathvariant.css
     ${WEBCORE_DIR}/css/mathmlFontSizeMath.css
     ${WEBCORE_DIR}/css/mathmlLegacyFontSizeMath.css
     ${WEBCORE_DIR}/css/popover.css

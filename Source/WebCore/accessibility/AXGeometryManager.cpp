@@ -38,6 +38,7 @@
 
 #if PLATFORM(MAC)
 #include "PlatformScreen.h"
+#include "AXTreeStoreInlines.h"
 #endif
 
 namespace WebCore {
@@ -67,7 +68,7 @@ AXGeometryManager::~AXGeometryManager()
 #endif
 }
 
-std::optional<IntRect> AXGeometryManager::cachedRectForID(AXID axID)
+std::optional<IntRect> AXGeometryManager::cachedRectForID(AXID axID) const
 {
     auto rectIterator = m_cachedRects.find(axID);
     if (rectIterator != m_cachedRects.end())

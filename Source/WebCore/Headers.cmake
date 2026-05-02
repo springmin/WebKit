@@ -394,7 +394,10 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     Modules/credentialmanagement/BasicCredential.h
     Modules/credentialmanagement/CredentialRequestOptions.h
+    Modules/credentialmanagement/FederatedCredentialRequestOptions.h
+    Modules/credentialmanagement/IdentityCredentialRequestOptions.h
     Modules/credentialmanagement/MediationRequirement.h
+    Modules/credentialmanagement/OTPCredentialRequestOptions.h
 
     Modules/encryptedmedia/CDM.h
     Modules/encryptedmedia/CDMClient.h
@@ -906,6 +909,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     bindings/js/JSCSSRuleCustom.h
     bindings/js/JSCSSStyleDeclarationCustom.h
     bindings/js/JSDOMBinding.h
+    bindings/js/JSDOMBindingFacade.h
     bindings/js/JSDOMBindingSecurity.h
     bindings/js/JSDOMCastThisValue.h
     bindings/js/JSDOMConvert.h
@@ -1891,7 +1895,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     loader/ResourceMonitor.h
     loader/ResourceMonitorChecker.h
     loader/ResourceMonitorThrottlerHolder.h
+    loader/ResourceTiming.h
     loader/ResourceTimingInformation.h
+    loader/ServerTiming.h
     loader/ShouldTreatAsContinuingLoad.h
     loader/SpeculationRules.h
     loader/SubframeLoader.h
@@ -2488,6 +2494,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/FontSizeAdjust.h
     platform/graphics/FontTaggedSettings.h
     platform/graphics/FourCC.h
+    platform/graphics/GainMap.h
     platform/graphics/GCGLExtension.h
     platform/graphics/GCGLSpan.h
     platform/graphics/GeneratedImage.h
@@ -2629,6 +2636,11 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/ScreenDataOverrides.h
     platform/graphics/ShareableBitmap.h
     platform/graphics/ShareableBitmapHandle.h
+
+    platform/graphics/cocoa/CVPixelBufferUtilities.h
+    platform/graphics/cocoa/ShareableCVPixelBuffer.h
+    platform/graphics/cocoa/ShareableCVPixelFormat.h
+    platform/graphics/cocoa/ShareableGainMap.h
     platform/graphics/ShouldLocalizeAxisNames.h
     platform/graphics/SourceBrush.h
     platform/graphics/SourceBrushLogicalGradient.h
@@ -2894,7 +2906,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/network/OrganizationStorageAccessPromptQuirk.h
     platform/network/ParsedContentRange.h
     platform/network/ParsedContentType.h
-    platform/network/ParsedRequestRange.h
     platform/network/ProtectionSpace.h
     platform/network/ProtectionSpaceBase.h
     platform/network/ProtectionSpaceHash.h
@@ -2982,6 +2993,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/PaintInfo.h
     rendering/PaintPhase.h
     rendering/PathOperation.h
+    rendering/PlatformRenderTheme.h
     rendering/RegionContext.h
     rendering/RelayoutScopeForScrollbarChange.h
     rendering/RenderAttachment.h
@@ -3008,6 +3020,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/RenderLayerBacking.h
     rendering/RenderLayerCompositor.h
     rendering/RenderLayerModelObject.h
+    rendering/RenderLayerSVGAdditions.h
     rendering/RenderLayerScrollableArea.h
     rendering/RenderLayoutState.h
     rendering/RenderLineBoxList.h
@@ -3370,7 +3383,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/primitives/StylePrimitiveNumericTypes+Evaluation.h
     style/values/primitives/StylePrimitiveNumericTypes+Rounding.h
     style/values/primitives/StylePrimitiveNumericTypes.h
-    style/values/primitives/StylePropertyIdentifier.h
     style/values/primitives/StyleRatio.h
     style/values/primitives/StyleString.h
     style/values/primitives/StyleURL.h

@@ -34,6 +34,7 @@
 #include "CheckPrivateBrandStatus.h"
 #include "DFGAbstractInterpreter.h"
 #include "DFGAbstractInterpreterClobberState.h"
+#include "DOMJITCallDOMGetterSnippet.h"
 #include "DOMJITGetterSetter.h"
 #include "DOMJITSignature.h"
 #include "FunctionPrototype.h"
@@ -1533,7 +1534,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
                 break;
             }
             if (producesInteger(node->arithRoundingMode())) {
-                int32_t roundedValueAsInt32 = static_cast<int32_t>(roundedValue);
+                int32_t roundedValueAsInt32 = truncateDoubleToInt32(roundedValue);
                 if (roundedValueAsInt32 == roundedValue) {
                     if (shouldCheckNegativeZero(node->arithRoundingMode())) {
                         if (roundedValueAsInt32 || !std::signbit(roundedValue)) {
@@ -2684,6 +2685,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     }
         
     case StringIndexOf:
+    case StringLastIndexOf:
         setNonCellTypeForNode(node, SpecInt32Only);
         break;
 
@@ -4049,12 +4051,12 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
             }
 
             if (structure) {
-                didFoldClobberWorld();
+                didFoldClobberStructures();
                 setForNode(node, structure);
                 break;
             }
         }
-        clobberWorld();
+        clobberStructures();
         setTypeForNode(node, SpecFinalObject);
         break;
     }
@@ -5646,14 +5648,14 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         clobberWorld();
 
         WebAssemblyFunction* wasmFunction = node->castOperand<WebAssemblyFunction*>();
-        const auto& signature = Wasm::TypeInformation::getFunctionSignature(wasmFunction->typeIndex());
-        if (signature.returnsVoid()) {
+        Ref signature = wasmFunction->signature();
+        if (signature->returnsVoid()) {
             setConstant(node, jsUndefined());
             break;
         }
 
-        ASSERT(signature.returnCount() == 1);
-        auto type = signature.returnType(0);
+        ASSERT(signature->returnCount() == 1);
+        auto type = signature->returnType(0);
         switch (type.kind) {
         case Wasm::TypeKind::I32: {
             setNonCellTypeForNode(node, SpecInt32Only);

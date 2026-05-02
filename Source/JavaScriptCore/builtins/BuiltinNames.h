@@ -89,8 +89,7 @@ namespace JSC {
     macro(asyncGeneratorQueueDequeueReject) \
     macro(driveAsyncFunction) \
     macro(newHandledRejectedPromise) \
-    macro(promiseEmptyOnFulfilled) \
-    macro(promiseEmptyOnRejected) \
+    macro(promiseReturnUndefinedOnFulfilled) \
     macro(promiseResolve) \
     macro(promiseReject) \
     macro(promiseResolveWithThen) \
@@ -145,10 +144,7 @@ namespace JSC {
     macro(isResizableOrGrowableSharedTypedArrayView) \
     macro(isDetached) \
     macro(typedArrayFromFast) \
-    macro(isBoundFunction) \
-    macro(hasInstanceBoundFunction) \
     macro(instanceOf) \
-    macro(isArraySlow) \
     macro(isArray) \
     macro(sameValue) \
     macro(regExpCreate) \

@@ -99,6 +99,7 @@ class MediaSourcePrivateClient;
 class MediaStreamPrivate;
 class NativeImage;
 class PlatformMediaResourceLoader;
+class MediaResourceSniffer;
 class PlatformTimeRanges;
 class SecurityOriginData;
 class ShareableBitmap;
@@ -818,6 +819,11 @@ public:
 
     void elementIdChanged(const String&) const;
 
+#if PLATFORM(MAC)
+    void setScreenReserved(bool);
+    bool screenReserved() { return m_screenReserved; }
+#endif
+
 private:
     MediaPlayer(MediaPlayerClient&);
     MediaPlayer(MediaPlayerClient&, MediaPlayerEnums::MediaEngineIdentifier);
@@ -829,6 +835,14 @@ private:
     void loadWithNextMediaEngine(const MediaPlayerFactory*);
     CheckedPtr<const MediaPlayerFactory> nextMediaEngine(const MediaPlayerFactory*);
     void reloadTimerFired();
+
+    // When the engine fallback chain is exhausted on FormatError/DecodeError and we haven't yet
+    // sniffed the body, fetch a short prefix of the resource, determine the actual Content-Type
+    // from magic bytes, and — if it differs from what we originally tried — re-run engine
+    // selection with the sniffed type. Returns true if a sniff was started (in which case the
+    // caller should defer reporting the failure up to the client until the sniff settles).
+    bool attemptSniffAndReload();
+    void cancelSniffer();
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     MediaPlaybackTargetType playbackTargetType() const;
@@ -859,6 +873,8 @@ private:
     PitchCorrectionAlgorithm m_pitchCorrectionAlgorithm { PitchCorrectionAlgorithm::BestAllAround };
     ViewportVisibility m_viewportVisibility { ViewportVisibility::NotVisible };
     RefPtr<PlatformMediaResourceLoader> m_mediaResourceLoader;
+    RefPtr<MediaResourceSniffer> m_sniffer;
+    bool m_sniffAttempted { false };
 
 #if ENABLE(MEDIA_SOURCE)
     ThreadSafeWeakPtr<MediaSourcePrivateClient> m_mediaSource;
@@ -890,6 +906,10 @@ private:
 #endif
 
     WeakPtr<MessageClientForTesting> m_internalMessageClient;
+
+#if PLATFORM(MAC)
+    bool m_screenReserved { false };
+#endif
 };
 
 class MediaPlayerFactory : public CanMakeWeakPtr<MediaPlayerFactory>, public CanMakeCheckedPtr<MediaPlayerFactory> {

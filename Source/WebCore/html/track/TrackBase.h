@@ -36,8 +36,10 @@
 
 namespace WebCore {
 
+class Document;
 class SourceBuffer;
 class TrackListBase;
+class WeakPtrImplWithEventTargetData;
 class TrackPrivateBase;
 class TrackPrivateBaseClient;
 using TrackID = uint64_t;
@@ -78,7 +80,7 @@ public:
     void setTrackList(TrackListBase&);
     void clearTrackList();
     TrackListBase* NODELETE trackList() const;
-    WebCoreOpaqueRoot opaqueRoot();
+    WebCoreOpaqueRoot NODELETE opaqueRoot() const;
 
     virtual bool enabled() const = 0;
 

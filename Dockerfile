@@ -25,15 +25,17 @@ ARG ENABLE_SANITIZERS
 # Prevent interactive prompts
 ENV DEBIAN_FRONTEND=noninteractive
 
-# archive.ubuntu.com has been timing out from inside the GitHub-hosted
-# docker-buildx network even though security.ubuntu.com (same Canonical
-# backbone) is reachable. Point the main archive at Azure's mirror — the
-# runners are on Azure so this is both more reliable and faster. arm64 uses
+# Both archive.ubuntu.com and azure.archive.ubuntu.com have intermittently
+# timed out from inside the GitHub-hosted docker-buildx network at different
+# times. Prefer Azure (faster on Azure-hosted runners) but fall back to the
+# canonical mirror if `apt-get update` can't reach it. arm64 uses
 # ports.ubuntu.com which has been reachable, so leave it alone.
 RUN sed -i 's|http://archive.ubuntu.com/ubuntu|http://azure.archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list
 
 # Install basic build dependencies
-RUN apt-get update && apt-get install -y \
+RUN ( apt-get update || \
+      ( sed -i 's|http://azure.archive.ubuntu.com/ubuntu|http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list && apt-get update ) \
+    ) && apt-get install -y \
     wget \
     curl \
     git \
@@ -55,26 +57,23 @@ RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/nul
     && rm -rf /var/lib/apt/lists/*
 
 # Install GCC 13 toolchain
-# Add the ubuntu-toolchain-r PPA directly instead of via `add-apt-repository ppa:...`,
-# which queries launchpad.net/api to discover the signing key and hard-fails when that
-# API is slow or down (returns "'~ubuntu-toolchain-r' user or team does not exist").
-# The package archive itself (ppa.launchpadcontent.net) is CDN-backed and far more reliable.
-RUN curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x60C317803A41BA51845E371A1E9377A2BA9EF27F" | gpg --dearmor -o /etc/apt/trusted.gpg.d/ubuntu-toolchain-r.gpg \
-    && echo "deb https://ppa.launchpadcontent.net/ubuntu-toolchain-r/test/ubuntu $(lsb_release -cs) main" > /etc/apt/sources.list.d/ubuntu-toolchain-r.list \
+# Mirrored from ppa:ubuntu-toolchain-r/test to a GitHub release so this image
+# doesn't depend on Launchpad availability (single-IP 185.125.190.80; went
+# hard-down 2026-05-01, taking the API + keyserver.ubuntu.com with it). The
+# tarball is SHA-256-pinned. Regenerate via scripts/mirror-gcc13-debs.sh.
+ARG GCC13_DEBS_SHA256_amd64=a2b3b6e10b175bbaaefeb3e9e703ca26a97ed6c1f19ca842d3e0b0c8f941e65b
+ARG GCC13_DEBS_SHA256_arm64=be19db90d94c52c6061280bbadcaad9b09db1e9f2e77a12f8c18c5425d2eb056
+RUN curl -fsSL --retry 5 --retry-connrefused \
+        "https://github.com/oven-sh/WebKit/releases/download/gcc-13-focal-debs/gcc-13-focal-${TARGETARCH}.tar.gz" \
+        -o /tmp/gcc13.tar.gz \
+    && eval "expected=\$GCC13_DEBS_SHA256_${TARGETARCH}" \
+    && echo "${expected}  /tmp/gcc13.tar.gz" | sha256sum -c - \
+    && mkdir -p /tmp/gcc13 && tar xzf /tmp/gcc13.tar.gz -C /tmp/gcc13 \
     && apt-get update \
-    && apt-get install -y \
-        gcc-13 \
-        g++-13 \
-        libgcc-13-dev \
-        libstdc++-13-dev \
-        libasan6 \
-        libubsan1 \
-        libatomic1 \
-        libtsan0 \
-        liblsan0 \
-        libgfortran5 \
-        libc6-dev \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get install -y libc6-dev binutils libisl22 libmpc3 libmpfr6 \
+    && (dpkg -i /tmp/gcc13/*.deb || apt-get install -f -y) \
+    && dpkg -l gcc-13 g++-13 libstdc++-13-dev >/dev/null \
+    && rm -rf /tmp/gcc13 /tmp/gcc13.tar.gz /var/lib/apt/lists/*
 
 # Ensure GCC 13 is the default
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 130 \
@@ -176,7 +175,14 @@ RUN echo "#include <iostream>\n#include <numbers>\nint main() { std::cout << std
     ./test && \
     rm test.cpp test
 
-# Download and build ICU
+# Download and build ICU.
+#
+# After the first `make` (which produces bin/icupkg), filter data/in/icudt75l.dat
+# to drop converters/translit/rbnf/stringprep/confusables/unames, then rebuild
+# the data target. Bun has zero ucnv_/utrans_/usprep_/uspoof_ consumers
+# (TextCodecICU is removed in src/bun.js/bindings/TextEncodingRegistry.cpp and
+# UCONFIG_NO_LEGACY_CONVERSION=1 is set below), so this is unreachable data.
+# Cuts libicudata.a by ~7.4 MB with no observable change.
 ADD https://github.com/unicode-org/icu/releases/download/release-75-1/icu4c-75_1-src.tgz /icu.tgz
 RUN --mount=type=tmpfs,target=/icu \
     export CFLAGS="$CFLAGS -Os -std=c17 $LTO_FLAG" && \
@@ -188,6 +194,10 @@ RUN --mount=type=tmpfs,target=/icu \
     cd source && \
     ./configure --enable-static --disable-shared --disable-layoutex --disable-layout --with-data-packaging=static --disable-samples --disable-debug --disable-tests --disable-extras --disable-icuio && \
     make -j$(nproc) && \
+    bin/icupkg -l data/in/icudt75l.dat | grep -E '\.(cnv|spp|cfu)$|^cnvalias\.icu$|^translit/|^rbnf/|^unames\.icu$' > data/in/rm.lst && \
+    bin/icupkg --auto_toc_prefix -r data/in/rm.lst data/in/icudt75l.dat data/in/icudt75l_filtered.dat && \
+    mv -f data/in/icudt75l_filtered.dat data/in/icudt75l.dat && \
+    rm -rf data/out lib/libicudata.a && make -j$(nproc) && \
     make install && cp -r /icu/source/lib/* /output/lib && cp -r /icu/source/i18n/unicode/* /icu/source/common/unicode/* /output/include/unicode
 
 # Copy WebKit source and build

@@ -42,6 +42,8 @@ class WebAssemblyCompileOptions;
 
 namespace Wasm {
 
+struct ModuleDebugInfo;
+
 struct ModuleInformation final : public ThreadSafeRefCounted<ModuleInformation> {
 
     using BranchHints = UncheckedKeyHashMap<uint32_t, BranchHintMap, IntHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>>;
@@ -69,9 +71,9 @@ struct ModuleInformation final : public ThreadSafeRefCounted<ModuleInformation> 
             ? importFunctionTypeSignatureIndices[functionIndex]
             : internalFunctionTypeSignatureIndices[functionIndex - importFunctionTypeSignatureIndices.size()];
     }
-    TypeIndex typeIndexFromFunctionIndexSpace(FunctionSpaceIndex functionIndex) const
+    const RTT& rtt(FunctionSpaceIndex functionIndex) const LIFETIME_BOUND
     {
-        return typeIndexFromTypeSignatureIndex(typeSignatureIndexFromFunctionIndexSpace(functionIndex));
+        return rtt(typeSignatureIndexFromFunctionIndexSpace(functionIndex));
     }
 
     size_t exceptionIndexSpaceSize() const { return importExceptionTypeSignatureIndices.size() + internalExceptionTypeSignatureIndices.size(); }
@@ -86,9 +88,9 @@ struct ModuleInformation final : public ThreadSafeRefCounted<ModuleInformation> 
             ? importExceptionTypeSignatureIndices[exceptionIndex]
             : internalExceptionTypeSignatureIndices[exceptionIndex - importExceptionTypeSignatureIndices.size()];
     }
-    TypeIndex typeIndexFromExceptionIndexSpace(size_t exceptionIndex) const
+    const RTT& rttFromExceptionIndexSpace(size_t exceptionIndex) const LIFETIME_BOUND
     {
-        return typeIndexFromTypeSignatureIndex(typeSignatureIndexFromExceptionIndexSpace(exceptionIndex));
+        return rtt(typeSignatureIndexFromExceptionIndexSpace(exceptionIndex));
     }
 
     uint32_t importFunctionCount() const { return importFunctionTypeSignatureIndices.size(); }
@@ -96,15 +98,8 @@ struct ModuleInformation final : public ThreadSafeRefCounted<ModuleInformation> 
     uint32_t importExceptionCount() const { return importExceptionTypeSignatureIndices.size(); }
     uint32_t internalExceptionCount() const { return internalExceptionTypeSignatureIndices.size(); }
 
-    uint32_t typeCount() const { return m_typeSignatures.size(); }
-    const TypeDefinition& typeSignature(TypeSignatureIndex index) const LIFETIME_BOUND { ASSERT(index.rawIndex() < m_typeSignatures.size()); return m_typeSignatures[index.rawIndex()]; }
-    const TypeDefinition& expandedTypeSignature(TypeSignatureIndex index) const LIFETIME_BOUND { ASSERT(index.rawIndex() < m_expandedTypeSignatures.size()); return m_expandedTypeSignatures[index.rawIndex()]; }
+    uint32_t typeCount() const { return m_rtts.size(); }
     const RTT& rtt(TypeSignatureIndex index) const LIFETIME_BOUND { ASSERT(index.rawIndex() < m_rtts.size()); return m_rtts[index.rawIndex()]; }
-    TypeIndex typeIndexFromTypeSignatureIndex(TypeSignatureIndex index) const
-    {
-        ASSERT(index.rawIndex() < m_typeSignatures.size());
-        SUPPRESS_UNCOUNTED_ARG return m_typeSignatures[index.rawIndex()]->index();
-    }
 
     // Convert a parsed heap type (int32_t from the binary) to a TypeSignatureIndex.
     // Only valid when isTypeIndexHeapType(heapType) is true.
@@ -215,7 +210,6 @@ struct ModuleInformation final : public ThreadSafeRefCounted<ModuleInformation> 
     Vector<TypeSignatureIndex> internalFunctionTypeSignatureIndices;
     Vector<TypeSignatureIndex> importExceptionTypeSignatureIndices;
     Vector<TypeSignatureIndex> internalExceptionTypeSignatureIndices;
-    Vector<Ref<TypeDefinition>> recursionGroups;
 
     Vector<MemoryInformation> memories;
     bool m_hasGCObjectTypes { false };
@@ -236,7 +230,8 @@ struct ModuleInformation final : public ThreadSafeRefCounted<ModuleInformation> 
     Ref<NameSection> nameSection;
     BranchHints branchHints;
     std::optional<uint32_t> numberOfDataSegments;
-    Vector<Vector<uint8_t>> constantExpressions;
+    using ConstantExpressionAndSourceOffset = std::pair<Vector<uint8_t>, size_t>;
+    Vector<ConstantExpressionAndSourceOffset> constantExpressions;
     Name sourceMappingURL;
 #if ENABLE(WEBASSEMBLY_DEBUGGER)
     std::unique_ptr<Wasm::ModuleDebugInfo> debugInfo;
@@ -254,8 +249,6 @@ private:
 
     friend class SectionParser;
 
-    Vector<Ref<TypeDefinition>> m_typeSignatures;
-    Vector<Ref<const TypeDefinition>> m_expandedTypeSignatures;
     Vector<Ref<const RTT>> m_rtts;
 
     std::optional<String> m_importedStringConstants;

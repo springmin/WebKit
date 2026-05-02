@@ -308,7 +308,10 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/credentialmanagement/CredentialMediationRequirement.idl \
     $(WebCore)/Modules/credentialmanagement/CredentialRequestOptions.idl \
     $(WebCore)/Modules/credentialmanagement/CredentialsContainer.idl \
+    $(WebCore)/Modules/credentialmanagement/FederatedCredentialRequestOptions.idl \
+    $(WebCore)/Modules/credentialmanagement/IdentityCredentialRequestOptions.idl \
     $(WebCore)/Modules/credentialmanagement/Navigator+Credentials.idl \
+    $(WebCore)/Modules/credentialmanagement/OTPCredentialRequestOptions.idl \
     $(WebCore)/Modules/encryptedmedia/MediaKeyEncryptionScheme.idl \
     $(WebCore)/Modules/encryptedmedia/MediaKeyMessageEventInit.idl \
     $(WebCore)/Modules/encryptedmedia/MediaKeyMessageEvent.idl \
@@ -2222,6 +2225,7 @@ USER_AGENT_STYLE_SHEETS = \
     $(WebCore)/css/htmlSwitchControl.css \
     $(WebCore)/css/mathml.css \
     $(WebCore)/css/mathmlCoreExtras.css \
+    $(WebCore)/css/mathmlCoreMathvariant.css \
     $(WebCore)/css/mathmlFontSizeMath.css \
     $(WebCore)/css/mathmlLegacyFontSizeMath.css \
     $(WebCore)/css/popover.css \

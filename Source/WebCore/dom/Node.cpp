@@ -45,7 +45,6 @@
 #include "EventDispatcher.h"
 #include "EventHandler.h"
 #include "EventNames.h"
-#include "EventTargetInlines.h"
 #include "FrameInlines.h"
 #include "HTMLAreaElement.h"
 #include "HTMLBodyElement.h"
@@ -1483,6 +1482,16 @@ Node& Node::shadowIncludingRoot() const
         return host ? host->shadowIncludingRoot() : root;
     }
     return root;
+}
+
+SUPPRESS_NODELETE WebCoreOpaqueRoot Node::opaqueRoot() const
+{
+    if (isConnected()) {
+        Locker locker { TreeScope::treeScopeMutationLock() };
+        return WebCoreOpaqueRoot { &treeScope().documentScope() };
+    }
+    // FIXME: Possible race?
+    return traverseToOpaqueRoot();
 }
 
 Node& Node::getRootNode(const GetRootNodeOptions& options) const
