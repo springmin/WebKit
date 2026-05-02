@@ -31,6 +31,7 @@
 #if ENABLE(MALLOC_HEAP_BREAKDOWN)
 #include <mutex>
 #include <malloc/malloc.h>
+#include <wtf/NeverDestroyed.h>
 #endif
 
 namespace WTF {
