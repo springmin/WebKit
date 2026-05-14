@@ -186,6 +186,13 @@ protected:
 private:
     inline bool isFirstResolvingFunctionCalled() const { return flags() & isFirstResolvingFunctionCalledFlag; }
 
+#if USE(BUN_JSC_ADDITIONS)
+    // Embedder bindings (JSC__JSPromise__*) construct already-settled promises,
+    // twiddle handled/first-resolved bits directly, and walk the pending
+    // reaction list (heap or inline) for async stack traces — without going
+    // through the resolve/reject machinery.
+public:
+#endif
     inline InlineReactionKind inlineReactionKind() const
     {
         return static_cast<InlineReactionKind>((flags() & inlineReactionKindMask) >> inlineReactionKindShift);
@@ -213,13 +220,6 @@ private:
         ASSERT(hasInlineHandlerReaction());
         return uncheckedDowncast<JSPromise>(payloadCell());
     }
-#if USE(BUN_JSC_ADDITIONS)
-    // Embedder bindings (JSC__JSPromise__*) construct already-settled promises,
-    // twiddle handled/first-resolved bits directly, and walk the pending
-    // reaction list for async stack traces — without going through the
-    // resolve/reject machinery.
-public:
-#endif
     inline JSCell* payloadCell() const { return m_packed.pointer(); }
 
     void setFlags(uint16_t newFlags) { m_packed.setType(newFlags); }
