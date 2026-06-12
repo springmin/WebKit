@@ -87,6 +87,11 @@ if (WIN32)
         win/MemoryPressureHandlerWin.cpp
     )
 elseif (APPLE)
+    # When cross-compiling from a non-Darwin host, WebKitXcodeSDK.cmake (which
+    # sets Mig_EXECUTABLE via xcrun) is not included; fall back to PATH lookup.
+    if (NOT Mig_EXECUTABLE)
+        find_program(Mig_EXECUTABLE mig REQUIRED)
+    endif ()
     file(COPY mac/MachExceptions.defs DESTINATION ${WTF_DERIVED_SOURCES_DIR})
     add_custom_command(
         OUTPUT
@@ -96,7 +101,10 @@ elseif (APPLE)
             ${WTF_DERIVED_SOURCES_DIR}/mach_excUser.c
         MAIN_DEPENDENCY mac/MachExceptions.defs
         WORKING_DIRECTORY ${WTF_DERIVED_SOURCES_DIR}
-        COMMAND mig -DMACH_EXC_SERVER_TASKIDTOKEN_STATE -sheader MachExceptionsServer.h MachExceptions.defs
+        COMMAND ${Mig_EXECUTABLE} -header mach_exc.h -user mach_excUser.c
+            -sheader MachExceptionsServer.h -server mach_excServer.c
+            -DMACH_EXC_SERVER_TASKIDTOKEN_STATE -isysroot ${CMAKE_OSX_SYSROOT}
+            MachExceptions.defs
         VERBATIM)
     list(APPEND WTF_SOURCES
         cocoa/MemoryFootprintCocoa.cpp
