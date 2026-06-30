@@ -43,6 +43,14 @@ bool MediaSourcePrivate::hasFutureTime(const MediaTime& currentTime) const
     return hasFutureTime(currentTime, futureDataThreshold());
 }
 
+bool MediaSourcePrivate::hasFutureTime() const
+{
+    if (m_readyState.load() == MediaSourceReadyState::Closed)
+        return false;
+    auto threshold = timeIsProgressing() ? MediaTime::zeroTime() : futureDataThreshold();
+    return hasFutureTime(currentTime(), threshold);
+}
+
 bool MediaSourcePrivate::hasFutureTime(const MediaTime& currentTime, const MediaTime& threshold) const
 {
     if (currentTime >= duration())
@@ -69,6 +77,37 @@ bool MediaSourcePrivate::hasFutureTime(const MediaTime& currentTime, const Media
     // So we check if currentTime could progress further from its current value by at least one
     // video frame if paused, or if currentTime could go still progress.
     return localEnd - currentTime > threshold;
+}
+
+bool MediaSourcePrivate::hasBufferedTime(const MediaTime& time) const
+{
+    if (m_readyState.load() == MediaSourceReadyState::Closed)
+        return false;
+
+    if (time.isInvalid())
+        return false;
+
+    if (time > duration())
+        return false;
+
+    auto ranges = buffered();
+    if (!ranges.length())
+        return false;
+
+    return abs(ranges.nearest(time) - time) <= timeFudgeFactor();
+}
+
+bool MediaSourcePrivate::hasCurrentTime() const
+{
+    return hasBufferedTime(currentTime());
+}
+
+bool MediaSourcePrivate::isBuffered(const PlatformTimeRanges& ranges) const
+{
+    if (m_readyState.load() == MediaSourceReadyState::Closed)
+        return false;
+
+    return buffered().containWithEpsilon(ranges, timeFudgeFactor());
 }
 
 MediaSourcePrivate::MediaSourcePrivate(MediaSourcePrivateClient& client)
@@ -99,17 +138,93 @@ MediaTime MediaSourcePrivate::duration() const
 
 Ref<MediaTimePromise> MediaSourcePrivate::waitForTarget(const SeekTarget& target)
 {
-    assertIsMainThread();
-    if (RefPtr client = this->client()) {
-        m_reenqueuePending = true;
-        return client->waitForTarget(target)->whenSettled(RunLoop::currentSingleton(), [weakThis = ThreadSafeWeakPtr { *this }](auto&& result) {
-            RefPtr protectedThis = weakThis.get();
-            if (!result && protectedThis)
-                protectedThis->m_reenqueuePending = false;
-            return MediaTimePromise::createAndSettle(WTF::move(result));
-        });
+    m_reenqueuePending = true;
+
+    return invokeAsync(m_dispatcher, [weakThis = ThreadSafeWeakPtr { *this }, target]() -> Ref<MediaTimePromise> {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
+            return MediaTimePromise::createAndReject(PlatformMediaError::SourceRemoved);
+        assertIsCurrent(protectedThis->m_dispatcher.get());
+
+        protectedThis->m_waitForTargetPromise.emplace(PlatformMediaError::Cancelled);
+        Ref promise = protectedThis->m_waitForTargetPromise->promise();
+
+        {
+            Locker locker { protectedThis->m_lock };
+            protectedThis->m_pendingSeekTarget = target;
+        }
+
+        protectedThis->tryCompleteWaitForTarget();
+        return promise;
+    })->whenSettled(RunLoop::mainSingleton(), [weakThis = ThreadSafeWeakPtr { *this }](auto&& result) {
+        RefPtr protectedThis = weakThis.get();
+        if (!result && protectedThis)
+            protectedThis->m_reenqueuePending = false;
+        return MediaTimePromise::createAndSettle(WTF::move(result));
+    });
+}
+
+void MediaSourcePrivate::cancelPendingWaitForTarget()
+{
+    ensureOnDispatcher([protectedThis = Ref { *this }] {
+        assertIsCurrent(protectedThis->m_dispatcher.get());
+        {
+            Locker locker { protectedThis->m_lock };
+            protectedThis->m_pendingSeekTarget.reset();
+        }
+        protectedThis->m_waitForTargetPromise.reset();
+        protectedThis->m_reenqueuePending = false;
+    });
+}
+
+bool MediaSourcePrivate::canCompleteWaitForTarget() const
+{
+    assertIsCurrent(m_dispatcher.get());
+    MediaTime targetTime;
+    {
+        Locker locker { m_lock };
+        if (!m_pendingSeekTarget)
+            return false;
+        targetTime = m_pendingSeekTarget->time;
     }
-    return MediaTimePromise::createAndReject(PlatformMediaError::ClientDisconnected);
+    return hasBufferedTime(targetTime);
+}
+
+void MediaSourcePrivate::completeWaitForTarget()
+{
+    assertIsCurrent(m_dispatcher.get());
+    if (!m_waitForTargetPromise)
+        return;
+
+    SeekTarget target;
+    {
+        Locker locker { m_lock };
+        if (!m_pendingSeekTarget)
+            return;
+        target = *std::exchange(m_pendingSeekTarget, std::nullopt);
+    }
+    auto producer = std::exchange(m_waitForTargetPromise, std::nullopt);
+
+    // Pick the per-track seek time furthest from the target — mirrors
+    // the prior MediaSource::completeSeek behaviour.
+    auto seekTime = target.time;
+    for (RefPtr sourceBuffer : m_activeSourceBuffers) {
+        if (!sourceBuffer)
+            continue;
+        auto candidate = sourceBuffer->computeSeekTime(target);
+        if (abs(target.time - candidate) > abs(target.time - seekTime))
+            seekTime = candidate;
+    }
+    producer->resolve(seekTime);
+}
+
+void MediaSourcePrivate::tryCompleteWaitForTarget()
+{
+    assertIsCurrent(m_dispatcher.get());
+    if (!m_waitForTargetPromise)
+        return;
+    if (canCompleteWaitForTarget())
+        completeWaitForTarget();
 }
 
 Ref<GenericPromise> MediaSourcePrivate::reenqueueMediaForTime(const MediaTime& time)
@@ -264,6 +379,9 @@ void MediaSourcePrivate::updateBufferedRanges()
     if (isBufferedEqual(newBuffered))
         return;
     bufferedChanged(WTF::move(newBuffered));
+
+    // Buffered ranges advanced — a previously-blocked waitForTarget may now be satisfiable.
+    tryCompleteWaitForTarget();
 }
 
 PlatformTimeRanges MediaSourcePrivate::computeBufferedRanges(const Vector<PlatformTimeRanges>& activeRanges, bool ended)
@@ -462,6 +580,11 @@ void MediaSourcePrivate::ensureOnDispatcherSync(NOESCAPE Function<void()>&& func
 
 MediaTime MediaSourcePrivate::currentTime() const
 {
+    {
+        Locker locker { m_lock };
+        if (m_pendingSeekTarget)
+            return m_pendingSeekTarget->time;
+    }
     if (RefPtr player = this->player())
         return player->currentOrPendingSeekTime();
     return MediaTime::zeroTime();

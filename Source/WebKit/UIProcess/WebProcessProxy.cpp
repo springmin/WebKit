@@ -318,7 +318,7 @@ Ref<WebProcessProxy> WebProcessProxy::createForRemoteWorkers(RemoteWorkerType wo
 }
 
 WebProcessProxy::WebProcessProxy(WebProcessPool& processPool, WebsiteDataStore* websiteDataStore, IsPrewarmed isPrewarmed, CrossOriginMode crossOriginMode, LockdownMode lockdownMode, EnhancedSecurity enhancedSecurity)
-    : AuxiliaryProcessProxy(processPool.shouldTakeUIBackgroundAssertion() ? ShouldTakeUIBackgroundAssertion::Yes : ShouldTakeUIBackgroundAssertion::No
+    : AuxiliaryProcessProxy("WebProcess"_s, processPool.shouldTakeUIBackgroundAssertion() ? ShouldTakeUIBackgroundAssertion::Yes : ShouldTakeUIBackgroundAssertion::No
     , processPool.alwaysRunsAtBackgroundPriority() ? AlwaysRunsAtBackgroundPriority::Yes : AlwaysRunsAtBackgroundPriority::No)
     , m_backgroundResponsivenessTimer(makeUniqueRef<BackgroundProcessResponsivenessTimer>(*this))
     , m_processPool(processPool, isPrewarmed == IsPrewarmed::Yes ? IsWeak::Yes : IsWeak::No)
@@ -982,6 +982,16 @@ void WebProcessProxy::sendPageCloseMessage(std::optional<WebPageProxyIdentifier>
     }, pageID);
 }
 
+void WebProcessProxy::addPagePendingClose(WebPageProxyIdentifier pageID)
+{
+    m_pagesPendingClose.add(pageID);
+}
+
+void WebProcessProxy::removePagePendingClose(WebPageProxyIdentifier pageID)
+{
+    m_pagesPendingClose.remove(pageID);
+}
+
 bool WebProcessProxy::hasCommittedClientOrigin(const WebCore::ClientOrigin& clientOrigin) const
 {
     if (m_committedClientOrigins.contains(clientOrigin))
@@ -1619,6 +1629,13 @@ bool WebProcessProxy::wasPreviouslyApprovedFileURL(const URL& url) const
     return m_previouslyApprovedFilePaths.contains(fileSystemPath);
 }
 
+bool WebProcessProxy::hasGrantedSandboxExtensionForFile(const URL& url) const
+{
+    return m_mayHaveUniversalFileReadSandboxExtension
+        || hasAssumedReadAccessToURL(url)
+        || wasPreviouslyApprovedFileURL(url);
+}
+
 void WebProcessProxy::recordUserGestureAuthorizationToken(FrameIdentifier frameID, PageIdentifier pageID, WTF::UUID authorizationToken)
 {
     if (RefPtr dataStore = websiteDataStore()) {
@@ -2009,6 +2026,18 @@ void WebProcessProxy::didChangeThrottleState(ProcessThrottleState type)
     if (!m_areThrottleStateChangesEnabled) [[unlikely]]
         return;
     WEBPROCESSPROXY_RELEASE_LOG(ProcessSuspension, "didChangeThrottleState: type=%u", (unsigned)type);
+
+    bool isNowSuspended = type == ProcessThrottleState::Suspended;
+    if (m_lastNotifiedNetworkProcessSuspended != isNowSuspended) {
+        m_lastNotifiedNetworkProcessSuspended = isNowSuspended;
+        // The network process aborts in-progress IndexedDB transactions of a suspended process
+        // when they block transactions from other processes, so it needs to know about
+        // suspension state changes.
+        if (RefPtr dataStore = m_websiteDataStore) {
+            if (RefPtr networkProcess = dataStore->networkProcessIfExists())
+                networkProcess->send(Messages::NetworkProcess::SetWebProcessSuspended(coreProcessIdentifier(), isNowSuspended), 0);
+        }
+    }
 
     if (isStandaloneServiceWorkerProcess()) {
         WEBPROCESSPROXY_RELEASE_LOG(ProcessSuspension, "didChangeThrottleState: Release all assertions for network process because this is a service worker process without page");
@@ -2636,8 +2665,8 @@ void WebProcessProxy::createSpeechRecognitionServer(SpeechRecognitionServerIdent
 
     m_speechRecognitionServerMap.ensure(identifier, [&]() {
 #if ENABLE(MEDIA_STREAM)
-        auto createRealtimeMediaSource = [weakPage = WeakPtr { targetPage }]() {
-            return weakPage ? weakPage->createRealtimeMediaSourceForSpeechRecognition() : CaptureSourceOrError { { "Page is invalid"_s, WebCore::MediaAccessDenialReason::InvalidAccess } };
+        auto createRealtimeMediaSource = [weakPage = WeakPtr { targetPage }](WebCore::SpeechRecognitionConnectionClientIdentifier clientIdentifier) {
+            return weakPage ? weakPage->createRealtimeMediaSourceForSpeechRecognition(clientIdentifier) : CaptureSourceOrError { { "Page is invalid"_s, WebCore::MediaAccessDenialReason::InvalidAccess } };
         };
         Ref speechRecognitionServer = SpeechRecognitionServer::create(*this, identifier, WTF::move(permissionChecker), WTF::move(checkIfMockCaptureDevicesEnabled), WTF::move(createRealtimeMediaSource));
 #else

@@ -52,6 +52,7 @@ public:
 #if PLATFORM(COCOA)
     Vector<MachSendRight> ioSurfaceHandles() final;
     void updateRenderBuffers(WebModel::ResizeMeshDescriptor&&) final;
+    RefPtr<WebCore::NativeImage> getCurrentFrameAsNativeImage(uint32_t bufferIndex) final;
 #endif
 
 private:
@@ -75,7 +76,6 @@ private:
     std::optional<WebModel::Float4x4> entityTransform() const final;
 #endif
     void setFOV(float) final;
-    void setBackgroundColor(const WebModel::Float3&) final;
     void play(bool) final;
     void setEnvironmentMap(WebModel::UpdateTextureDescriptor&&) final;
     void updateContentsHeadroom(float) final;

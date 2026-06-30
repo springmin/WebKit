@@ -36,6 +36,7 @@
 #include "ProcessActivityGroup.h"
 #include "ProcessThrottler.h"
 #include "ScrollingAccelerationCurve.h"
+#include "TextExtractionCache.h"
 #include "TextManipulationParameters.h"
 #include "VisibleWebPageCounter.h"
 #include "WebColorPicker.h"
@@ -240,6 +241,8 @@ public:
     UserObservablePageCounter::Token pageIsUserObservableCount;
     std::optional<MonotonicTime> pageLoadStart;
     PageLoadState pageLoadState;
+
+    TextExtractionCache textExtractionCache;
     OptionSet<WebCore::ActivityState> potentiallyChangedActivityStateFlags;
     ProcessSuppressionDisabledToken preventProcessSuppressionCount;
     std::optional<PrivateClickMeasurementAndMetadata> privateClickMeasurement;
@@ -253,8 +256,8 @@ public:
     WebCore::IntSize sizeToContentAutoSizeMaximumSize;
     WebCore::Color themeColor;
     WebCore::FloatBoxExtent obscuredContentInsets;
-#if ENABLE(TOP_BANNER_VIEW_OVERLAYS)
-    bool hasBannerViewOverlay { false };
+#if HAVE(NSREFRESHCONTROLLER)
+    bool hasRefreshController { false };
 #endif
 #if PLATFORM(MAC)
     std::optional<WebCore::FloatBoxExtent> pendingObscuredContentInsets;

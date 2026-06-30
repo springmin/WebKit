@@ -244,6 +244,7 @@
 
                   { "name": "wpe-linux-bot-1", "platform": "wpe" },
                   { "name": "wpe-linux-bot-2", "platform": "wpe" },
+                  { "name": "wpe-linux-bot-3", "platform": "wpe" },
                   { "name": "wpe-linux-bot-4", "platform": "wpe" },
                   { "name": "wpe-linux-bot-5", "platform": "wpe" },
                   { "name": "wpe-linux-bot-7", "platform": "wpe" },
@@ -253,8 +254,6 @@
                   { "name": "wpe-linux-bot-11", "platform": "wpe" },
                   { "name": "wpe-linux-bot-12", "platform": "wpe" },
                   { "name": "wpe-linux-bot-13", "platform": "wpe" },
-                  { "name": "wpe-linux-bot-15", "platform": "wpe" },
-                  { "name": "wpe-linux-bot-16", "platform": "wpe" },
                   { "name": "wpe-linux-bot-17", "platform": "wpe-rpi4-32bits-mesa" },
                   { "name": "wpe-linux-bot-18", "platform": "wpe-rpi4-64bits-mesa" },
                   { "name": "wpe-linux-bot-19", "platform": "wpe-rpi4-32bits-mesa" },
@@ -691,18 +690,6 @@
                     "workernames": ["wpe-linux-bot-13"]
                   },
                   {
-                    "name": "WPE-Linux-ARM64-bit-Release-Debian-Stable-Build", "factory": "NoInstallDependenciesBuildFactory",
-                    "platform": "wpe", "configuration": "release", "architectures": ["arm64"],
-                    "additionalArguments": ["--no-experimental-features"],
-                    "workernames": ["wpe-linux-bot-15"]
-                  },
-                  {
-                    "name": "WPE-Linux-ARM32-bit-Release-Debian-Stable-Build", "factory": "NoInstallDependenciesBuildFactory",
-                    "platform": "wpe", "configuration": "release", "architectures": ["armv7"],
-                    "additionalArguments": ["--no-experimental-features"],
-                    "workernames": ["wpe-linux-bot-16"]
-                  },
-                  {
                     "name": "WPE-Linux-RPi4-32bits-Mesa-Release-Perf-Build", "factory": "CrossTargetBuildFactory",
                     "platform": "wpe-rpi4-32bits-mesa", "configuration": "release", "architectures": ["armv7"],
                     "additionalArguments": ["--cross-target=rpi4-32bits-mesa"],
@@ -757,6 +744,11 @@
                     "name": "WPE-Linux-ARM64-bit-Release-JS-Tests", "factory": "TestJSFactory",
                     "platform": "wpe", "configuration": "release", "architectures": ["arm64"],
                     "workernames": ["wpe-linux-bot-40"]
+                  },
+                  {
+                    "name": "WPE-Linux-ARM64-bit-Release-v252-BuildAndTest", "factory": "BuildAndTestAllPlusTest262WebDriverMVTFactory",
+                    "platform": "wpe", "configuration": "release", "architectures": ["arm64"],
+                    "workernames": ["wpe-linux-bot-3"]
                   }
                 ],
 
@@ -781,10 +773,11 @@
                                      "WPE-Linux-64-bit-Release-Build",
                                      "WPE-Linux-64-bit-Release-Clang-Build",
                                      "WPE-Linux-64-bit-Release-LibWebRTC-Build",
-                                     "WPE-Linux-ARM64-bit-Release-Debian-Stable-Build",
-                                     "WPE-Linux-ARM32-bit-Release-Debian-Stable-Build",
                                      "WPE-Linux-64-bit-Release-Non-Unified-Build",
                                      "WPE-Linux-ARM64-bit-Release-Build"]
+                  },
+                  { "type": "AnyBranchScheduler", "name": "webkitglib-v252", "change_filter": "webkitglib_v252_filter", "treeStableTimer": 45.0,
+                    "builderNames": ["WPE-Linux-ARM64-bit-Release-v252-BuildAndTest"]
                   },
                   { "type": "PlatformSpecificScheduler", "platform": "mac-tahoe", "branch": "main", "treeStableTimer": 45.0,
                   "builderNames": ["Apple-Tahoe-Release-Build", "Apple-Tahoe-Debug-Build", "Apple-Tahoe-LLINT-CLoop-BuildAndTest", "Apple-Tahoe-Safer-CPP-Checks"]

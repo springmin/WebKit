@@ -27,6 +27,9 @@
 
 #import "AppDelegate.h"
 #import "SettingsController.h"
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 270000
+#import <AppKit/NSRefreshController.h>
+#endif
 #import <PDFKit/PDFDocument.h>
 #import <QuartzCore/CATextLayer.h>
 #import <SecurityInterface/SFCertificateTrustPanel.h>
@@ -52,6 +55,7 @@
 #import <WebKit/_WKInspector.h>
 #import <WebKit/_WKLinkIconParameters.h>
 #import <WebKit/_WKUserInitiatedAction.h>
+#import <objc/runtime.h>
 
 static void* keyValueObservingContext = &keyValueObservingContext;
 static const int testHeaderBannerHeight = 42;
@@ -118,6 +122,10 @@ static const int testFooterBannerHeight = 58;
     BOOL _usingFindDelegate;
 
     CATextLayer *_pointerLockBanner;
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 270000
+    NSRefreshController *_refreshController;
+#endif
 }
 
 - (void)awakeFromNib
@@ -163,6 +171,17 @@ static const int testFooterBannerHeight = 58;
     _webView._usePlatformFindUI = NO;
 
     _zoomTextOnly = NO;
+
+    // FIXME: <webkit.org/b/317881> Remove this protocol check once the CMake port builds WKWebView+RefreshControl.swift.
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 270000
+    Protocol *refreshControlHosting = NSProtocolFromString(@"AppKit.NSRefreshControlHosting");
+    if (refreshControlHosting && [_webView conformsToProtocol:refreshControlHosting]) {
+        _refreshController = [[NSRefreshController alloc] init];
+        _refreshController.target = self;
+        _refreshController.action = @selector(_refreshControllerActivated:);
+        _webView.refreshController = _refreshController;
+    }
+#endif
 }
 
 - (id)windowWillReturnFieldEditor:(NSWindow *)sender toObject:(id)client
@@ -386,6 +405,14 @@ static BOOL areEssentiallyEqual(double a, double b)
 {
     [_webView reload];
 }
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 270000
+- (void)_refreshControllerActivated:(NSRefreshController *)refreshController
+{
+    [_webView reload];
+    [refreshController performSelector:@selector(endRefreshing) withObject:nil afterDelay:2.5];
+}
+#endif
 
 - (IBAction)showCertificate:(id)sender
 {
@@ -966,6 +993,9 @@ static BOOL isJavaScriptURL(NSURL *url)
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation
 {
     LOG(@"didFinishNavigation: %@", navigation);
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 270000
+    [_refreshController endRefreshing];
+#endif
 }
 
 - (void)webView:(WKWebView *)webView didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition disposition, NSURLCredential *__nullable credential))completionHandler

@@ -278,6 +278,13 @@ static NSString * const editablePointerRegionIdentifier = @"WKEditablePointerReg
 @end
 #endif
 
+#if HAVE(ADDITIONAL_ESIM_AUTOFILL_IDENTIFIERS)
+// FIXME: rdar://180464666 (Replace additional eSIM identifier strings with their actual constants)
+static NSString * const WKUITextContentTypeCellularIMEI1 = @"esim-imei1";
+static NSString * const WKUITextContentTypeCellularIMEI2 = @"esim-imei2";
+static NSString * const WKUITextContentTypeCellularNAL = @"esim-nal";
+#endif
+
 #if HAVE(PEPPER_UI_CORE)
 #if HAVE(QUICKBOARD_CONTROLLER)
 @interface WKContentView (QuickboardControllerSupport) <PUICQuickboardControllerDelegate>
@@ -5206,9 +5213,10 @@ static UIPasteboard *pasteboardForAccessCategory(WebCore::DOMPasteAccessCategory
 
 - (BOOL)_handleDOMPasteRequestWithResult:(WebCore::DOMPasteAccessResponse)response
 {
-    if (auto pasteAccessCategory = std::exchange(_domPasteRequestCategory, std::nullopt)) {
+    if (_domPasteRequestCategoryAndFrameID) {
+        auto [pasteAccessCategory, frameID] = *std::exchange(_domPasteRequestCategoryAndFrameID, std::nullopt);
         if (response == WebCore::DOMPasteAccessResponse::GrantedForCommand || response == WebCore::DOMPasteAccessResponse::GrantedForGesture) {
-            if (auto replyID = protect(_page)->grantAccessToCurrentPasteboardData(pasteboardNameForAccessCategory(*pasteAccessCategory), [] () { }))
+            if (auto replyID = protect(_page)->grantAccessToCurrentPasteboardData(pasteboardNameForAccessCategory(pasteAccessCategory), [] () { }, frameID))
                 protect(protect(protect(_page->websiteDataStore())->networkProcess())->connection())->waitForAsyncReplyAndDispatchImmediately<Messages::NetworkProcess::AllowFilesAccessFromWebProcess>(*replyID, 100_ms);
         }
     }
@@ -6400,7 +6408,7 @@ static void logTextInteraction(const char* methodName, UIGestureRecognizer *loup
 
     _isChangingFocusUsingAccessoryTab = YES;
     [self _internalBeginSelectionChange];
-    protect(_page)->focusNextFocusedElement(direction == WebKit::TabDirection::Next, [protectedSelf = retainPtr(self)] {
+    protect(_page)->focusNextFocusedElement(_focusedElementInformation.frameID(), direction == WebKit::TabDirection::Next, [protectedSelf = retainPtr(self)] {
         [protectedSelf _internalEndSelectionChange];
         [protectedSelf reloadInputViews];
         protectedSelf->_isChangingFocusUsingAccessoryTab = NO;
@@ -7256,6 +7264,18 @@ static UITextAutocapitalizationType toUITextAutocapitalize(WebCore::Autocapitali
     case WebCore::AutofillFieldName::DeviceEID:
     case WebCore::AutofillFieldName::DeviceIMEI:
 #endif
+#if HAVE(ESIM_AUTOFILL_SYSTEM_SUPPORT) && HAVE(ADDITIONAL_ESIM_AUTOFILL_IDENTIFIERS)
+    case WebCore::AutofillFieldName::DeviceIMEI1:
+        return protect(_page)->shouldAllowAutoFillForCellularIdentifiers() ? WKUITextContentTypeCellularIMEI1 : nil;
+    case WebCore::AutofillFieldName::DeviceIMEI2:
+        return protect(_page)->shouldAllowAutoFillForCellularIdentifiers() ? WKUITextContentTypeCellularIMEI2 : nil;
+    case WebCore::AutofillFieldName::DeviceNAL:
+        return protect(_page)->shouldAllowAutoFillForCellularIdentifiers() ? WKUITextContentTypeCellularNAL : nil;
+#else
+    case WebCore::AutofillFieldName::DeviceIMEI1:
+    case WebCore::AutofillFieldName::DeviceIMEI2:
+    case WebCore::AutofillFieldName::DeviceNAL:
+#endif
     case WebCore::AutofillFieldName::None:
     case WebCore::AutofillFieldName::NewPassword:
     case WebCore::AutofillFieldName::CurrentPassword:
@@ -7454,31 +7474,7 @@ static UITextAutocapitalizationType toUITextAutocapitalize(WebCore::Autocapitali
     auto extendedTraits = dynamic_objc_cast<WKExtendedTextInputTraits>(traits);
     auto privateTraits = (id <UITextInputTraits_Private>)traits;
 
-    BOOL isSingleLineDocument = ^{
-        switch (_focusedElementInformation.elementType) {
-        case WebKit::InputType::ContentEditable:
-        case WebKit::InputType::TextArea:
-        case WebKit::InputType::None:
-            return NO;
-        case WebKit::InputType::Color:
-        case WebKit::InputType::Date:
-        case WebKit::InputType::DateTimeLocal:
-        case WebKit::InputType::Drawing:
-        case WebKit::InputType::Email:
-        case WebKit::InputType::Month:
-        case WebKit::InputType::Number:
-        case WebKit::InputType::NumberPad:
-        case WebKit::InputType::Password:
-        case WebKit::InputType::Phone:
-        case WebKit::InputType::Search:
-        case WebKit::InputType::Select:
-        case WebKit::InputType::Text:
-        case WebKit::InputType::Time:
-        case WebKit::InputType::URL:
-        case WebKit::InputType::Week:
-            return YES;
-        }
-    }();
+    BOOL isSingleLineDocument = WebKit::isSingleLineInputType(_focusedElementInformation.elementType);
 
     if ([extendedTraits respondsToSelector:@selector(setSingleLineDocument:)])
         extendedTraits.singleLineDocument = isSingleLineDocument;
@@ -8920,14 +8916,14 @@ static BOOL allPasteboardItemOriginsMatchOrigin(UIPasteboard *pasteboard, const 
     return foundAtLeastOneMatchingIdentifier;
 }
 
-- (void)_requestDOMPasteAccessForCategory:(WebCore::DOMPasteAccessCategory)pasteAccessCategory requiresInteraction:(WebCore::DOMPasteRequiresInteraction)requiresInteraction elementRect:(const WebCore::IntRect&)elementRect originIdentifier:(const String&)originIdentifier completionHandler:(CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&)completionHandler
+- (void)_requestDOMPasteAccessForCategory:(WebCore::DOMPasteAccessCategory)pasteAccessCategory requiresInteraction:(WebCore::DOMPasteRequiresInteraction)requiresInteraction frameID:(WebCore::FrameIdentifier)frameID elementRect:(const WebCore::IntRect&)elementRect originIdentifier:(const String&)originIdentifier completionHandler:(CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&)completionHandler
 {
     if (auto existingCompletionHandler = std::exchange(_domPasteRequestHandler, WTF::move(completionHandler))) {
         ASSERT_NOT_REACHED();
         existingCompletionHandler(WebCore::DOMPasteAccessResponse::DeniedForGesture);
     }
 
-    _domPasteRequestCategory = pasteAccessCategory;
+    _domPasteRequestCategoryAndFrameID = { { pasteAccessCategory, frameID } };
 
     if (requiresInteraction == WebCore::DOMPasteRequiresInteraction::No && allPasteboardItemOriginsMatchOrigin(protect(pasteboardForAccessCategory(pasteAccessCategory)), originIdentifier)) {
         [self _handleDOMPasteRequestWithResult:WebCore::DOMPasteAccessResponse::GrantedForCommand];
@@ -9315,13 +9311,13 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
 - (void)focusedFormControlViewDidRequestNextNode:(WKFocusedFormControlView *)view
 {
     if (_focusedElementInformation.hasNextNode)
-        _page->focusNextFocusedElement(true, [] { });
+        _page->focusNextFocusedElement(_focusedElementInformation.frameID(), true, [] { });
 }
 
 - (void)focusedFormControlViewDidRequestPreviousNode:(WKFocusedFormControlView *)view
 {
     if (_focusedElementInformation.hasPreviousNode)
-        _page->focusNextFocusedElement(false, [] { });
+        _page->focusNextFocusedElement(_focusedElementInformation.frameID(), false, [] { });
 }
 
 - (BOOL)hasNextNodeForFocusedFormControlView:(WKFocusedFormControlView *)view
@@ -11394,7 +11390,7 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
         if (overriddenPreview)
             return overriddenPreview;
     }
-    return _dragDropInteractionState.previewForLifting(item, self, self.containerForDragPreviews, std::exchange(_positionInformationLinkIndicator, nullptr));
+    return _dragDropInteractionState.previewForLifting(item, self, self.containerForDragPreviews, self._scroller, std::exchange(_positionInformationLinkIndicator, nullptr));
 }
 
 - (void)dragInteraction:(UIDragInteraction *)interaction willAnimateLiftWithAnimator:(id<UIDragAnimating>)animator session:(id<UIDragSession>)session
@@ -11464,7 +11460,7 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
         if (overriddenPreview)
             return overriddenPreview;
     }
-    return _dragDropInteractionState.previewForCancelling(item, self, self.unscaledView);
+    return _dragDropInteractionState.previewForCancelling(item, self, self.unscaledView, self._scroller);
 }
 
 - (void)dragInteraction:(UIDragInteraction *)interaction item:(UIDragItem *)item willAnimateCancelWithAnimator:(id<UIDragAnimating>)animator
@@ -11821,7 +11817,7 @@ static RetainPtr<UIImage> uiImageForImage(WebCore::Image* image)
 }
 
 // FIXME: This should be merged with createTargetedDragPreview in DragDropInteractionState.
-static RetainPtr<UITargetedPreview> createTargetedPreview(UIImage *image, UIView *rootView, UIView *previewContainer, const WebCore::FloatRect& frameInRootViewCoordinates, const Vector<WebCore::FloatRect>& clippingRectsInFrameCoordinates, UIColor *backgroundColor)
+static RetainPtr<UITargetedPreview> createTargetedPreview(UIImage *image, UIView *rootView, UIView *previewContainer, UIScrollView *scrollView, const WebCore::FloatRect& frameInRootViewCoordinates, const Vector<WebCore::FloatRect>& clippingRectsInFrameCoordinates, UIColor *backgroundColor)
 {
     if (frameInRootViewCoordinates.isEmpty() || !image || !previewContainer.window)
         return nil;
@@ -11845,6 +11841,15 @@ static RetainPtr<UITargetedPreview> createTargetedPreview(UIImage *image, UIView
     [parameters setBackgroundColor:protect(backgroundColor ?: [UIColor clearColor])];
 
     CGPoint centerInContainerCoordinates = { CGRectGetMidX(frameInContainerCoordinates), CGRectGetMidY(frameInContainerCoordinates) };
+#if PLATFORM(VISION)
+    if (scrollView) {
+        WebCore::FloatRect viewportInContainer = [scrollView convertRect:scrollView.bounds toView:previewContainer];
+        centerInContainerCoordinates = {
+            WebKit::clampedDragPreviewCenterAxis(centerInContainerCoordinates.x, viewportInContainer.x(), viewportInContainer.maxX(), frameInContainerCoordinates.width() / 2),
+            WebKit::clampedDragPreviewCenterAxis(centerInContainerCoordinates.y, viewportInContainer.y(), viewportInContainer.maxY(), frameInContainerCoordinates.height() / 2)
+        };
+    }
+#endif
     auto target = adoptNS([[UIPreviewTarget alloc] initWithContainer:previewContainer center:centerInContainerCoordinates]);
 
     auto imageView = adoptNS([[UIImageView alloc] initWithImage:image]);
@@ -11858,7 +11863,7 @@ static RetainPtr<UITargetedPreview> createTargetedPreview(UIImage *image, UIView
         return nil;
 
     RetainPtr textIndicatorImage = uiImageForImage(protect(textIndicator->contentImage()));
-    RetainPtr preview = createTargetedPreview(textIndicatorImage.get(), self, previewContainer, textIndicator->textBoundingRectInRootViewCoordinates(), textIndicator->textRectsInBoundingRectCoordinates(), protect(^{
+    RetainPtr preview = createTargetedPreview(textIndicatorImage.get(), self, previewContainer, self.webView.scrollView, textIndicator->textBoundingRectInRootViewCoordinates(), textIndicator->textRectsInBoundingRectCoordinates(), protect(^{
         if (textIndicator->estimatedBackgroundColor() != WebCore::Color::transparentBlack)
             return cocoaColor(textIndicator->estimatedBackgroundColor()).autorelease();
 
@@ -11982,7 +11987,7 @@ static RetainPtr<UITargetedPreview> createFallbackTargetedPreview(UIView *rootVi
     } else if ((_positionInformation.isAttachment || _positionInformation.isImage) && _positionInformation.image) {
         RetainPtr cgImage = protect(_positionInformation.image)->createPlatformImage();
         auto image = adoptNS([[UIImage alloc] initWithCGImage:cgImage.get()]);
-        targetedPreview = createTargetedPreview(image.get(), self, containerForContextMenuHintPreviews.get(), _positionInformation.bounds, { }, nil);
+        targetedPreview = createTargetedPreview(image.get(), self, containerForContextMenuHintPreviews.get(), self.webView.scrollView, _positionInformation.bounds, { }, nil);
     }
 
     if (!targetedPreview) {

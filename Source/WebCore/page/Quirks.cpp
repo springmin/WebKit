@@ -414,6 +414,17 @@ bool Quirks::needsYouTubeCaptionsQuirk() const
 #endif
 }
 
+bool Quirks::needsCNNCaptionQuirk() const
+{
+#if PLATFORM(COCOA)
+    QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
+
+    return m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::NeedsCNNCaptionQuirk);
+#else
+    return false;
+#endif
+}
+
 // theguardian.com rdar://166727225
 bool Quirks::needsYouTubeEmbedAutoplayQuirk() const
 {
@@ -488,7 +499,7 @@ bool Quirks::shouldDisableElementFullscreenQuirk() const
     // (Ref: rdar://121473410)
     // YouTube.com does not provide AirPlay controls in fullscreen
     // (Ref: rdar://121471373)
-    if (!m_quirksData.shouldDisableElementFullscreen && !m_document->isTopDocument()) {
+    if (!m_quirksData.shouldDisableElementFullscreen && !protect(m_document)->isTopDocument()) {
         m_quirksData.shouldDisableElementFullscreen = isEmbedDomain("x.com"_s)
             || (PAL::currentUserInterfaceIdiomIsSmallScreen() && isYoutubeEmbedDomain());
     }
@@ -832,6 +843,14 @@ bool Quirks::needsBodyScrollbarWidthNoneDisabledQuirk() const
     return m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::NeedsBodyScrollbarWidthNoneDisabledQuirk);
 }
 
+// airindiaexpress.com https://webkit.org/b/317375
+bool Quirks::needsAirIndiaExpressLayeringQuirk() const
+{
+    QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
+
+    return m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::NeedsAirIndiaExpressLayeringQuirk);
+}
+
 // gizmodo.com rdar://102227302
 bool Quirks::needsFullscreenDisplayNoneQuirk() const
 {
@@ -950,7 +969,7 @@ bool Quirks::shouldSilenceResizeObservers() const
     // ResizeObservers are silenced on YouTube during the 'homing out' snapshout sequence to
     // resolve rdar://109837319. This is due to a bug on the site that is causing unexpected
     // content layout and can be removed when it is addressed.
-    auto* page = m_document->page();
+    RefPtr page = m_document->page();
     if (!page || !page->isTakingSnapshotsForApplicationSuspension())
         return false;
 
@@ -971,7 +990,7 @@ bool Quirks::shouldSilenceWindowResizeEventsDuringApplicationSnapshotting() cons
     // We silence window resize events during the 'homing out' snapshot sequence when on icloud.com/mail
     // to address <rdar://131836301>, on nytimes.com to address <rdar://problem/59763843>, and on
     // x.com (twitter) to address <rdar://problem/58804852> & <rdar://problem/61731801>.
-    auto* page = m_document->page();
+    RefPtr page = m_document->page();
     if (!page || !page->isTakingSnapshotsForApplicationSuspension())
         return false;
 
@@ -998,7 +1017,7 @@ bool Quirks::shouldSilenceMediaQueryListChangeEvents() const
 
     // We silence MediaQueryList's change events during the 'homing out' snapshot sequence when on x.com (twitter)
     // to address <rdar://problem/58804852> & <rdar://problem/61731801>.
-    auto* page = m_document->page();
+    RefPtr page = m_document->page();
     if (!page || !page->isTakingSnapshotsForApplicationSuspension())
         return false;
 
@@ -1111,7 +1130,7 @@ bool Quirks::shouldOpenAsAboutBlank(const String& stringToOpen) const
     if (!m_quirksData.isGoogleDocs)
         return false;
 
-    auto openerURL = m_document->url();
+    auto openerURL = protect(m_document)->url();
     if (!m_document->frame() || !m_document->frame()->loader().userAgent(openerURL).contains("Macintosh"_s))
         return false;
 
@@ -1518,8 +1537,9 @@ void Quirks::triggerOptionalStorageAccessIframeQuirk(const URL& frameURL, Comple
         bool isMSOLoginButNotMSTeams = document->url().hasQuery() && document->url().host() == "login.microsoftonline.com"_s && !document->url().query().contains("redirect_uri=https%3A%2F%2Fteams.microsoft.com"_s);
         bool isProbablyGoogleCCTLD = isProbablyRegistrableDomainForBrand(RegistrableDomain { document->url() }, "google"_s);
         bool isGoogleMyAccountForProfilePicture = isProbablyGoogleCCTLD && frameURL.hasQuery() && frameURL.host() == "myaccount.google.com"_s && frameURL.query().contains("startPath=profile-picture"_s);
-        if (isGoogleMyAccountForProfilePicture || (!isMSOLoginButNotMSTeams && subFrameDomainsForStorageAccessQuirk().contains(RegistrableDomain { frameURL }))) {
-            return DocumentStorageAccess::requestStorageAccessForNonDocumentQuirk(*document, RegistrableDomain { frameURL }, [completionHandler = WTF::move(completionHandler)](StorageAccessWasGranted) mutable {
+        RegistrableDomain frameDomain { frameURL };
+        if (isGoogleMyAccountForProfilePicture || (!isMSOLoginButNotMSTeams && subFrameDomainsForStorageAccessQuirk().contains(frameDomain))) {
+            return DocumentStorageAccess::requestStorageAccessForNonDocumentQuirk(*document, WTF::move(frameDomain), [completionHandler = WTF::move(completionHandler)](StorageAccessWasGranted) mutable {
                 completionHandler();
             });
         }
@@ -1535,7 +1555,7 @@ Quirks::StorageAccessResult Quirks::triggerOptionalStorageAccessQuirk(Element& e
 
     QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(Quirks::StorageAccessResult::ShouldNotCancelEvent);
 
-    RegistrableDomain domain { m_document->url() };
+    RegistrableDomain domain { protect(m_document)->url() };
 
     static NeverDestroyed<HashSet<RegistrableDomain>> kinjaQuirks = [] {
         HashSet<RegistrableDomain> set;
@@ -1561,12 +1581,8 @@ Quirks::StorageAccessResult Quirks::triggerOptionalStorageAccessQuirk(Element& e
 
         // Embedded YouTube case.
         if (element.hasClass() && domain == youTubeDomain && !document->isTopDocument() && ResourceLoadObserver::singleton().hasHadUserInteraction(youTubeDomain)) {
-            if (element.hasClassName("ytp-watch-later-icon"_s) || element.hasClassName("ytp-watch-later-icon"_s)) {
-                if (ResourceLoadObserver::singleton().hasHadUserInteraction(youTubeDomain)) {
-                    DocumentStorageAccess::requestStorageAccessForDocumentQuirk(*document, [](StorageAccessWasGranted) { });
-                    return Quirks::StorageAccessResult::ShouldNotCancelEvent;
-                }
-            }
+            if (element.hasClassName("ytp-watch-later-icon"_s))
+                DocumentStorageAccess::requestStorageAccessForDocumentQuirk(*document, [](StorageAccessWasGranted) { });
             return Quirks::StorageAccessResult::ShouldNotCancelEvent;
         }
 
@@ -1630,6 +1646,18 @@ bool Quirks::requiresUserGestureToPauseInPictureInPicture() const
     // regardless of whether that element is currently in PiP mode.
     // We should remove the quirk once <rdar://problem/67273166>, <rdar://problem/73369869>, and <rdar://problem/80645747> have been fixed.
     return m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::RequiresUserGestureToPauseInPictureInPictureQuirk);
+#else
+    return false;
+#endif
+}
+
+// youtube.com: rdar://178769976
+bool Quirks::requiresUserGestureToPlayInFullscreen() const
+{
+#if ENABLE(FULLSCREEN_API)
+    QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
+
+    return m_quirksData.quirkIsEnabled(QuirksData::SiteSpecificQuirk::RequiresUserGestureToPlayInFullscreenQuirk);
 #else
     return false;
 #endif
@@ -1998,12 +2026,13 @@ bool Quirks::needsIPhoneUserAgent(const URL& url)
 
 std::optional<String> Quirks::needsCustomUserAgentOverride(const URL& url, const String& applicationNameForUserAgent, const String& currentUserAgent)
 {
-    auto hostDomain = RegistrableDomain(url);
+    RegistrableDomain hostDomain { url };
+    auto& domainString = hostDomain.string();
     auto firefoxUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:139.0) Gecko/20100101 Firefox/139.0"_s;
     // FIXME(rdar://83078414): Remove once 101edu.co and aktiv.com removes the unsupported message.
-    if (hostDomain.string() == "app.101edu.co")
+    if (domainString == "app.101edu.co"_s)
         return firefoxUserAgent;
-    if (hostDomain.string() == "app.aktiv.com")
+    if (domainString == "app.aktiv.com"_s)
         return firefoxUserAgent;
 
     auto chromeUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"_s;
@@ -2013,7 +2042,7 @@ std::optional<String> Quirks::needsCustomUserAgentOverride(const URL& url, const
         return chromeUserAgent;
 #endif
 
-    if ((hostDomain.string() == "messenger.com" || hostDomain.string() == "facebook.com") && url.path().startsWith("/groupcall/ROOM:"_s))
+    if ((domainString == "messenger.com"_s || domainString == "facebook.com"_s) && url.path().startsWith("/groupcall/ROOM:"_s))
         return chromeUserAgent;
 
     // Outlook detects Safari and handles selections incorrectly in their rich text editor roosterjs
@@ -2023,7 +2052,7 @@ std::optional<String> Quirks::needsCustomUserAgentOverride(const URL& url, const
 
 #if PLATFORM(COCOA)
     // FIXME(rdar://148759791): Remove this once TikTok removes the outdated error message.
-    if (hostDomain.string() == "tiktok.com"_s) {
+    if (domainString == "tiktok.com"_s) {
         auto baseUA = currentUserAgent.isEmpty() ? standardUserAgentWithApplicationName(applicationNameForUserAgent) : currentUserAgent;
         return makeStringByReplacingAll(baseUA, "like Gecko"_s, "like Gecko, like Chrome/136."_s);
     }
@@ -2096,10 +2125,11 @@ bool Quirks::needsConsistentQueryParameterFilteringQuirk(const URL& url) const
 {
     QUIRKS_EARLY_RETURN_IF_DISABLED_WITH_VALUE(false);
 
-    static bool wasLoggedOnce { false };
-    URL lowercaseURL { url.string().foldCase() };
     if (!m_document->settings().consistentQueryParameterFilteringQuirkEnabled())
         return false;
+
+    static bool wasLoggedOnce { false };
+    URL lowercaseURL { url.string().foldCase() };
 
     if (lowercaseURL.host() == "bundle-file"_s || RegistrableDomain { lowercaseURL } == "consistentqueryparameterfiltering.internal"_s)
         return true;
@@ -2613,6 +2643,13 @@ bool Quirks::needsLimitedMatroskaSupport() const
 #endif
 }
 
+#if ENABLE(MEDIA_SOURCE)
+bool Quirks::needsSupportsProgressMonitoring() const
+{
+    return isDomain("ui.com"_s);
+}
+#endif
+
 // rdar://174779259.
 // Anthropic's claude.ai SPA, after a logout, leaves some identification cookies behind.
 // On the next /chat boot those non-auth cookies are enough to push the SPA into an
@@ -2925,6 +2962,9 @@ static void handleCNNQuirks(QuirksData& quirksData, const URL& /* quirksURL */, 
 #if ENABLE(THREADED_ANIMATIONS)
     quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::ShouldDisableThreadedAnimationsQuirk);
 #endif
+#if PLATFORM(COCOA)
+    quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::NeedsCNNCaptionQuirk);
+#endif
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -3043,7 +3083,7 @@ static void handleScribdQuirks(QuirksData& quirksData, const URL& /* quirksURL *
 static void handleTMobileQuirks(QuirksData& quirksData, const URL& quirksURL, const String& /* quirksDomainString */, const URL& /* documentURL */)
 {
     auto topDocumentHost = quirksURL.host();
-    if (topDocumentHost != "digits.t-mobile.com")
+    if (topDocumentHost != "digits.t-mobile.com"_s)
         return;
 
     quirksData.enableQuirks({
@@ -3321,6 +3361,15 @@ static void handleRedditQuirks(QuirksData& quirksData, const URL& /* quirksURL *
 #endif
 }
 #endif
+
+static void handleAirIndiaExpressQuirks(QuirksData& quirksData, const URL& /* quirksURL */, const String& quirksDomainString, const URL& /* documentURL */)
+{
+    QUIRKS_EARLY_RETURN_IF_NOT_DOMAIN("airindiaexpress.com"_s);
+
+    // airindiaexpress.com https://webkit.org/b/317375
+    quirksData.isAirIndiaExpress = true;
+    quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::NeedsAirIndiaExpressLayeringQuirk);
+}
 
 static void handleAmazonQuirks(QuirksData& quirksData, const URL& /* quirksURL */, const String& quirksDomainString, const URL&  /* documentURL */)
 {
@@ -3995,6 +4044,12 @@ static void handleYouTubeQuirks(QuirksData& quirksData, const URL& quirksURL, co
         quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::ShouldSuppressMediaSessionPauseActionOnInterruption);
 #endif
 
+#if PLATFORM(VISION) && ENABLE(FULLSCREEN_API)
+    // Lens.app rdar://178769976
+    if (WTF::IOSApplication::isLensApp())
+        quirksData.enableQuirk(QuirksData::SiteSpecificQuirk::RequiresUserGestureToPlayInFullscreenQuirk);
+#endif
+
     UNUSED_PARAM(quirksURL);
 }
 
@@ -4095,6 +4150,7 @@ void Quirks::determineRelevantQuirks()
 #if ENABLE(MEDIA_STREAM)
         { "actesting"_s, &handleACTestingQuirks },
 #endif
+        { "airindiaexpress"_s, &handleAirIndiaExpressQuirks },
         { "amazon"_s, &handleAmazonQuirks },
         { "apple"_s, &handleAppleQuirks },
 #if PLATFORM(IOS_FAMILY)
@@ -4247,7 +4303,7 @@ void Quirks::determineRelevantQuirks()
 
     auto findResult = dispatchMap->find(quirkDomainWithoutPSL);
     if (findResult != dispatchMap->end())
-        (findResult->value)(m_quirksData, quirksURL, quirksDomainString, m_document->url());
+        (findResult->value)(m_quirksData, quirksURL, quirksDomainString, protect(m_document)->url());
 
     // Note: `needsDisableDOMPasteAccessQuirk` needs a live document to assess
     // Note: `shouldDisableElementFullscreen` needs a live document for embedded sites

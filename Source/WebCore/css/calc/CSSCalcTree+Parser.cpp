@@ -463,7 +463,7 @@ static std::optional<TypedChild> consumeClamp(CSSParserTokenRange& tokens, int d
     };
     auto parseCalcSumOrNone = [](auto& tokens, auto depth, auto& state) -> std::optional<TypedChildOrNone> {
         if (tokens.peek().id() == CSSValueNone) {
-            tokens.consume();
+            tokens.consumeIncludingWhitespace();
             return TypedChildOrNone { ChildOrNone { CSS::Keyword::None { } }, Type { } };
         }
         auto sum = parseCalcSum(tokens, depth, state);
@@ -900,12 +900,9 @@ static std::optional<TypedChild> consumeRandom(CSSParserTokenRange& tokens, int 
     return TypedChild { makeChild(WTF::move(op), *outputType), *outputType };
 }
 
-static std::optional<TypedChild> consumeProgress(CSSParserTokenRange& tokens, int depth, ParserState& state)
+template<typename Op>
+static std::optional<TypedChild> consumeProgressImpl(CSSParserTokenRange& tokens, int depth, ParserState& state)
 {
-    // <progress()> = progress( <calc-sum>, <calc-sum>, <calc-sum> )
-
-    using Op = Progress;
-
     auto value = parseCalcSum(tokens, depth, state);
     if (!value) {
         LOG_WITH_STREAM(Calc, stream << "Failed '" << nameLiteralForSerialization(Op::id) << "' function - failed parse of argument #1");
@@ -983,6 +980,15 @@ static std::optional<TypedChild> consumeProgress(CSSParserTokenRange& tokens, in
             return TypedChild { WTF::move(*replacement), *outputType };
     }
     return TypedChild { makeChild(WTF::move(op), *outputType), *outputType };
+}
+
+static std::optional<TypedChild> consumeProgress(CSSParserTokenRange& tokens, int depth, ParserState& state)
+{
+    // <progress()> = progress( no-clamp? <calc-sum>, <calc-sum>, <calc-sum> )
+
+    if (CSSPropertyParserHelpers::consumeIdentRaw<CSSValueNoClamp>(tokens))
+        return consumeProgressImpl<ProgressNoClamp>(tokens, depth, state);
+    return consumeProgressImpl<Progress>(tokens, depth, state);
 }
 
 static std::optional<TypedChild> consumeValueWithoutSimplifyingRootCalc(CSSParserTokenRange& tokens, int depth, ParserState& state)
@@ -1110,9 +1116,11 @@ static std::optional<TypedChild> consumeAnchorFallback(CSSParserTokenRange& toke
         if (state.parserOptions.propertyOptions.unitlessZeroLength != UnitlessZeroQuirk::Allow)
             return { };
 
-        // Allow unitless 0.
-        auto value = std::get<Number>(typedFallback->child.value);
-        if (value.value)
+        // Allow unitless 0, but only as a bare <number> leaf. A math function
+        // such as calc(0) or min(0, 0) also has number type but is wrapped in a
+        // Sum node, so it is not a valid unitless-zero fallback.
+        auto* number = std::get_if<Number>(&typedFallback->child.value);
+        if (!number || number->value)
             return { };
 
         return TypedChild { makeNumeric(0, CSSUnitType::CSS_PX), Type::makeLength() };

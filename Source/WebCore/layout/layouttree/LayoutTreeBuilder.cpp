@@ -113,8 +113,8 @@ std::unique_ptr<Layout::LayoutTree> TreeBuilder::buildLayoutTree(const RenderVie
     PhaseScope scope(Phase::Type::TreeBuilding);
 
     auto rootStyle = Style::ComputedStyle::clone(renderView.style());
-    rootStyle.setLogicalWidth(Style::PreferredSize::Fixed { renderView.width() });
-    rootStyle.setLogicalHeight(Style::PreferredSize::Fixed { renderView.height() });
+    rootStyle.setLogicalWidth(Style::PreferredSize::Fixed { renderView.borderBoxWidth() });
+    rootStyle.setLogicalHeight(Style::PreferredSize::Fixed { renderView.borderBoxHeight() });
 
     auto rootLayoutBox = makeUnique<InitialContainingBlock>(WTF::move(rootStyle));
     TreeBuilder().buildSubTree(renderView, *rootLayoutBox);
@@ -562,7 +562,7 @@ void printLayoutTreeForLiveDocuments()
         auto layoutTree = TreeBuilder::buildLayoutTree(renderView);
         auto layoutState = LayoutState { document, layoutTree->root(), Layout::LayoutState::Type::Secondary, { }, { }, { }, { } };
 
-        LayoutContext(layoutState).layout(renderView.size());
+        LayoutContext(layoutState).layout(renderView.borderBoxSize());
         showLayoutTree(downcast<InitialContainingBlock>(layoutState.root()), &layoutState);
     }
 }

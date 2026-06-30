@@ -106,15 +106,15 @@ void RenderTableRow::styleDidChange(Style::Difference diff, const Style::Compute
             // If the border width changes on a row, we need to make sure the cells in the row know to lay out again.
             // This only happens when borders are collapsed, since they end up affecting the border sides of the cell
             // itself.
-            auto propagageNeedsLayoutOnBorderSizeChange = [&] (auto& row) {
+            auto propagateNeedsLayoutOnBorderSizeChange = [&] (auto& row) {
                 for (auto* cell = row.firstCell(); cell; cell = cell->nextCell())
                     cell->setNeedsLayoutAndInvalidateContentLogicalWidths();
             };
-            propagageNeedsLayoutOnBorderSizeChange(*this);
+            propagateNeedsLayoutOnBorderSizeChange(*this);
             if (auto* previousRow = this->previousRow())
-                propagageNeedsLayoutOnBorderSizeChange(*previousRow);
+                propagateNeedsLayoutOnBorderSizeChange(*previousRow);
             if (auto* nextRow = this->nextRow())
-                propagageNeedsLayoutOnBorderSizeChange(*nextRow);
+                propagateNeedsLayoutOnBorderSizeChange(*nextRow);
         }
     }
 }
@@ -238,7 +238,7 @@ void RenderTableRow::paintOutlineForRowIfNeeded(PaintInfo& paintInfo, const Layo
     PaintPhase paintPhase = paintInfo.phase;
     if ((paintPhase == PaintPhase::Outline || paintPhase == PaintPhase::SelfOutline) && style().usedVisibility() == Visibility::Visible) {
         auto adjustedPaintOffset = paintOffset + location();
-        paintOutline(paintInfo, LayoutRect(adjustedPaintOffset, size()));
+        paintOutline(paintInfo, LayoutRect(adjustedPaintOffset, borderBoxSize()));
     }
 }
 
@@ -248,7 +248,7 @@ void RenderTableRow::paintShadowForRowIfNeeded(PaintInfo& paintInfo, const Layou
         return;
 
     auto adjustedPaintOffset = paintOffset + location();
-    LayoutRect rect(adjustedPaintOffset, size());
+    LayoutRect rect(adjustedPaintOffset, borderBoxSize());
     adjustBorderBoxRectForPainting(rect);
 
     BackgroundPainter backgroundPainter { *this, paintInfo };

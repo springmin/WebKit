@@ -118,8 +118,8 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(ListAttributeTargetObserver);
 
 static constexpr int maxSavedResults = 256;
 
-HTMLInputElement::HTMLInputElement(const QualifiedName& tagName, Document& document, HTMLFormElement* form, CreationType creationType)
-    : HTMLTextFormControlElement(tagName, document, form)
+HTMLInputElement::HTMLInputElement(const QualifiedName& tagName, Document& document, CreationType creationType)
+    : HTMLTextFormControlElement(tagName, document)
     , m_parsingInProgress(creationType == CreationType::ByParser)
     // m_inputType is lazily created when constructed by the parser to avoid constructing unnecessarily a text inputType,
     // just to destroy them when the |type| attribute gets set by the parser to something else than 'text'.
@@ -128,14 +128,14 @@ HTMLInputElement::HTMLInputElement(const QualifiedName& tagName, Document& docum
     ASSERT(hasTagName(inputTag));
 }
 
-Ref<HTMLInputElement> HTMLInputElement::create(const QualifiedName& tagName, Document& document, HTMLFormElement* form, bool createdByParser)
+Ref<HTMLInputElement> HTMLInputElement::create(const QualifiedName& tagName, Document& document, bool createdByParser)
 {
-    return adoptRef(*new HTMLInputElement(tagName, document, form, createdByParser ? CreationType::ByParser : CreationType::Normal));
+    return adoptRef(*new HTMLInputElement(tagName, document, createdByParser ? CreationType::ByParser : CreationType::Normal));
 }
 
 Ref<Element> HTMLInputElement::cloneElementWithoutAttributesAndChildren(Document& document, CustomElementRegistry*) const
 {
-    return adoptRef(*new HTMLInputElement(tagQName(), document, nullptr, CreationType::ByCloning));
+    return adoptRef(*new HTMLInputElement(tagQName(), document, CreationType::ByCloning));
 }
 
 HTMLImageLoader& HTMLInputElement::ensureImageLoader()
@@ -1016,7 +1016,7 @@ void HTMLInputElement::setActivatedSubmit(bool flag)
 bool HTMLInputElement::appendFormData(DOMFormData& formData)
 {
     Ref protectedInputType { *m_inputType };
-    return m_inputType->isFormDataAppendable() && m_inputType->appendFormData(formData);
+    return protectedInputType->isFormDataAppendable() && protectedInputType->appendFormData(formData);
 }
 
 void HTMLInputElement::reset()
@@ -1074,7 +1074,7 @@ void HTMLInputElement::setChecked(bool isChecked, WasSetByJavaScript wasCheckedB
     if (checked() == isChecked)
         return;
 
-    m_inputType->willUpdateCheckedness(isChecked, wasCheckedByJavaScript);
+    protect(m_inputType)->willUpdateCheckedness(isChecked, wasCheckedByJavaScript);
 
     Style::PseudoClassChangeInvalidation checkedInvalidation(*this, CSSSelector::PseudoClass::Checked, isChecked);
 
@@ -1108,7 +1108,7 @@ void HTMLInputElement::setIndeterminate(bool newValue)
     if (CheckedPtr renderer = this->renderer(); renderer && renderer->style().hasUsedAppearance())
         renderer->repaint();
 
-    if (CheckedPtr cache = document().existingAXObjectCache())
+    if (CheckedPtr cache = protect(document())->existingAXObjectCache())
         cache->valueChanged(*this);
 }
 

@@ -61,6 +61,7 @@
 #include "ContextDestructionObserverInlines.h"
 #include "CookieJar.h"
 #include "CrossOriginPreflightResultCache.h"
+#include "CueMatch.h"
 #include "Cursor.h"
 #include "DOMAsyncIterator.h"
 #include "DOMPointReadOnly.h"
@@ -636,8 +637,8 @@ void Internals::resetToConsistentState(Page& page)
         page.setHeaderHeight(0);
         page.setFooterHeight(0);
         page.setObscuredContentInsets({ });
-#if ENABLE(TOP_BANNER_VIEW_OVERLAYS)
-        page.setHasBannerViewOverlay(false);
+#if HAVE(NSREFRESHCONTROLLER)
+        page.setHasRefreshController(false);
 #endif
         mainFrameView->setUseFixedLayout(false);
         mainFrameView->setFixedLayoutSize(IntSize());
@@ -756,8 +757,8 @@ void Internals::resetToConsistentState(Page& page)
 #endif
 
 #if ENABLE(MEDIA_SESSION) && USE(GLIB)
-    MediaSessionManagerGLib* glibSessionManager = static_cast<MediaSessionManagerGLib*>(sessionManager.get());
-    glibSessionManager->setDBusNotificationsEnabled(false);
+    if (auto* glibSessionManager = dynamicDowncast<MediaSessionManagerGLib>(sessionManager.get()))
+        glibSessionManager->setDBusNotificationsEnabled(false);
 #endif
 
 #if PLATFORM(COCOA)
@@ -986,7 +987,7 @@ CachedResource* Internals::resourceFromMemoryCache(const String& url)
         return nullptr;
 
     ResourceRequest request(contextDocument()->encodingParseURL(url));
-    request.setDomainForCachePartition(contextDocument()->domainForCachePartition());
+    request.setShouldBlockThirdPartyStorage(contextDocument()->shouldBlockThirdPartyStorage());
 
     return MemoryCache::singleton().resourceForRequest(request, contextDocument()->page()->sessionID());
 }
@@ -3360,6 +3361,24 @@ ExceptionOr<unsigned> Internals::countFindMatches(const String& text, const Vect
 
     return document->page()->countFindMatches(text, parsedOptions.releaseReturnValue(), 1000);
 }
+
+#if ENABLE(VIDEO)
+ExceptionOr<Vector<double>> Internals::findCueMatches(const String& text, const Vector<String>& findOptions)
+{
+    Document* document = contextDocument();
+    if (!document || !document->page())
+        return Exception { ExceptionCode::InvalidAccessError };
+
+    auto parsedOptions = parseFindOptions(findOptions);
+    if (parsedOptions.hasException())
+        return parsedOptions.releaseException();
+
+    auto matches = document->page()->findCueMatches(text, parsedOptions.releaseReturnValue());
+    return WTF::map(matches, [](const auto& match) -> double {
+        return match.seekTime.toDouble();
+    });
+}
+#endif
 
 unsigned Internals::numberOfIDBTransactions() const
 {
@@ -6267,8 +6286,8 @@ float Internals::pageMediaVolume()
     return page->mediaVolume();
 }
 
-#if ENABLE(TOP_BANNER_VIEW_OVERLAYS)
-void Internals::setPageHasBannerViewOverlayForTesting(bool hasBannerViewOverlay)
+#if ENABLE(NSREFRESHCONTROLLER_TESTING)
+void Internals::setPageHasRefreshControllerForTesting(bool hasRefreshController)
 {
     RefPtr document = contextDocument();
     if (!document)
@@ -6278,7 +6297,7 @@ void Internals::setPageHasBannerViewOverlayForTesting(bool hasBannerViewOverlay)
     if (!page)
         return;
 
-    page->setHasBannerViewOverlay(hasBannerViewOverlay);
+    page->setHasRefreshController(hasRefreshController);
 }
 #endif
 

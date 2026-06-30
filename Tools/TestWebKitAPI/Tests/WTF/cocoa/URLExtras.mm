@@ -196,8 +196,14 @@ TEST(URLExtras, URLExtras_NotSpoofed)
     EXPECT_STREQ("https://\u0551\u0535and!$^&*()-~+={}or<>,.?\u0575\u0543.biz", userVisibleString(literalURL("https://\u0551\u0535and!$^&*()-~+={}or<>,.?\u0575\u0543.biz")));
     EXPECT_STREQ("https://\u0551%67/", userVisibleString(literalURL("https://\u0551g/")));
     EXPECT_STREQ("https://\u0581%67/", userVisibleString(literalURL("https://\u0581g/")));
-    EXPECT_STREQ("https://o%D5%95%2F", userVisibleString(literalURL("https://o\u0555/")));
-    EXPECT_STREQ("https://o%D6%85%2F", userVisibleString(literalURL("https://o\u0585/")));
+    EXPECT_STREQ("https://o%D5%95/", userVisibleString(literalURL("https://o\u0555/")));
+    EXPECT_STREQ("https://o%D6%85/", userVisibleString(literalURL("https://o\u0585/")));
+    EXPECT_STREQ("https://example.org/anything/\xD4\xB1\xD5\x8D/test", userVisibleString(literalURL("https://example.org/anything/%D4%B1%D5%8D/test")));
+    EXPECT_STREQ("https://example.\xD4\xB1\xD5\x8D:123/anything", userVisibleString(literalURL("https://example.\xD4\xB1\xD5\x8D:123/anything")));
+    EXPECT_STREQ("https://example.com:123/\xD4\xB1\xD5\x8D?query", userVisibleString(literalURL("https://example.com:123/\xD4\xB1\xD5\x8D?query")));
+    EXPECT_STREQ("https://example.com:123/?\xD5\x8D\xD4\xB1", userVisibleString(literalURL("https://example.com:123/?\xD5\x8D\xD4\xB1")));
+    EXPECT_STREQ("https://example.com:123/\xD4\xB1\xD5\x8D#fragment", userVisibleString(literalURL("https://example.com:123/\xD4\xB1\xD5\x8D#fragment")));
+    EXPECT_STREQ("https://example.com:123/#\xD5\x8D\xD4\xB1", userVisibleString(literalURL("https://example.com:123/#\xD5\x8D\xD4\xB1")));
 
     // Tamil
     EXPECT_STREQ("https://\u0BE6\u0BE7\u0BE8\u0BE9count/", userVisibleString(literalURL("https://\u0BE6\u0BE7\u0BE8\u0BE9count/")));
@@ -300,6 +306,22 @@ TEST(URLExtras, URLExtras_PercentEncodedIDN)
     // m%C3%BCnchen.de should decode to münchen.de, then encode to xn--mnchen-3ya.de.
     EXPECT_STREQ("xn--mnchen-3ya.de", [WTF::encodeHostName(@"m%C3%BCnchen.de") UTF8String]);
     EXPECT_STREQ("http://xn--mnchen-3ya.de/", originalDataAsString(WTF::URLWithUserTypedString(@"http://m%C3%BCnchen.de/", nil)));
+}
+
+TEST(URLExtras, URLExtras_InvalidACELabel)
+{
+    // xn--8i7caa Punycode-decodes to U+FF57 U+FF57 U+FF57 (FULLWIDTH LATIN SMALL LETTER W),
+    // which has UTS#46 "mapped" status — so the post-decode label fails validation. ASCII
+    // inputs are nevertheless accepted as-is.
+
+    EXPECT_STREQ("http://xn--8i7caa.example/", originalDataAsString(WTF::URLWithUserTypedString(@"http://xn--8i7caa.example/", nil)));
+    EXPECT_STREQ("http://xn--8i7caa.example/", userVisibleString(WTF::URLWithUserTypedString(@"http://xn--8i7caa.example/", nil)));
+
+    EXPECT_STREQ("http://xn--8i7caa.example/", originalDataAsString(literalURL("http://xn--8i7caa.example/")));
+    EXPECT_STREQ("http://xn--8i7caa.example/", userVisibleString(literalURL("http://xn--8i7caa.example/")));
+
+    EXPECT_STREQ("xn--8i7caa.example", [WTF::encodeHostName(@"xn--8i7caa.example") UTF8String]);
+    EXPECT_NULL([@"xn--8i7caa.example" _wk_decodeHostName]);
 }
 
 TEST(URLExtras, URLExtras_IPv6)

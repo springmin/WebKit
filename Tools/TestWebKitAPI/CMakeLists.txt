@@ -114,7 +114,7 @@ set(TestWTF_SOURCES
     Tests/WTF/RunLoop.cpp
     Tests/WTF/SHA1.cpp
     Tests/WTF/SafeStrerror.cpp
-    Tests/WTF/SaturatedArithmeticOperations.cpp
+    Tests/WTF/SaturatingArithmeticOperations.cpp
     Tests/WTF/Scope.cpp
     Tests/WTF/ScopedLambda.cpp
     Tests/WTF/SegmentedVector.cpp
@@ -391,6 +391,9 @@ if (ENABLE_WEBKIT)
     set(TestWebKit_FRAMEWORKS
         WebKit
     )
+    if (APPLE)
+        list(APPEND TestWebKit_FRAMEWORKS WebKitLegacy)
+    endif ()
 
     set(TestWebKit_DEPENDENCIES
         TestWebKitAPIInjectedBundle

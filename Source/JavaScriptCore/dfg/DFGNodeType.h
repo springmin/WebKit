@@ -363,6 +363,7 @@ namespace JSC { namespace DFG {
     macro(RegExpMatchFastGlobal, NodeResultJS | NodeMustGenerate) \
     macro(RegExpSearch, NodeResultInt32 | NodeMustGenerate) \
     macro(RegExpSplitFast, NodeResultJS | NodeMustGenerate) \
+    macro(RegExpStringIteratorNext, NodeResultJS | NodeMustGenerate) \
     macro(GetRegExpFlag, NodeResultBoolean) \
     macro(StringReplace, NodeResultJS | NodeMustGenerate) \
     macro(StringReplaceAll, NodeResultJS | NodeMustGenerate) \
@@ -611,7 +612,7 @@ namespace JSC { namespace DFG {
     macro(NormalizeMapKey, NodeResultJS) \
     macro(MapGet, NodeResultStorage) \
     macro(LoadMapValue, NodeResultJS) \
-    macro(MapIteratorNext, NodeResultBoolean) \
+    macro(MapIteratorNext, 0) \
     macro(MapIteratorKey, NodeResultJS) \
     macro(MapIteratorValue, NodeResultJS) \
     macro(MapStorage, NodeResultJS) /* Get the map storage if exists. */ \

@@ -1,20 +1,26 @@
 /*
- * Copyright (C) 2025 Igalia, S.L.
+ * Copyright (C) 2025-2026 Igalia, S.L.
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public License
- * aint with this library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA 02110-1301, USA.
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. AND ITS CONTRIBUTORS ``AS IS''
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE INC. OR ITS CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #pragma once
@@ -30,17 +36,12 @@
 #include <wtf/TZoneMalloc.h>
 #include <wtf/Threading.h>
 
-namespace WebCore {
-class GBMDevice;
-class GLContext;
-class GLDisplay;
-}
-
 namespace WebKit {
 
 #if ENABLE(WEBXR_HIT_TEST)
 class OpenXRHitTestManager;
 #endif
+class OpenXRGraphicsBinding;
 class OpenXRInput;
 class OpenXRLayer;
 class OpenXRSwapchain;
@@ -76,7 +77,6 @@ public:
 
 private:
     void createInstance();
-    RefPtr<WebCore::GLDisplay> createGLDisplay(bool isForTesting) const;
     void initializeDevice(bool isForTesting);
     void initializeSystem();
     void initializeBlendModes();
@@ -95,14 +95,13 @@ private:
 
     void createSessionIfNeeded();
     void handleSessionStateChange();
-    void tryInitializeGraphicsBinding();
     void cleanupAllResources();
     void cleanupInstanceAndAssociatedResources();
     void cleanupSessionAndAssociatedResources();
     bool collectSwapchainFormatsIfNeeded();
     enum class PollResult : bool;
     PollResult pollEvents();
-    std::unique_ptr<OpenXRSwapchain> createSwapchain(uint32_t width, uint32_t height, bool alpha) const;
+    std::unique_ptr<OpenXRSwapchain> createSwapchain(uint32_t width, uint32_t height, bool alpha, uint32_t faceCount = 1) const;
     void createReferenceSpacesIfNeeded(Box<RenderState>);
 #if ENABLE(WEBXR_HIT_TEST)
     XrSpace spaceForHitTest(const PlatformXR::NativeOriginInformation&) const;
@@ -123,10 +122,7 @@ private:
     XrEnvironmentBlendMode m_vrBlendMode;
     XrEnvironmentBlendMode m_arBlendMode;
     PlatformXR::SessionMode m_sessionMode;
-    RefPtr<WebCore::GLDisplay> m_glDisplay;
-#if USE(GBM)
-    mutable RefPtr<WebCore::GBMDevice> m_gbmDevice;
-#endif
+    std::unique_ptr<OpenXRGraphicsBinding> m_graphicsBinding;
     std::unique_ptr<OpenXRInput> m_input;
 
     XrSession m_session { XR_NULL_HANDLE };
@@ -135,12 +131,6 @@ private:
     Vector<XrView> m_views;
     HashMap<PlatformXR::LayerHandle, std::unique_ptr<OpenXRLayer>> m_layers;
     Vector<int64_t> m_supportedSwapchainFormats;
-#if OS(ANDROID)
-    XrGraphicsBindingOpenGLESAndroidKHR m_graphicsBinding;
-#else
-    XrGraphicsBindingEGLMNDX m_graphicsBinding;
-#endif
-    std::unique_ptr<WebCore::GLContext> m_glContext;
     XrSpace m_viewerSpace { XR_NULL_HANDLE };
     XrSpace m_localSpace { XR_NULL_HANDLE };
     XrSpace m_floorSpace { XR_NULL_HANDLE };

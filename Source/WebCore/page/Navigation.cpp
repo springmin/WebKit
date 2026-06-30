@@ -642,6 +642,9 @@ ExceptionOr<void> Navigation::updateCurrentEntry(UpdateCurrentEntryOptions&& opt
 bool Navigation::hasEntriesAndEventsDisabled() const
 {
     RefPtr window = this->window();
+    if (!window)
+        return true;
+
     RefPtr document = window->document();
     if (!document || !document->isFullyActive())
         return true;
@@ -914,6 +917,8 @@ NavigationAPIMethodTracker* Navigation::MethodTrackerRegistry::upcomingTraverse(
 {
     assertIsMainThread();
     Locker locker { m_lock };
+    if (key.isNull())
+        return nullptr;
     return m_upcomingTraverse.get(key);
 }
 
@@ -949,6 +954,8 @@ NavigationAPIMethodTracker* Navigation::MethodTrackerRegistry::promoteUpcomingTr
     Locker locker { m_lock };
     // FIXME: We should be able to assert m_ongoing is unset.
     ASSERT(destinationKey.isNull() || !destinationKey.isEmpty());
+    if (destinationKey.isNull())
+        return nullptr;
     m_ongoing = m_upcomingTraverse.take(destinationKey);
     return m_ongoing.get();
 }

@@ -1211,6 +1211,20 @@ CSSFunctionAtRuleEnabled:
     WebCore:
       default: false
 
+CSSIdentFunctionEnabled:
+  type: bool
+  status: testable
+  category: css
+  humanReadableName: "CSS ident() function"
+  humanReadableDescription: "Enable the CSS Values 5 ident() function"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 CSSInputSecurityEnabled:
   type: bool
   status: testable
@@ -1354,6 +1368,20 @@ CSSRandomFunctionEnabled:
       default: true
     WebCore:
       default: true
+
+CSSRandomItemFunctionEnabled:
+  type: bool
+  category: css
+  status: testable
+  humanReadableName: "CSS random-item()"
+  humanReadableDescription: "Enable support for CSS Values and Units Module Level 5 random-item()"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 CSSRhythmicSizingEnabled:
   type: bool
@@ -3475,12 +3503,26 @@ GetUserMediaRequiresFocus:
     WebCore:
       default: true
 
-GlobalPrivacyControlEnabled:
+GlobalPrivacyControlFeatureEnabled:
   type: bool
   status: testable
   category: privacy
-  humanReadableName: "Global Privacy Control"
-  humanReadableDescription: "Enable Global Privacy Control (GPC) signal"
+  humanReadableName: "Global Privacy Control Feature"
+  humanReadableDescription: "Enable Global Privacy Control (GPC) Feature"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+GlobalPrivacyControlStatus:
+  type: bool
+  status: developer
+  category: privacy
+  humanReadableName: "Global Privacy Control API"
+  humanReadableDescription: "Expose the status of Global Privacy Control (GPC) API (navigtor.gloabalPrivacyControl)"
   defaultValue:
     WebKitLegacy:
       default: false
@@ -4599,6 +4641,19 @@ LayerBasedSVGEngineEnabled:
     WebKit:
       default: false
 
+LayerBasedSVGEngineForceLayerCreationEnabled:
+  type: bool
+  status: internal
+  humanReadableName: "LBSE: Force layer creation for all SVG renderers"
+  humanReadableDescription: "Force the layer-based SVG Engine (LBSE) to create a RenderLayer for every SVG renderer (debugging only)"
+  defaultValue:
+    WebCore:
+      default: false
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+
 LayoutFallbackWidth:
   type: uint32_t
   status: embedder
@@ -5215,22 +5270,6 @@ MediaContainerTypesAllowedInLockdownMode:
   defaultValue:
     WebKit:
       default: '"video/mp4,audio/mp4,video/x-m4v,audio/x-m4a,audio/mp3,application/x-mpegURL,application/vnd.apple.mpegURL,video/mp2t,video/iso.segment,audio/aac,audio/mpeg,audio/ac3,audio/eac3,video/mpeg2,text/vtt"_str'
-
-MediaContainmentEnabled:
-  type: bool
-  status: stable
-  category: media
-  humanReadableName: "Media Containment"
-  humanReadableDescription: "Process complex media types in the web process"
-  condition: PLATFORM(COCOA) && ENABLE(VIDEO)
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-  sharedPreferenceForWebProcess: true
 
 MediaContentTypesRequiringHardwareSupport:
   type: String
@@ -5892,6 +5931,18 @@ NavigatorUserAgentDataJavaScriptAPIEnabled:
     WebCore:
       default: false
 
+NavigatorWebDriverActivePolicy:
+  type: uint32_t
+  refinedType: WebCore::NavigatorWebDriverActivePolicy
+  status: embedder
+  defaultValue:
+    WebKitLegacy:
+      default: static_cast<uint32_t>(WebCore::NavigatorWebDriverActivePolicy::Auto)
+    WebKit:
+      default: static_cast<uint32_t>(WebCore::NavigatorWebDriverActivePolicy::Auto)
+    WebCore:
+      default: NavigatorWebDriverActivePolicy::Auto
+
 NeedsAdobeFrameReloadingQuirk:
   comment: 'FIXME: This quirk is needed because of Radar 4674537 and 5211271. We need
     to phase it out once Adobe can fix the bug from their end.'
@@ -6101,7 +6152,6 @@ OpportunisticSweepingAndGarbageCollectionEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      "PLATFORM(IOS_FAMILY)": false
       default: true
     WebCore:
       default: false
@@ -6997,7 +7047,13 @@ SWVPDecodersAlwaysEnabled:
   webcoreBinding: none
   condition: ENABLE(VP9)
   defaultValue:
+    WebKitLegacy:
+      "PLATFORM(IOS_FAMILY_SIMULATOR)": true
+      default: false
     WebKit:
+      "PLATFORM(IOS_FAMILY_SIMULATOR)": true
+      default: false
+    WebCore:
       default: false
 
 SafeBrowsingEnabled:

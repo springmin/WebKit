@@ -352,6 +352,7 @@ void LayerTreeHost::requestComposition(CompositionReason reason)
 {
 #if ENABLE(SCROLLING_THREAD)
     if (ScrollingThread::isCurrentThread()) {
+        m_sceneState->flushPendingState();
         if (!m_compositionRequiredInScrollingThread)
             return;
         m_compositionRequiredInScrollingThread = false;
@@ -386,7 +387,7 @@ Ref<CoordinatedImageBackingStore> LayerTreeHost::imageBackingStore(Ref<NativeIma
 {
     auto nativeImageID = nativeImage->uniqueID();
     auto addResult = m_imageBackingStores.ensure(nativeImageID, [&] {
-        return CoordinatedImageBackingStore::create(WTF::move(nativeImage));
+        return CoordinatedImageBackingStore::create(WTF::move(nativeImage), m_compositor->threadSafeGrContext());
     });
     return addResult.iterator->value;
 }
@@ -572,6 +573,12 @@ void LayerTreeHost::fillGLInformation(RenderProcessInfo&& info, CompletionHandle
     else
         info.cpuPaintingThreadsCount = SkiaPaintingEngine::numberOfCPUPaintingThreads();
     m_compositor->fillGLInformation(WTF::move(info), WTF::move(completionHandler));
+}
+
+void LayerTreeHost::releaseMemory(WTF::Critical critical)
+{
+    PlatformDisplay::sharedDisplay().skiaReleaseUnusedResources(critical);
+    m_compositor->releaseMemory(critical);
 }
 
 } // namespace WebKit

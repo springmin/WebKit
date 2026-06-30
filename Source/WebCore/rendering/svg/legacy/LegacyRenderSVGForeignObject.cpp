@@ -79,7 +79,7 @@ void LegacyRenderSVGForeignObject::paint(PaintInfo& paintInfo, const LayoutPoint
             return;
     }
 
-    LayoutPoint childPoint = IntPoint();
+    LayoutPoint childPoint;
     if (paintInfo.phase == PaintPhase::Selection) {
         RenderBlock::paint(childPaintInfo, childPoint);
         return;
@@ -128,7 +128,7 @@ void LegacyRenderSVGForeignObject::layout()
 
     bool updateCachedBoundariesInParents = false;
     if (m_needsTransformUpdate) {
-        m_localTransform = foreignObjectElement().animatedLocalTransform();
+        m_localTransform = protect(foreignObjectElement())->animatedLocalTransform();
         m_needsTransformUpdate = false;
         updateCachedBoundariesInParents = true;
     }

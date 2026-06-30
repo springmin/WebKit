@@ -316,7 +316,7 @@ CachedResourceHandle<CachedCSSStyleSheet> CachedResourceLoader::requestUserCSSSt
 
     ASSERT(document());
     if (RefPtr document = this->document())
-        request.setDomainForCachePartition(*document);
+        request.resourceRequest().setShouldBlockThirdPartyStorage(document->shouldBlockThirdPartyStorage());
 
     Ref memoryCache = MemoryCache::singleton();
     if (request.allowsCaching()) {
@@ -519,10 +519,13 @@ bool CachedResourceLoader::allowedByContentSecurityPolicy(CachedResource::Type t
         return contentSecurityPolicy->allowObjectFromSource(url, document->currentParserSourcePosition(), redirectResponseReceived, preRedirectURL);
 
     switch (type) {
+    case CachedResource::Type::JSON:
+        if (!contentSecurityPolicy->allowConnectToSource(url, document->currentParserSourcePosition(), redirectResponseReceived, preRedirectURL))
+            return false;
+        break;
 #if ENABLE(XSLT)
     case CachedResource::Type::XSLStyleSheet:
 #endif
-    case CachedResource::Type::JSON:
     case CachedResource::Type::Script:
         if (!contentSecurityPolicy->allowScriptFromSource(url, document->currentParserSourcePosition(), redirectResponseReceived, preRedirectURL, options.integrity, options.nonce))
             return false;
@@ -1141,7 +1144,7 @@ ResourceErrorOr<Ref<CachedResource>> CachedResourceLoader::requestResource(Cache
         url = request.resourceRequest().url();
     }
 
-    URL committedDocumentURL { frame->document() ? frame->document()->url() : URL { } };
+    URL committedDocumentURL { frame->document() ? protect(frame->document())->url() : URL { } };
     if (RefPtr documentLoader = m_documentLoader) {
         if (shouldPerformHTTPSUpgrade(committedDocumentURL, request.resourceRequest().url(), frame, type, page->settings().httpsByDefault(), documentLoader->advancedPrivacyProtections(), documentLoader->httpsByDefaultMode())) {
             auto portsForUpgradingInsecureScheme = page->portsForUpgradingInsecureSchemeForTesting();
@@ -1264,7 +1267,7 @@ ResourceErrorOr<Ref<CachedResource>> CachedResourceLoader::requestResource(Cache
     RefPtr<CachedResource> resource;
     CheckedPtr<ContentSecurityPolicy> contentSecurityPolicy;
     if (document) {
-        request.setDomainForCachePartition(*document);
+        request.resourceRequest().setShouldBlockThirdPartyStorage(document->shouldBlockThirdPartyStorage());
         request.resourceRequest().setFirstPartyForCookies(document->firstPartyForCookies());
         contentSecurityPolicy = document->contentSecurityPolicy();
     }
@@ -1703,7 +1706,7 @@ void CachedResourceLoader::reloadImagesIfNotDeferred()
 {
     for (auto& resource : m_documentResources.values()) {
         RefPtr image = dynamicDowncast<CachedImage>(*resource);
-        if (image && resource->stillNeedsLoad() && clientDefersImage(resource->url()) == ImageLoading::Immediate)
+        if (image && protect(resource)->stillNeedsLoad() && clientDefersImage(protect(resource)->url()) == ImageLoading::Immediate)
             image->load(*this);
     }
 }

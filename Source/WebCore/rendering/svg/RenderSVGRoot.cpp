@@ -102,7 +102,8 @@ FloatSize RenderSVGRoot::computeIntrinsicSize() const
     if (shouldApplySizeOrInlineSizeContainment())
         return { intrinsicLogicalWidth(), intrinsicLogicalHeight() };
     // https://www.w3.org/TR/SVG/coords.html#IntrinsicSizing
-    FloatSize intrinsicSize = { svgSVGElement().intrinsicWidth(), svgSVGElement().intrinsicHeight() };
+    Ref element = svgSVGElement();
+    FloatSize intrinsicSize = { element->intrinsicWidth(), element->intrinsicHeight() };
     // Transpose for vertical writing mode
     if (!isHorizontalWritingMode())
         return intrinsicSize.transposedSize();
@@ -125,7 +126,7 @@ FloatSize RenderSVGRoot::preferredAspectRatioAsSize() const
     if (!intrinsicSize.isEmpty())
         intrinsicRatioValue = { intrinsicSize.width(), intrinsicSize.height() }; 
     else {
-        FloatSize viewBoxSize = svgSVGElement().currentViewBoxRect().size();
+        FloatSize viewBoxSize = protect(svgSVGElement())->currentViewBoxRect().size();
         if (!viewBoxSize.isEmpty()) {
             // The viewBox can only yield an intrinsic ratio, not an intrinsic size.
             if (isHorizontalWritingMode())
@@ -144,7 +145,7 @@ FloatSize RenderSVGRoot::preferredAspectRatioAsSize() const
 
 bool RenderSVGRoot::isEmbeddedThroughSVGImage() const
 {
-    return isInSVGImage(&svgSVGElement());
+    return isInSVGImage(protect(svgSVGElement()).ptr());
 }
 
 bool RenderSVGRoot::isEmbeddedThroughFrameContainingSVGDocument() const
@@ -156,7 +157,7 @@ bool RenderSVGRoot::isEmbeddedThroughFrameContainingSVGDocument() const
     return frame().document()->isSVGDocument();
 }
 
-LayoutUnit RenderSVGRoot::computeReplacedLogicalWidth(ShouldComputePreferred shouldComputePreferred) const
+LayoutUnit RenderSVGRoot::computeReplacedLogicalWidth(IsComputingIntrinsicSize isComputingIntrinsicSize) const
 {
     // When we're embedded through SVGImage (border-image/background-image/<html:img>/...) we're forced to resize to a specific size.
     if (!m_containerSize.isEmpty())
@@ -175,14 +176,14 @@ LayoutUnit RenderSVGRoot::computeReplacedLogicalWidth(ShouldComputePreferred sho
             if (!viewBoxSize.isEmpty()) {
                 float height = element->hasIntrinsicHeight() ? element->intrinsicHeight() : defaultHeight;
                 double ratio = viewBoxSize.width() / viewBoxSize.height();
-                return computeReplacedLogicalWidthRespectingMinMaxWidth(LayoutUnit(height * ratio), shouldComputePreferred);
+                return computeReplacedLogicalWidthRespectingMinMaxWidth(LayoutUnit(height * ratio), isComputingIntrinsicSize);
             }
         }
     }
 
     // Standalone SVG / SVG embedded via SVGImage (background-image/border-image/etc) / Inline SVG.
-    auto result = RenderReplaced::computeReplacedLogicalWidth(shouldComputePreferred);
-    if (svgSVGElement().hasIntrinsicWidth())
+    auto result = RenderReplaced::computeReplacedLogicalWidth(isComputingIntrinsicSize);
+    if (protect(svgSVGElement())->hasIntrinsicWidth())
         return result;
 
     // Percentage units are not scaled, Length(100, %) resolves to 100% of the unzoomed RenderView content size.
@@ -218,7 +219,7 @@ LayoutUnit RenderSVGRoot::computeReplacedLogicalHeight(std::optional<LayoutUnit>
 
     // Standalone SVG / SVG embedded via SVGImage (background-image/border-image/etc) / Inline SVG.
     auto result = RenderReplaced::computeReplacedLogicalHeight(estimatedUsedWidth);
-    if (svgSVGElement().hasIntrinsicHeight())
+    if (protect(svgSVGElement())->hasIntrinsicHeight())
         return result;
 
     // Percentage units are not scaled, Length(100, %) resolves to 100% of the unzoomed RenderView content size.
@@ -230,10 +231,10 @@ LayoutUnit RenderSVGRoot::computeReplacedLogicalHeight(std::optional<LayoutUnit>
 
 bool RenderSVGRoot::updateLayoutSizeIfNeeded()
 {
-    auto previousSize = size();
+    auto previousSize = borderBoxSize();
     updateLogicalWidth();
     updateLogicalHeight();
-    return selfNeedsLayout() || previousSize != size();
+    return selfNeedsLayout() || previousSize != borderBoxSize();
 }
 
 void RenderSVGRoot::layout()
@@ -381,7 +382,7 @@ void RenderSVGRoot::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOf
         // bounds via paintContents below. Skip the interaction-region contribution so the
         // SVG root's border rect doesn't change the interaction-region shape — only the
         // children should contribute to interaction regions.
-        auto borderRect = LayoutRect(adjustedPaintOffset, size());
+        auto borderRect = LayoutRect(adjustedPaintOffset, borderBoxSize());
         auto borderShape = BorderShape::shapeForBorderRect(style(), borderRect);
         paintInfo.eventRegionContext()->unite(borderShape.deprecatedPixelSnappedRoundedRect(document().deviceScaleFactor()), *this, style(), false, EventRegionContext::ContributeToInteractionRegions::No);
     }
@@ -404,7 +405,7 @@ void RenderSVGRoot::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOf
     if (!firstChild()) {
         // FIXME: We should only call addRelevantUnpaintedObject() if there is no filter. Revisit this if we add filter support to LBSE.
         if (paintInfo.phase == PaintPhase::Foreground)
-            page().addRelevantUnpaintedObject(*this, visualOverflowRect());
+            protect(page())->addRelevantUnpaintedObject(*this, visualOverflowRect());
         return;
     }
 
@@ -418,7 +419,7 @@ void RenderSVGRoot::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOf
         paintContents(paintInfo, scrolledOffset);
 
     if ((paintInfo.phase == PaintPhase::Outline || paintInfo.phase == PaintPhase::SelfOutline) && hasOutline() && style().usedVisibility() == Visibility::Visible)
-        paintOutline(paintInfo, LayoutRect(adjustedPaintOffset, size()));
+        paintOutline(paintInfo, LayoutRect(adjustedPaintOffset, borderBoxSize()));
 }
 
 void RenderSVGRoot::paintContents(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
@@ -483,7 +484,7 @@ bool RenderSVGRoot::needsHasSVGTransformFlags() const
     // of the SVG subtree doesn't know anything about subpixel offsets, we'll have to stop use/set
     // 'adjustedSubpixelOffset' starting at the RenderSVGRoot boundary. This mostly affects inline
     // SVG documents and SVGs embedded via <object> / <embed>.
-    return svgSVGElement().hasTransformRelatedAttributes() || paintingAffectedByExternalOffset();
+    return protect(svgSVGElement())->hasTransformRelatedAttributes() || paintingAffectedByExternalOffset();
 }
 
 void RenderSVGRoot::updateFromStyle()
@@ -522,7 +523,7 @@ bool RenderSVGRoot::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
 
     // If we didn't early exit above, we've just hit the container <svg> element. Unlike SVG 1.1, 2nd Edition allows container elements to be hit.
     if ((hitTestAction == HitTestAction::BlockBackground || hitTestAction == HitTestAction::ChildBlockBackground) && visibleToHitTesting(request)) {
-        LayoutRect boundsRect(adjustedLocation, size());
+        LayoutRect boundsRect(adjustedLocation, borderBoxSize());
         if (locationInContainer.intersects(boundsRect)) {
             updateHitTestResult(result, flipForWritingMode(locationInContainer.point() - toLayoutSize(adjustedLocation)));
             if (result.addNodeToListBasedTestResult(protect(nodeForHitTest()).get(), request, locationInContainer, boundsRect) == HitTestProgress::Stop)

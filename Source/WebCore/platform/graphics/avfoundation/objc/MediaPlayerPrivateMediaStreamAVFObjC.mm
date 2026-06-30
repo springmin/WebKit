@@ -37,6 +37,7 @@
 #import "MediaStreamPrivate.h"
 #import "PixelBufferConformerCV.h"
 #import "PlatformDynamicRangeLimitCocoa.h"
+#import "PlatformStrategies.h"
 #import "VideoFrame.h"
 #import "VideoFrameMetadata.h"
 #import "VideoLayerManagerObjC.h"
@@ -173,7 +174,7 @@ MediaPlayerPrivateMediaStreamAVFObjC::~MediaPlayerPrivateMediaStreamAVFObjC()
         track->streamTrack().removeObserver(*this);
 
     if (m_activeVideoTrack)
-        m_activeVideoTrack->streamTrack().source().removeVideoFrameObserver(*this);
+        protect(m_activeVideoTrack)->streamTrack().source().removeVideoFrameObserver(*this);
 
     [m_boundsChangeListener invalidate];
 
@@ -213,7 +214,7 @@ private:
 
 void MediaPlayerPrivateMediaStreamAVFObjC::registerMediaEngine(MediaEngineRegistrar registrar)
 {
-    if (!isAvailable())
+    if (!isAvailable() || !hasPlatformStrategies())
         return;
 
     registrar(makeUnique<MediaPlayerFactoryMediaStreamAVFObjC>());
@@ -430,7 +431,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::ensureLayers()
     if (!playing())
         sampleBufferDisplayLayer->pause();
 
-    if (activeVideoTrack->source().isCaptureSource())
+    if (protect(activeVideoTrack)->source().isCaptureSource())
         sampleBufferDisplayLayer->setRenderPolicy(SampleBufferDisplayLayer::RenderPolicy::Immediately);
 
     sampleBufferDisplayLayer->initialize(hideRootLayer(), size, m_shouldMaintainAspectRatio, [weakThis = WeakPtr { *this }, weakLayer = ThreadSafeWeakPtr { *m_sampleBufferDisplayLayer }, size](auto didSucceed) {
@@ -987,12 +988,12 @@ void MediaPlayerPrivateMediaStreamAVFObjC::checkSelectedVideoTrack()
 
     if (oldVideoTrack != m_activeVideoTrack) {
         if (oldVideoTrack)
-            oldVideoTrack->streamTrack().source().removeVideoFrameObserver(*this);
+            protect(oldVideoTrack)->streamTrack().source().removeVideoFrameObserver(*this);
         m_isActiveVideoTrackEnabled = m_activeVideoTrack ? m_activeVideoTrack->streamTrack().enabled() : true;
         if (m_activeVideoTrack) {
-            if (m_sampleBufferDisplayLayer && m_activeVideoTrack->streamTrack().source().isCaptureSource())
-                m_sampleBufferDisplayLayer->setRenderPolicy(SampleBufferDisplayLayer::RenderPolicy::Immediately);
-            m_activeVideoTrack->streamTrack().source().addVideoFrameObserver(*this);
+            if (m_sampleBufferDisplayLayer && protect(m_activeVideoTrack)->streamTrack().source().isCaptureSource())
+                protect(m_sampleBufferDisplayLayer)->setRenderPolicy(SampleBufferDisplayLayer::RenderPolicy::Immediately);
+            protect(m_activeVideoTrack)->streamTrack().source().addVideoFrameObserver(*this);
             ALWAYS_LOG(LOGIDENTIFIER, "observing video source ", m_activeVideoTrack->streamTrack().logIdentifier());
         }
     } else
@@ -1101,7 +1102,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::updateCurrentFrameImage()
     if (!m_imagePainter.pixelBufferConformer)
         return;
 
-    if (auto pixelBuffer = m_imagePainter.videoFrame->pixelBuffer())
+    if (auto pixelBuffer = protect(m_imagePainter.videoFrame)->pixelBuffer())
         m_imagePainter.cgImage = NativeImage::create(m_imagePainter.pixelBufferConformer->createImageFromPixelBuffer(pixelBuffer));
 }
 
@@ -1285,7 +1286,7 @@ std::optional<VideoFrameMetadata> MediaPlayerPrivateMediaStreamAVFObjC::videoFra
 
 HostingContext MediaPlayerPrivateMediaStreamAVFObjC::hostingContext() const
 {
-    return m_sampleBufferDisplayLayer ? m_sampleBufferDisplayLayer->hostingContext() : HostingContext();
+    return m_sampleBufferDisplayLayer ? protect(m_sampleBufferDisplayLayer)->hostingContext() : HostingContext();
 }
 
 void MediaPlayerPrivateMediaStreamAVFObjC::setVideoLayerSizeFenced(const FloatSize& size, WTF::MachSendRightAnnotated&& fence)

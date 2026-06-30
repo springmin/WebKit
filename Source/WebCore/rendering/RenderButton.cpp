@@ -59,7 +59,7 @@ HTMLFormControlElement& NODELETE RenderButton::formControlElement() const
 
 bool RenderButton::canBeSelectionLeaf() const
 {
-    return formControlElement().hasEditableStyle();
+    return protect(formControlElement())->hasEditableStyle();
 }
 
 bool RenderButton::hasLineIfEmpty() const
@@ -117,7 +117,7 @@ void RenderButton::setText(const String& str)
         return;
 
     if (!m_buttonText) {
-        auto newButtonText = createRenderer<RenderTextFragment>(document(), str);
+        auto newButtonText = createRenderer<RenderTextFragment>(protect(document()), str);
         m_buttonText = *newButtonText;
         // FIXME: This mutation should go through the normal RenderTreeBuilder path.
         if (RenderTreeBuilder::current())
@@ -155,7 +155,7 @@ bool RenderButton::canHaveGeneratedChildren() const
 LayoutRect RenderButton::controlClipRect(const LayoutPoint& additionalOffset) const
 {
     // Clip to the padding box to at least give content the extra padding space.
-    return LayoutRect(additionalOffset.x() + borderLeft(), additionalOffset.y() + borderTop(), width() - borderLeft() - borderRight(), height() - borderTop() - borderBottom());
+    return LayoutRect(additionalOffset.x() + borderLeft(), additionalOffset.y() + borderTop(), borderBoxWidth() - borderLeft() - borderRight(), borderBoxHeight() - borderTop() - borderBottom());
 }
 
 #if PLATFORM(IOS_FAMILY)

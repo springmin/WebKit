@@ -329,12 +329,12 @@ inline bool ComputedStyle::hasMask() const
 
 inline bool ComputedStyle::hasOutline() const
 {
-    return outlineStyle() != OutlineStyle::None && usedOutlineWidth().isPositive();
+    return !usedOutlineWidth().isZero();
 }
 
 inline bool ComputedStyle::hasOutlineInVisualOverflow() const
 {
-    return hasOutline() && usedOutlineSize() > 0;
+    return !usedOutlineWidth().isZero() && (usedOutlineWidth().unresolvedValue() + usedOutlineOffset().unresolvedValue()) > 0;
 }
 
 inline bool ComputedStyle::hasOutOfFlowPosition() const
@@ -370,6 +370,14 @@ inline bool ComputedStyle::hasTransformRelatedProperty() const
         || !translate().isNone()
         || transformStyle3D() == TransformStyle3D::Preserve3D
         || !perspective().isNone();
+}
+
+inline bool ComputedStyle::has3DTransformOperation() const
+{
+    return transform().has3DOperation()
+        || translate().is3DOperation()
+        || scale().is3DOperation()
+        || rotate().is3DOperation();
 }
 
 inline bool ComputedStyle::hasUsedAppearance() const

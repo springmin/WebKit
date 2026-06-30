@@ -36,6 +36,7 @@
 #import "RemoteGPUProxy.h"
 #import "RemoteMeshProxy.h"
 #import "WKStageModeOrbitSimulator.h"
+#import <WebCore/Chrome.h>
 #import <WebCore/Document.h>
 #import <WebCore/DocumentEventLoop.h>
 #import <WebCore/FloatPoint3D.h>
@@ -43,6 +44,7 @@
 #import <WebCore/GraphicsLayer.h>
 #import <WebCore/GraphicsLayerContentsDisplayDelegate.h>
 #import <WebCore/HTMLModelElement.h>
+#import <WebCore/ImageBuffer.h>
 #import <WebCore/ModelPlayerAnimationState.h>
 #import <WebCore/ModelPlayerGraphicsLayerConfiguration.h>
 #import <WebCore/ModelPlayerTransformState.h>
@@ -67,21 +69,19 @@ namespace WebKit {
 
 class ModelDisplayBufferDisplayDelegate final : public WebCore::GraphicsLayerContentsDisplayDelegate {
 public:
-    static Ref<ModelDisplayBufferDisplayDelegate> create(WebModelPlayer& modelPlayer, bool isOpaque = false, float contentsScale = 1)
+    static Ref<ModelDisplayBufferDisplayDelegate> create(WebModelPlayer& modelPlayer, float contentsScale = 1)
     {
-        return adoptRef(*new ModelDisplayBufferDisplayDelegate(modelPlayer, isOpaque, contentsScale));
+        return adoptRef(*new ModelDisplayBufferDisplayDelegate(modelPlayer, contentsScale));
     }
     // GraphicsLayerContentsDisplayDelegate overrides.
     void prepareToDelegateDisplay(WebCore::PlatformCALayer& layer) final
     {
-        layer.setOpaque(m_isOpaque);
+        layer.setOpaque(false);
         layer.setContentsScale(m_contentsScale);
         layer.setContentsFormat(m_contentsFormat);
     }
     void display(WebCore::PlatformCALayer& layer) final
     {
-        if (layer.isOpaque() != m_isOpaque)
-            layer.setOpaque(m_isOpaque);
         if (m_displayBuffer) {
             layer.setContentsFormat(m_contentsFormat);
             layer.setDelegatedContents({ MachSendRight { m_displayBuffer }, { }, std::nullopt });
@@ -110,23 +110,16 @@ public:
     void setContentsFormat(WebCore::ContentsFormat contentsFormat)
     {
         m_contentsFormat = contentsFormat;
-        setOpaque(m_contentsFormat == WebCore::ContentsFormat::RGBA16F);
-    }
-    void setOpaque(bool opaque)
-    {
-        m_isOpaque = opaque;
     }
 private:
-    ModelDisplayBufferDisplayDelegate(WebModelPlayer& modelPlayer, bool isOpaque, float contentsScale)
+    ModelDisplayBufferDisplayDelegate(WebModelPlayer& modelPlayer, float contentsScale)
         : m_modelPlayer(modelPlayer)
         , m_contentsScale(contentsScale)
-        , m_isOpaque(isOpaque)
     {
     }
     ThreadSafeWeakPtr<WebModelPlayer> m_modelPlayer;
     WTF::MachSendRight m_displayBuffer;
     const float m_contentsScale;
-    bool m_isOpaque;
 #if ENABLE(PIXEL_FORMAT_RGBA16F)
     WebCore::ContentsFormat m_contentsFormat { WebCore::ContentsFormat::RGBA16F };
 #else
@@ -206,6 +199,7 @@ void WebModelPlayer::load(WebCore::Model& modelSource, WebCore::LayoutSize size,
     m_didFinishLoading = false;
     m_renderTextureIndex = 0;
     m_displayTextureIndex = 0;
+    m_hasRenderedFrame = false;
     m_isUpdateLoopRunning = false;
     RefPtr document = corePage->localTopDocument();
     if (!document)
@@ -243,6 +237,7 @@ void WebModelPlayer::load(WebCore::Model& modelSource, WebCore::LayoutSize size,
             protectedThis->m_displayBuffers = WTF::move(surfaceHandles);
             protectedThis->m_renderTextureIndex = 0;
             protectedThis->m_displayTextureIndex = 0;
+            protectedThis->m_hasRenderedFrame = false;
             protectedThis->updateScreenHeadroomFromPage();
         }
     });
@@ -363,6 +358,7 @@ void WebModelPlayer::sizeDidChange(WebCore::LayoutSize size)
         protectedThis->m_displayBuffers = WTF::move(newBuffers);
         protectedThis->m_renderTextureIndex = 0;
         protectedThis->m_displayTextureIndex = 0;
+        protectedThis->m_hasRenderedFrame = false;
         if (protectedThis->m_contentsDisplayDelegate)
             protect(protectedThis->m_contentsDisplayDelegate)->setDisplayBuffer(*protectedThis->displayBuffer());
         protectedThis->startUpdateLoopIfNeeded();
@@ -494,16 +490,6 @@ void WebModelPlayer::configureGraphicsLayer(WebCore::GraphicsLayer& graphicsLaye
 {
     m_graphicsLayer = graphicsLayer;
     graphicsLayer.setContentsDisplayDelegate(contentsDisplayDelegate(), WebCore::GraphicsLayer::ContentsLayerPurpose::Canvas);
-    if (RefPtr currentModel = m_currentModel) {
-        auto backgroundColor = configuration.backgroundColor;
-        if (backgroundColor.isValid() && m_backgroundColor != backgroundColor) {
-            m_backgroundColor = backgroundColor;
-            auto opaqueColor = backgroundColor.opaqueColor();
-            auto [r, g, b, _a] = opaqueColor.toResolvedColorComponentsInColorSpace(WebCore::ColorSpace::LinearSRGB);
-            currentModel->setBackgroundColor(simd_make_float3(r, g, b));
-            startUpdateLoopIfNeeded();
-        }
-    }
 }
 
 const MachSendRight* WebModelPlayer::displayBuffer() const
@@ -512,6 +498,25 @@ const MachSendRight* WebModelPlayer::displayBuffer() const
         return nullptr;
 
     return &m_displayBuffers[m_displayTextureIndex];
+}
+
+RefPtr<WebCore::ImageBuffer> WebModelPlayer::snapshotCurrentFrame(const WebCore::FloatSize& deviceSize, const WebCore::DestinationColorSpace& colorSpace)
+{
+    RefPtr currentModel { m_currentModel };
+    if (!currentModel || !m_hasRenderedFrame || m_displayTextureIndex >= m_displayBuffers.size())
+        return nullptr;
+
+    RefPtr corePage { m_page.get() };
+    if (!corePage)
+        return nullptr;
+
+    RefPtr imageBuffer { WebCore::ImageBuffer::create(deviceSize, WebCore::RenderingMode::Accelerated, WebCore::RenderingPurpose::Snapshot, 1, colorSpace, WebCore::PixelFormat::BGRA8, &corePage->chrome()) };
+    if (!imageBuffer)
+        return nullptr;
+
+    imageBuffer->flushDrawingContext();
+    currentModel->paintCurrentFrameToImageBuffer(imageBuffer->renderingResourceIdentifier(), m_displayTextureIndex);
+    return imageBuffer;
 }
 
 WebCore::GraphicsLayerContentsDisplayDelegate* WebModelPlayer::contentsDisplayDelegate()
@@ -648,6 +653,7 @@ bool WebModelPlayer::render()
                 return;
 
             protectedThis->m_displayTextureIndex = textureIndex;
+            protectedThis->m_hasRenderedFrame = true;
             if (auto* machSendRight = protectedThis->displayBuffer(); machSendRight && protectedThis->contentsDisplayDelegate()) {
                 Ref delegate = *protectedThis->m_contentsDisplayDelegate;
 #if HAVE(SUPPORT_HDR_DISPLAY) && ENABLE(PIXEL_FORMAT_RGBA16F)
@@ -840,11 +846,11 @@ void WebModelPlayer::visibilityStateDidChange()
         m_modelLoader = nil;
         m_displayBuffers.clear();
         m_environmentMap = std::nullopt;
-        m_backgroundColor = std::nullopt;
         m_isUpdateLoopRunning = false;
         m_isUpdateScheduled = false;
         m_isUpdating = false;
         m_displayTextureIndex = 0;
+        m_hasRenderedFrame = false;
 #if HAVE(SUPPORT_HDR_DISPLAY) && ENABLE(PIXEL_FORMAT_RGBA16F)
         m_cachedModelSource = nullptr;
 #endif

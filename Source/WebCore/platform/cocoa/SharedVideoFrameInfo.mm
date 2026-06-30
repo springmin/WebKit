@@ -174,9 +174,13 @@ static std::span<const uint8_t> copyToCVPixelBufferPlane(CVPixelBufferRef pixelB
     uint32_t bytesPerRowDestination = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, planeIndex);
     for (unsigned i = 0; i < height; ++i) {
         memcpySpan(destination, source.first(std::min(bytesPerRowSource, bytesPerRowDestination)));
+        if (bytesPerRowSource < bytesPerRowDestination)
+            memsetSpan(destination.subspan(bytesPerRowSource, bytesPerRowDestination - bytesPerRowSource), 0);
         skip(source, bytesPerRowSource);
         skip(destination, bytesPerRowDestination);
     }
+    memsetSpan(destination, 0);
+
     return source;
 }
 
@@ -228,6 +232,11 @@ bool SharedVideoFrameInfo::writePixelBuffer(CVPixelBufferRef pixelBuffer, std::s
     auto scope = makeScopeExit([pixelBuffer = RetainPtr { pixelBuffer }] {
         CVPixelBufferUnlockBaseAddress(pixelBuffer.get(), kCVPixelBufferLock_ReadOnly);
     });
+
+    if (!CVPixelBufferGetBaseAddress(pixelBuffer)) {
+        RELEASE_LOG_FAULT(WebRTC, "SharedVideoFrameInfo::writePixelBuffer pixel buffer is not readable");
+        return false;
+    }
 
     encode(data);
     skip(data, sizeof(SharedVideoFrameInfo));

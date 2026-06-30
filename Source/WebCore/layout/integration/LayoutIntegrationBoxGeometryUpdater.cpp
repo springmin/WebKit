@@ -258,10 +258,12 @@ Layout::BoxGeometry::VerticalEdges BoxGeometryUpdater::verticalLogicalMargin(con
 
 Layout::BoxGeometry::Edges BoxGeometryUpdater::logicalBorder(const RenderBoxModelObject& renderer, WritingMode writingMode, bool isIntrinsicWidthMode)
 {
-    auto& style = renderer.style();
+    CheckedRef style = renderer.style();
+    auto deviceScaleFactor = style->deviceScaleFactor();
+    auto zoom = style->usedZoomForLength();
 
-    auto borderWidths = RectEdges<LayoutUnit>::map(style.usedBorderWidths(), [&](auto width) {
-        return Style::evaluate<LayoutUnit>(width, Style::ZoomNeeded { });
+    auto borderWidths = RectEdges<LayoutUnit>::map(style->usedBorderWidths(), [&](auto width) {
+        return Style::evaluate<LayoutUnit>(width, zoom, deviceScaleFactor);
     });
 
     if (!isIntrinsicWidthMode)
@@ -424,7 +426,7 @@ static std::optional<LayoutUnit> baselineForBox(const RenderBox& renderBox)
     if (noBoxBaseline)
         return { };
 
-    auto borderBoxBottom = renderBox.height();
+    auto borderBoxBottom = renderBox.borderBoxHeight();
     auto marginBoxBottom = renderBox.marginBoxLogicalHeight(writingMode) - (writingMode.isHorizontal() ? renderBox.marginTop() : renderBox.marginRight());
 
     if (auto* renderImage = dynamicDowncast<RenderImage>(renderBox)) {
@@ -443,7 +445,7 @@ static std::optional<LayoutUnit> baselineForBox(const RenderBox& renderBox)
         if (auto* baselineElement = rendererAttachment->attachmentElement().wideLayoutImageElement()) {
             if (auto* baselineElementRenderBox = baselineElement->renderBox()) {
                 // This is the bottom of the image assuming it is vertically centered.
-                return (borderBoxBottom + baselineElementRenderBox->height()) / 2 - marginBefore;
+                return (borderBoxBottom + baselineElementRenderBox->borderBoxHeight()) / 2 - marginBefore;
             }
             // Fallback to the bottom of the attachment if there is no image.
             return borderBoxBottom - marginBefore;
@@ -682,8 +684,8 @@ void BoxGeometryUpdater::updateLayoutBoxDimensions(const RenderBox& renderBox, s
     if (intrinsicWidthMode) {
         boxGeometry.setHorizontalSpaceForScrollbar(scrollbarSize.width());
         auto contentBoxLogicalWidth = [&] {
-            auto preferredWidth = *intrinsicWidthMode == Layout::IntrinsicWidthMode::Minimum ? renderBox.minContentLogicalWidthContribution() : renderBox.maxContentLogicalWidthContribution();
-            return preferredWidth - (border.horizontal.start + border.horizontal.end + padding.horizontal.start + padding.horizontal.end);
+            auto widthContribution = *intrinsicWidthMode == Layout::IntrinsicWidthMode::Minimum ? renderBox.minContentLogicalWidthContribution() : renderBox.maxContentLogicalWidthContribution();
+            return widthContribution - (border.horizontal.start + border.horizontal.end + padding.horizontal.start + padding.horizontal.end);
         };
         boxGeometry.setContentBoxWidth(contentBoxLogicalWidth());
         boxGeometry.setHorizontalMargin(inlineMargin);
@@ -789,7 +791,7 @@ Layout::ConstraintsForInlineContent BoxGeometryUpdater::formattingContextConstra
 
     if (rootRenderer->isRenderSVGText()) {
         auto horizontalConstraints = Layout::HorizontalConstraints { 0_lu, LayoutUnit::max() };
-        return { { horizontalConstraints, 0_lu }, 0_lu, rootRenderer->size() };
+        return { { horizontalConstraints, 0_lu }, 0_lu, rootRenderer->borderBoxSize() };
     }
 
     auto padding = logicalPadding(rootRenderer, availableWidth, writingMode);
@@ -816,7 +818,7 @@ Layout::ConstraintsForInlineContent BoxGeometryUpdater::formattingContextConstra
         ? border.horizontal.end + scrollbarSize.width() + padding.horizontal.end
         : contentBoxLeft;
 
-    return { { horizontalConstraints, contentBoxTop }, visualLeft, rootRenderer->size() };
+    return { { horizontalConstraints, contentBoxTop }, visualLeft, rootRenderer->borderBoxSize() };
 }
 
 void BoxGeometryUpdater::updateBoxGeometryAfterIntegrationLayout(const Layout::ElementBox& layoutBox, LayoutUnit availableWidth)

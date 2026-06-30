@@ -166,6 +166,11 @@ public:
     LayoutUnit NODELETE intrinsicBorderForFieldset() const;
     void setIntrinsicBorderForFieldset(LayoutUnit);
 
+    // Fieldset legends with a block-start margin shift the whole fieldset down rather than moving
+    // the legend within the border, by adding that margin onto the fieldset's own margin-before.
+    LayoutUnit NODELETE intrinsicMarginBeforeForFieldset() const;
+    void setIntrinsicMarginBeforeForFieldset(LayoutUnit);
+
     RectEdges<LayoutUnit> borderWidths() const override;
     LayoutUnit borderTop() const override;
     LayoutUnit borderBottom() const override;
@@ -173,6 +178,10 @@ public:
     LayoutUnit borderRight() const override;
 
     LayoutUnit borderBefore() const override;
+
+    LayoutUnit marginBefore(WritingMode) const override;
+    LayoutUnit marginBefore() const { return marginBefore(writingMode()); }
+
     LayoutUnit adjustBorderBoxLogicalHeightForBoxSizing(LayoutUnit height) const override;
     LayoutUnit adjustContentBoxLogicalHeightForBoxSizing(std::optional<LayoutUnit> height) const override;
     LayoutUnit adjustIntrinsicLogicalHeightForBoxSizing(LayoutUnit height) const override;
@@ -180,10 +189,10 @@ public:
     
     // Accessors for logical width/height and margins in the containing block's block-flow direction.
     enum ApplyLayoutDeltaMode { ApplyLayoutDelta, DoNotApplyLayoutDelta };
-    LayoutUnit logicalWidthForChild(const RenderBox& child) const { return isHorizontalWritingMode() ? child.width() : child.height(); }
-    LayoutUnit logicalHeightForChild(const RenderBox& child) const { return isHorizontalWritingMode() ? child.height() : child.width(); }
+    LayoutUnit logicalWidthForChild(const RenderBox& child) const { return isHorizontalWritingMode() ? child.borderBoxWidth() : child.borderBoxHeight(); }
+    LayoutUnit logicalHeightForChild(const RenderBox& child) const { return isHorizontalWritingMode() ? child.borderBoxHeight() : child.borderBoxWidth(); }
     inline LayoutUnit logicalMarginBoxHeightForChild(const RenderBox& child) const;
-    LayoutSize logicalSizeForChild(const RenderBox& child) const { return isHorizontalWritingMode() ? child.size() : child.size().transposedSize(); }
+    LayoutSize logicalSizeForChild(const RenderBox& child) const { return isHorizontalWritingMode() ? child.borderBoxSize() : child.borderBoxSize().transposedSize(); }
     LayoutUnit logicalTopForChild(const RenderBox& child) const { return isHorizontalWritingMode() ? child.y() : child.x(); }
     LayoutUnit logicalLeftForChild(const RenderBox& child) const { return isHorizontalWritingMode() ? child.x() : child.y(); }
     void NODELETE setLogicalLeftForChild(RenderBox& child, LayoutUnit logicalLeft, ApplyLayoutDeltaMode = DoNotApplyLayoutDelta);
@@ -392,7 +401,7 @@ private:
     void paintDebugBoxShadowIfApplicable(GraphicsContext&, const LayoutRect&) const;
 
     bool contentBoxLogicalWidthChanged(const Style::ComputedStyle&, const Style::ComputedStyle&);
-    bool paddingBoxLogicaHeightChanged(const Style::ComputedStyle& oldStyle, const Style::ComputedStyle& newStyle);
+    bool paddingBoxLogicalHeightChanged(const Style::ComputedStyle& oldStyle, const Style::ComputedStyle& newStyle);
     bool scrollbarWidthDidChange(const Style::ComputedStyle&, const Style::ComputedStyle&, ScrollbarOrientation);
 
 private:

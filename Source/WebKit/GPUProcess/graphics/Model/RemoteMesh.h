@@ -96,11 +96,11 @@ private:
     void updateMaterial(Vector<WebModel::UpdateMaterialDescriptor>&&, CompletionHandler<void(bool)>&&);
     void updateTransform(const WebModel::Float4x4& transform);
     void setFOV(float fovY);
-    void setBackgroundColor(const WebModel::Float3&);
     void play(bool);
     void setEnvironmentMap(WebModel::UpdateTextureDescriptor&&);
     void updateContentsHeadroom(float);
     void updateRenderBuffers(unsigned, unsigned, CompletionHandler<void(Vector<MachSendRight>&&)>&&);
+    void paintCurrentFrameToImageBuffer(WebCore::RenderingResourceIdentifier imageBufferIdentifier, uint32_t bufferIndex, CompletionHandler<void()>&&);
 
     void render(uint32_t textureIndex, CompletionHandler<void(bool)>&&);
     void processRemovals(Vector<WebModel::TypedResourceId>&& meshRemovals, Vector<WebModel::TypedResourceId>&& materialRemovals, Vector<WebModel::TypedResourceId>&& textureRemovals, CompletionHandler<void(bool)>&&);

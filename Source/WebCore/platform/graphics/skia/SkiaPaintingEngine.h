@@ -62,8 +62,10 @@ public:
     static bool shouldUseDMABufAtlasTextures();
     static bool shouldUseLinearTileTextures();
     static bool shouldUseVivanteSuperTiledTileTextures();
+    static bool isDDLEnabled();
 
     bool useThreadedRendering() const { return m_paintingWorkerPool; }
+    const sk_sp<GrContextThreadSafeProxy>& threadSafeGrContext() const { return m_threadSafeGrContext; }
 
     Ref<CoordinatedTileBuffer> paint(const GraphicsLayerCoordinated&, const IntRect& dirtyRect, bool contentsOpaque, float contentsScale);
     Ref<SkiaRecordingResult> record(const GraphicsLayerCoordinated&, const IntRect& recordRect, bool contentsOpaque, float contentsScale);
@@ -74,6 +76,7 @@ private:
     void paintIntoGraphicsContext(const GraphicsLayer&, GraphicsContext&, const IntRect&, bool contentsOpaque, float contentsScale) const;
     RefPtr<SkiaGPUAtlas> createAtlas(const SkiaImageAtlasLayout&, AtlasUploadCondition&);
     bool tryReuseCachedAtlases(SkiaRecordingResult&, unsigned fingerprint);
+    bool canUseDDL() const;
 
     sk_sp<GrContextThreadSafeProxy> m_threadSafeGrContext;
     RefPtr<WorkerPool> m_paintingWorkerPool;

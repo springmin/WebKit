@@ -56,10 +56,13 @@ JS_EXPORT_PRIVATE bool iteratorCompleteExported(JSGlobalObject*, JSValue iterRes
 JS_EXPORT_PRIVATE JSValue iteratorStep(JSGlobalObject*, IterationRecord);
 JS_EXPORT_PRIVATE JSValue iteratorStepWithCachedCall(JSGlobalObject*, IterationRecord, CachedCall*);
 JS_EXPORT_PRIVATE void iteratorClose(JSGlobalObject*, JSValue iterator);
-JS_EXPORT_PRIVATE JSObject* createIteratorResultObject(JSGlobalObject*, JSValue, bool done);
 
+// Property offsets in objects with the iteratorResultObjectStructure (see createIteratorResultObjectStructure).
 static constexpr PropertyOffset iteratorResultObjectValuePropertyOffset = 0;
 static constexpr PropertyOffset iteratorResultObjectDonePropertyOffset = 1;
+
+JS_EXPORT_PRIVATE JSObject* createIteratorResultObject(JSGlobalObject*, JSValue, bool done);
+
 Structure* createIteratorResultObjectStructure(VM&, JSGlobalObject&);
 
 JS_EXPORT_PRIVATE JSValue iteratorMethod(JSGlobalObject*, JSObject*);
@@ -270,7 +273,7 @@ void forEachInIterable(JSGlobalObject* globalObject, JSValue iterable, NOESCAPE 
             JSCell* storageCell = jsMap->storageOrSentinel(vm);
             if (storageCell != vm.orderedHashTableSentinel()) {
                 forEachInMapStorage(vm, globalObject, storageCell, 0, IterationKind::Entries, callback, [&](JSCell* currentStorageCell, JSMap::Helper::Entry entry) {
-                    JSMapIterator* iterator = JSMapIterator::create(vm, globalObject->mapIteratorStructure(), jsMap, IterationKind::Entries);
+                    JSMapIterator* iterator = JSMapIterator::create(vm, jsMap->realm()->mapIteratorStructure(), jsMap, IterationKind::Entries);
                     iterator->setStorage(vm, currentStorageCell);
                     iterator->setEntry(vm, entry);
                     iteratorClose(globalObject, iterator);
@@ -284,7 +287,7 @@ void forEachInIterable(JSGlobalObject* globalObject, JSValue iterable, NOESCAPE 
             JSCell* storageCell = jsSet->storageOrSentinel(vm);
             if (storageCell != vm.orderedHashTableSentinel()) {
                 forEachInSetStorage(vm, globalObject, storageCell, 0, callback, [&](JSCell* currentStorageCell, JSSet::Helper::Entry entry) {
-                    JSSetIterator* iterator = JSSetIterator::create(vm, globalObject->setIteratorStructure(), jsSet, IterationKind::Values);
+                    JSSetIterator* iterator = JSSetIterator::create(vm, jsSet->realm()->setIteratorStructure(), jsSet, IterationKind::Values);
                     iterator->setStorage(vm, currentStorageCell);
                     iterator->setEntry(vm, entry);
                     iteratorClose(globalObject, iterator);

@@ -159,7 +159,7 @@ auto ServiceWorkerContainer::ready() -> ReadyPromise&
 
 ServiceWorker* ServiceWorkerContainer::controller() const
 {
-    auto* context = scriptExecutionContext();
+    RefPtr context = scriptExecutionContext();
     ASSERT_WITH_MESSAGE(!context || is<Document>(*context) || is<DedicatedWorkerGlobalScope>(*context)  || is<SharedWorkerGlobalScope>(*context) || !context->activeServiceWorker(), "Only documents, dedicated and shared workers can have a controller.");
     return context ? context->activeServiceWorker() : nullptr;
 }
@@ -247,7 +247,7 @@ void ServiceWorkerContainer::addRegistration(Variant<Ref<TrustedScriptURL>, Stri
     jobData.topOrigin = context->topOrigin().data();
     jobData.workerType = options.type;
     jobData.type = ServiceWorkerJobType::Register;
-    jobData.domainForCachePartition = context->domainForCachePartition();
+    jobData.shouldBlockThirdPartyStorage = context->shouldBlockThirdPartyStorage();
     jobData.registrationOptions = options;
 
     scheduleJob(ServiceWorkerJob::create(*this, WTF::move(promise), WTF::move(jobData)));
@@ -301,7 +301,7 @@ void ServiceWorkerContainer::updateRegistration(const URL& scopeURL, const URL& 
     jobData.topOrigin = context->topOrigin().data();
     jobData.workerType = workerType;
     jobData.type = ServiceWorkerJobType::Update;
-    jobData.domainForCachePartition = context->domainForCachePartition();
+    jobData.shouldBlockThirdPartyStorage = context->shouldBlockThirdPartyStorage();
     jobData.scopeURL = scopeURL;
     jobData.scriptURL = scriptURL;
 

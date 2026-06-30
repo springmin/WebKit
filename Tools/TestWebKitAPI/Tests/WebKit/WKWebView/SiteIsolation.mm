@@ -45,6 +45,7 @@
 #import <WebCore/SQLiteDatabase.h>
 #import <WebCore/SQLiteStatement.h>
 #import <WebKit/WKFrameInfoPrivate.h>
+#import <WebKit/WKNavigationActionPrivate.h>
 #import <WebKit/WKNavigationDelegatePrivate.h>
 #import <WebKit/WKNavigationPrivate.h>
 #import <WebKit/WKNavigationPrivateForTesting.h>
@@ -75,6 +76,12 @@
 #if PLATFORM(IOS_FAMILY)
 #import "UIKitSPIForTesting.h"
 #import <MobileCoreServices/MobileCoreServices.h>
+#endif
+
+#if PLATFORM(MAC)
+@interface NSApplication ()
+- (void)_setKeyWindow:(NSWindow *)newKeyWindow;
+@end
 #endif
 
 #if ENABLE(IMAGE_ANALYSIS)
@@ -4196,6 +4203,53 @@ TEST(SiteIsolation, NavigateIframeCrossOriginBackForwardAfterSessionRestoreToNew
     testNavigateIframeBackForward(@"https://apple.com/destination", SessionRestoreMethod::NewWebView);
 }
 
+TEST(SiteIsolation, CancelledChildAsyncBackForwardNotifiesParent)
+{
+    HTTPServer server({
+        { "/page0"_s, { "<p>page0</p><iframe src='https://example.com/child0'></iframe><script>window.onload=()=>alert('page0-loaded')</script>"_s } },
+        { "/page1"_s, { "<p>page1</p><iframe src='https://example.com/child1'></iframe><script>window.onload=()=>alert('page1-loaded')</script>"_s } },
+        { "/child0"_s, { "<p>child0</p>"_s } },
+        { "/child1"_s, { "<p>child1</p>"_s } },
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    RetainPtr processPoolConfiguration = adoptNS([[_WKProcessPoolConfiguration alloc] init]);
+    // Disabling BFCache so going back will perform a fresh load of page0.
+    processPoolConfiguration.get().pageCacheEnabled = NO;
+    RetainPtr processPool = adoptNS([[WKProcessPool alloc] _initWithConfiguration:processPoolConfiguration.get()]);
+    RetainPtr configuration = server.httpsProxyConfiguration();
+    [configuration setProcessPool:processPool.get()];
+
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(configuration.get());
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/page0"]]];
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "page0-loaded");
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/page1"]]];
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "page1-loaded");
+
+    __block bool interceptedChildPolicy = false;
+    RetainPtr capturedWebView = webView;
+    [navigationDelegate setDecidePolicyForNavigationAction:^(WKNavigationAction *action, void (^decisionHandler)(WKNavigationActionPolicy)) {
+        if (!action.targetFrame.isMainFrame && action.navigationType == WKNavigationTypeBackForward && !interceptedChildPolicy) {
+            interceptedChildPolicy = true;
+            // Inject a cross-document navigation while the child is Pending.
+            [capturedWebView evaluateJavaScript:@"frames[0].location = 'https://example.com/injected'" completionHandler:^(id, NSError *) {
+                decisionHandler(WKNavigationActionPolicyAllow);
+            }];
+            return;
+        }
+        // Deny the injected navigation so it never commits. This prevents didBeginDocument()
+        // from accidentally unblocking the parent.
+        if (!action.targetFrame.isMainFrame && interceptedChildPolicy) {
+            decisionHandler(WKNavigationActionPolicyCancel);
+            return;
+        }
+        decisionHandler(WKNavigationActionPolicyAllow);
+    }];
+
+    [webView goBack];
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "page0-loaded");
+}
+
 TEST(SiteIsolation, ValidateSessionRestoreWithoutNavigating)
 {
     HTTPServer server({
@@ -7442,8 +7496,12 @@ TEST(SiteIsolation, AdvanceFocusAcrossFrames)
     [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/example"]]];
     [navigationDelegate waitForDidFinishNavigation];
 
+    [[webView window] makeKeyWindow];
+    [NSApp _setKeyWindow:[webView window]];
+    [[webView window] makeFirstResponder:webView.get()];
+    [webView waitForNextPresentationUpdate];
+
     NSArray *expectedMessages = @[
-        @"main - focus div1",
         @"main - focus div1",
         @"main - focus div2",
         @"iframe - focus div1",
@@ -7456,10 +7514,7 @@ TEST(SiteIsolation, AdvanceFocusAcrossFrames)
     Util::run(&messageReceived);
     EXPECT_TRUE([mostRecentMessage isEqualToString:expectedMessages[currentExpected++]]);
     messageReceived = false;
-    Util::run(&messageReceived);
-    EXPECT_TRUE([mostRecentMessage isEqualToString:expectedMessages[currentExpected++]]);
 
-    messageReceived = false;
     [webView typeCharacter:'\t'];
     Util::run(&messageReceived);
     EXPECT_TRUE([mostRecentMessage isEqualToString:expectedMessages[currentExpected++]]);
@@ -8199,6 +8254,7 @@ TEST(SiteIsolation, SelectMultiplePickerLocationInCrossOriginIframe)
     [navigationDelegate waitForDidFinishNavigation];
     [webView waitForNextPresentationUpdate];
 
+    [webView focusInWindow];
     [webView evaluateJavaScript:@"document.querySelector('select').focus()" inFrame:[webView firstChildFrame] completionHandler:nil];
 
     Util::run(&pickerPresented);
@@ -9197,6 +9253,7 @@ TEST(SiteIsolation, NoRedundantFocusPolicyCallbackAfterBlurAndRefocusInCrossOrig
 
     // Focus the input in the cross-origin iframe. Use WithUserGesture because Element::focus()
     // is a no-op for cross-origin non-main-frame iframes without a user gesture.
+    [webView focusInWindow];
     [webView objectByEvaluatingJavaScriptWithUserGesture:@"document.getElementById('input').focus()" inFrame:[webView firstChildFrame]];
     Util::run(&didFocusPolicy);
     EXPECT_EQ(1, focusPolicyCallCount);
@@ -9747,6 +9804,69 @@ TEST(SiteIsolation, NonMainFrameProcessCrash)
     NSString *iframeProcessPort = [webView _test_waitForAlert];
     kill([iframeProcessPort intValue], 9);
     Util::runFor(0.1_s);
+}
+
+TEST(SiteIsolation, PasteboardReading)
+{
+    auto iframehtml = "<script>function doPasteboardStuff() {"
+    "navigator.clipboard.writeText('hello');"
+    "navigator.clipboard.readText()"
+    "    .then(text => alert(text))"
+    "    .catch(()=> alert('fail'))"
+    "}</script>"
+    "<button onclick='doPasteboardStuff()' id='testbutton'>Click</button>"_s;
+
+    HTTPServer server({
+        { "/example"_s, { "<iframe src='https://webkit.org/iframe'></iframe>"_s } },
+        { "/iframe"_s, { iframehtml } },
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto [webView, delegate] = siteIsolatedViewAndDelegate(server.httpsProxyConfiguration());
+    [webView loadURL:[NSURL URLWithString:@"https://example.com/example"]];
+    [delegate waitForDidFinishNavigation];
+
+    [webView evaluateJavaScript:@"document.getElementById('testbutton').click();" inFrame:[webView firstChildFrame] inContentWorld:WKContentWorld.pageWorld completionHandler:nil];
+
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "hello");
+}
+
+TEST(SiteIsolation, UserGesture)
+{
+    auto mainFrameHTML = "<!doctype html>"
+    "<button id='testbutton' onclick='testiframe.contentWindow.postMessage(\"hi\", \"*\")'>Click!</button><br>"
+    "<iframe id='testiframe' src='https://webkit.org/iframe' allow='payment'></iframe>"_s;
+
+    auto iframeHTML = "<script>"
+    "function validRequest() {"
+    "    return {"
+    "          countryCode: 'US',"
+    "          currencyCode: 'USD',"
+    "          supportedNetworks: ['visa', 'masterCard', 'carteBancaire'],"
+    "          merchantCapabilities: ['supports3DS'],"
+    "          total: { label: 'Your Label', amount: '10.00' },"
+    "    }"
+    "}"
+    "window.addEventListener('message', (event) => {"
+    "    try {"
+    "        new ApplePaySession(4, validRequest());"
+    "        alert('did not throw');"
+    "    } catch (e) { alert('threw ' + e) }"
+    "}, false)"
+    "</script>"_s;
+
+    HTTPServer server({
+        { "/main"_s, { mainFrameHTML } },
+        { "/iframe"_s, { iframeHTML } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    RetainPtr configuration = server.httpsProxyConfiguration();
+    enableFeature(configuration.get(), @"ApplePayEnabled");
+    auto [webView, delegate] = siteIsolatedViewAndDelegate(configuration, CGRectMake(0, 0, 800, 600));
+    [webView loadURL:[NSURL URLWithString:@"https://example.com/main"]];
+    [delegate waitForDidFinishNavigation];
+
+    [webView clickOnElementID:@"testbutton"];
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "did not throw");
 }
 
 }

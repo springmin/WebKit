@@ -134,8 +134,8 @@ SUPPRESS_NODELETE const AtomString& SelectSlotAssignment::slotNameForHostChild(c
 // https://html.spec.whatwg.org/#dom-htmloptionscollection-length
 static constexpr unsigned maxSelectItems = 100000;
 
-HTMLSelectElement::HTMLSelectElement(const QualifiedName& tagName, Document& document, HTMLFormElement* form)
-    : HTMLFormControlElement(tagName, document, form)
+HTMLSelectElement::HTMLSelectElement(const QualifiedName& tagName, Document& document)
+    : HTMLFormControlElement(tagName, document)
     , m_typeAhead(this)
     , m_size(0)
     , m_lastOnChangeIndex(-1)
@@ -150,17 +150,17 @@ HTMLSelectElement::HTMLSelectElement(const QualifiedName& tagName, Document& doc
     ASSERT(hasTagName(selectTag));
 }
 
-Ref<HTMLSelectElement> HTMLSelectElement::create(const QualifiedName& tagName, Document& document, HTMLFormElement* form)
+Ref<HTMLSelectElement> HTMLSelectElement::create(const QualifiedName& tagName, Document& document)
 {
     ASSERT(tagName.matches(selectTag));
-    Ref select = adoptRef(*new HTMLSelectElement(tagName, document, form));
+    Ref select = adoptRef(*new HTMLSelectElement(tagName, document));
     select->addShadowRoot(ShadowRoot::create(document, makeUnique<SelectSlotAssignment>()));
     return select;
 }
 
 Ref<HTMLSelectElement> HTMLSelectElement::create(Document& document)
 {
-    return HTMLSelectElement::create(selectTag, document, nullptr);
+    return HTMLSelectElement::create(selectTag, document);
 }
 
 HTMLSelectElement::~HTMLSelectElement() = default;
@@ -1210,8 +1210,8 @@ void HTMLSelectElement::setOptionsChangedOnRenderer()
     if (auto* renderer = this->renderer()) {
         if (auto* renderMenuList = dynamicDowncast<RenderMenuList>(*renderer))
             renderMenuList->setOptionsChanged(true);
-        else if (!usesMenuList())
-            downcast<RenderListBox>(*renderer).setOptionsChanged(true);
+        else if (auto* renderListBox = dynamicDowncast<RenderListBox>(*renderer))
+            renderListBox->setOptionsChanged(true);
     }
 
 #if !PLATFORM(IOS_FAMILY)
@@ -1912,7 +1912,9 @@ void HTMLSelectElement::listBoxDefaultEventHandler(Event& event)
             mouseEvent->setDefaultHandled();
         }
     } else if (event.type() == eventNames.mousemoveEvent && mouseEvent) {
-        CheckedRef renderListBox = downcast<RenderListBox>(*renderer());
+        CheckedPtr renderListBox = dynamicDowncast<RenderListBox>(*renderer());
+        if (!renderListBox)
+            return;
         if (renderListBox->canBeScrolledAndHasScrollableArea())
             return;
 
@@ -2043,7 +2045,8 @@ void HTMLSelectElement::listBoxDefaultEventHandler(Event& event)
                 setActiveSelectionAnchorIndex(m_activeSelectionEndIndex);
             }
 
-            downcast<RenderListBox>(*renderer).scrollToRevealElementAtListIndex(endIndex);
+            if (auto* renderListBox = dynamicDowncast<RenderListBox>(*renderer))
+                renderListBox->scrollToRevealElementAtListIndex(endIndex);
             if (selectNewItem) {
                 updateListBoxSelection(deselectOthers);
                 listBoxOnChange();

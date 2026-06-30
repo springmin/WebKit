@@ -1735,6 +1735,10 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         break;
 
     case MapIteratorNext:
+        m_state.setTypeForTupleNode(node, 0, SpecCellOther);
+        m_state.setNonCellTypeForTupleNode(node, 1, SpecInt32Only);
+        clearForNode(node);
+        break;
     case IsEmptyStorage:
         setTypeForNode(node, SpecBoolean);
         break;
@@ -3483,6 +3487,12 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     case RegExpMatchFastGlobal:
         ASSERT(node->child2().useKind() == StringUse || node->child2().useKind() == KnownStringUse);
         setTypeForNode(node, SpecOther | SpecArray);
+        break;
+
+    case RegExpStringIteratorNext:
+        ASSERT(node->child1().useKind() == CellUse);
+        clobberWorld();
+        setTypeForNode(node, SpecFinalObject);
         break;
             
     case StringReplace:
@@ -6263,7 +6273,7 @@ void AbstractInterpreter<AbstractStateType>::observeTransition(
     AbstractValue::TransitionObserver transitionObserver(from, to);
     forAllValues(clobberLimit, transitionObserver);
     
-    ASSERT(!from->dfgShouldWatch()); // We don't need to claim to be in a clobbered state because 'from' was never watchable (during the time we were compiling), hence no constants ever introduced into the DFG IR that ever had a watchable structure would ever have the same structure as from.
+    ASSERT(!from->dfgMayWatch()); // We don't need to claim to be in a clobbered state because 'from' was never watchable (during the time we were compiling), hence no constants ever introduced into the DFG IR that ever had a watchable structure would ever have the same structure as from.
     
     m_state.mergeClobberState(AbstractInterpreterClobberState::ObservedTransitions);
 }
@@ -6289,7 +6299,7 @@ void AbstractInterpreter<AbstractStateType>::observeTransitions(
     if (ASSERT_ENABLED) {
         // We don't need to claim to be in a clobbered state because none of the Transition::previous structures are watchable.
         for (unsigned i = vector.size(); i--;)
-            ASSERT(!vector[i].previous->dfgShouldWatch());
+            ASSERT(!vector[i].previous->dfgMayWatch());
     }
 
     m_state.mergeClobberState(AbstractInterpreterClobberState::ObservedTransitions);

@@ -89,6 +89,7 @@
 #import <WebCore/DocumentFragment.h>
 #import <WebCore/DocumentMarkerController.h>
 #import <WebCore/DocumentMarkers.h>
+#import <WebCore/DocumentPage.h>
 #import <WebCore/DocumentResourceLoader.h>
 #import <WebCore/DocumentView.h>
 #import <WebCore/DragController.h>
@@ -655,7 +656,7 @@ static std::optional<NSInteger> NODELETE toTag(WebCore::ContextMenuAction action
 
 - (void)forwardContextMenuAction:(id)sender
 {
-    auto action = toAction([sender tag]);
+    auto action = toAction([(NSMenuItem *)sender tag]);
     if (!action)
         return;
 
@@ -1193,7 +1194,6 @@ static NSControlStateValue NODELETE kit(TriState state)
 
 - (DOMDocumentFragment *)_documentFragmentFromPasteboard:(NSPasteboard *)pasteboard inContext:(DOMRange *)context allowPlainText:(BOOL)allowPlainText
 {
-    using namespace WebCore;
     NSArray *types = [pasteboard types];
     DOMDocumentFragment *fragment = nil;
 
@@ -5514,7 +5514,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if (![self _canEdit])
         return;
     
-    NSWritingDirection writingDirection = static_cast<NSWritingDirection>([sender tag]);
+    NSWritingDirection writingDirection = static_cast<NSWritingDirection>([(NSMenuItem *)sender tag]);
     
     // We disable the menu item that performs this action because we can't implement
     // NSWritingDirectionNatural's behavior using CSS.

@@ -264,7 +264,7 @@ bool EventRegionContext::shouldConsolidateInteractionRegion(const RenderObject& 
     return false;
 }
 
-void EventRegionContext::convertGuardContainersToInterationIfNeeded(float minimumCornerRadius)
+void EventRegionContext::convertGuardContainersToInteractionIfNeeded(float minimumCornerRadius)
 {
     for (auto& region : m_interactionRegions) {
         if (region.type != InteractionRegion::Type::Guard)
@@ -364,11 +364,12 @@ void EventRegionContext::shrinkWrapInteractionRegions()
         }
 
         auto finalRegionRectForTracking = enclosingIntRect(region.rectInLayerCoordinates);
+        auto originalIndex = i;
         for (auto& extraRegion : toAddAfterMerge) {
             auto extraRectForTracking = enclosingIntRect(extraRegion.rectInLayerCoordinates);
             // Do not insert a new region if it creates a duplicated Interaction Rect.
             if (finalRegionRectForTracking == extraRectForTracking) {
-                region.contentHint = m_interactionRectsAndContentHints.get(extraRectForTracking);
+                m_interactionRegions[originalIndex].contentHint = m_interactionRectsAndContentHints.get(extraRectForTracking);
                 continue;
             }
             extraRegion.contentHint = m_interactionRectsAndContentHints.get(extraRectForTracking);
@@ -415,7 +416,7 @@ void EventRegionContext::removeSuperfluousInteractionRegions()
 
 void EventRegionContext::copyInteractionRegionsToEventRegion(float minimumCornerRadius)
 {
-    convertGuardContainersToInterationIfNeeded(minimumCornerRadius);
+    convertGuardContainersToInteractionIfNeeded(minimumCornerRadius);
     removeSuperfluousInteractionRegions();
     shrinkWrapInteractionRegions();
     m_eventRegion.appendInteractionRegions(m_interactionRegions);
@@ -642,7 +643,7 @@ OptionSet<EventListenerRegionType> touchEventTypes =
     , EventListenerRegionType::PointerUp, EventListenerRegionType::NonPassivePointerUp
     , EventListenerRegionType::MouseMove, EventListenerRegionType::NonPassiveMouseMove
     , EventListenerRegionType::MouseDown, EventListenerRegionType::NonPassiveMouseDown
-    , EventListenerRegionType::MouseMove, EventListenerRegionType::NonPassiveMouseMove
+    , EventListenerRegionType::MouseUp, EventListenerRegionType::NonPassiveMouseUp
     , EventListenerRegionType::GestureChange, EventListenerRegionType::NonPassiveGestureChange
     , EventListenerRegionType::GestureEnd, EventListenerRegionType::NonPassiveGestureEnd
     , EventListenerRegionType::GestureStart, EventListenerRegionType::NonPassiveGestureStart

@@ -28,6 +28,7 @@
 
 #include "CalendarFields.h"
 #include "CalendarICUBridge.h"
+#include "ISOArithmetic.h"
 #include "IntlDateTimeFormat.h"
 #include "IntlObjectInlines.h"
 #include "JSCInlines.h"
@@ -132,8 +133,15 @@ JSC_DEFINE_HOST_FUNCTION(temporalPlainMonthDayPrototypeFuncToLocaleString, (JSGl
     if (!monthDay) [[unlikely]]
         return throwVMTypeError(globalObject, scope, "Temporal.PlainMonthDay.prototype.toLocaleString called on value that's not a PlainMonthDay"_s);
 
-    auto* formatter = IntlDateTimeFormat::create(vm, globalObject->dateTimeFormatStructure());
-    formatter->initializeDateTimeFormat(globalObject, callFrame->argument(0), callFrame->argument(1), IntlDateTimeFormat::RequiredComponent::Date, IntlDateTimeFormat::Defaults::Date);
+    JSValue locales = callFrame->argument(0);
+    JSValue options = callFrame->argument(1);
+    IntlDateTimeFormat* formatter;
+    if (locales.isUndefined() && options.isUndefined())
+        formatter = globalObject->defaultDateFormat();
+    else {
+        formatter = IntlDateTimeFormat::create(vm, globalObject->dateTimeFormatStructure());
+        formatter->initializeDateTimeFormat(globalObject, locales, options, IntlDateTimeFormat::RequiredComponent::Date, IntlDateTimeFormat::Defaults::Date);
+    }
     RETURN_IF_EXCEPTION(scope, { });
 
     RELEASE_AND_RETURN(scope, JSValue::encode(formatter->format(globalObject, callFrame->thisValue())));
@@ -233,14 +241,13 @@ JSC_DEFINE_HOST_FUNCTION(temporalPlainMonthDayPrototypeFuncToPlainDate, (JSGloba
         RELEASE_AND_RETURN(scope, JSValue::encode(TemporalPlainDate::tryCreateIfValid(globalObject, globalObject->plainDateStructure(), WTF::move(resolved->isoDate), resolved->calendarId)));
     }
 
-    auto plainDateOptional =
-        TemporalDuration::regulateISODate(itemYear.value(), thisMonth, thisDay, TemporalOverflow::Constrain);
-    if (!plainDateOptional) [[unlikely]] {
+    auto plainDateResult = TemporalCore::regulateISODate(itemYear.value(), thisMonth, thisDay, TemporalOverflow::Constrain);
+    if (!plainDateResult) [[unlikely]] {
         throwRangeError(globalObject, scope, "Temporal.PlainMonthDay.prototype.toPlainDate: date is invalid"_s);
         return { };
     }
 
-    RELEASE_AND_RETURN(scope, JSValue::encode(TemporalPlainDate::tryCreateIfValid(globalObject, globalObject->plainDateStructure(), WTF::move(plainDateOptional.value()), monthDay->calendarID())));
+    RELEASE_AND_RETURN(scope, JSValue::encode(TemporalPlainDate::tryCreateIfValid(globalObject, globalObject->plainDateStructure(), WTF::move(*plainDateResult), monthDay->calendarID())));
 }
 
 // https://tc39.es/proposal-temporal/#sec-temporal.plainmonthday.prototype.valueof

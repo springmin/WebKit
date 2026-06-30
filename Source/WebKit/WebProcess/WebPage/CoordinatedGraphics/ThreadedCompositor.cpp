@@ -125,9 +125,7 @@ ThreadedCompositor::ThreadedCompositor(WebPage& webPage, LayerTreeHost& layerTre
 
         if (m_useSkia) {
             PlatformDisplay::sharedDisplay().setSkiaGLContextForCurrentThread(WTF::move(context));
-            const auto disableDDL = CStringView::unsafeFromUTF8(getenv("WEBKIT_SKIA_DISABLE_DDL"));
-            if (!disableDDL || disableDDL == "0"_s)
-                m_threadSafeGrContext = PlatformDisplay::sharedDisplay().skiaGrContext()->threadSafeProxy();
+            m_threadSafeGrContext = PlatformDisplay::sharedDisplay().skiaGrContext()->threadSafeProxy();
         } else {
             m_context = WTF::move(context);
             m_textureMapper = TextureMapper::create();
@@ -298,9 +296,7 @@ void ThreadedCompositor::flushCompositingState(const OptionSet<CompositionReason
     }
 #endif
 
-    m_sceneState->rootLayer().flushCompositingState(reasons, m_useSkia);
-    for (auto& layer : m_sceneState->committedLayers())
-        layer->flushCompositingState(reasons, m_useSkia);
+    m_sceneState->flushCompositingState(reasons, m_useSkia);
 }
 
 void ThreadedCompositor::paintToCurrentGLContext(const TransformationMatrix& matrix, const IntSize& size, const OptionSet<CompositionReason>& reasons)
@@ -767,6 +763,13 @@ void ThreadedCompositor::fillGLInformation(RenderProcessInfo&& info, CompletionH
         RunLoop::mainSingleton().dispatch([info = WTF::move(info), completionHandler = WTF::move(completionHandler)]() mutable {
             completionHandler(WTF::move(info));
         });
+    });
+}
+
+void ThreadedCompositor::releaseMemory(WTF::Critical critical)
+{
+    m_workQueue->dispatchSync([protectedThis = Ref { *this }, critical] {
+        PlatformDisplay::sharedDisplay().skiaReleaseUnusedResources(critical);
     });
 }
 

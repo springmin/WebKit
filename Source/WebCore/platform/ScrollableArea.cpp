@@ -188,8 +188,16 @@ void ScrollableArea::scrollToPositionWithAnimation(const FloatPoint& position, c
 {
     LOG_WITH_STREAM(Scrolling, stream << "ScrollableArea " << this << " scrollToPositionWithAnimation " << position);
 
-    if (scrollAnimationStatus() == ScrollAnimationStatus::Animating)
+    if (scrollAnimationStatus() == ScrollAnimationStatus::Animating) {
+        // If a smooth scroll animation is already running, retarget it to the new
+        // destination instead of cancelling it. Cancelling tears the animation down,
+        // which prematurely fires a scrollend event at the current intermediate position
+        // rather than running to the new destination. Fall back to cancellation when
+        // there is no active main-thread animation to retarget.
+        if (scrollAnimator().retargetRunningAnimation(position))
+            return;
         scrollAnimator().cancelAnimations();
+    }
 
     if (position == scrollPosition())
         return;
@@ -451,8 +459,8 @@ void ScrollableArea::availableContentSizeChanged(AvailableSizeChangeReason)
 
 bool ScrollableArea::hasOverlayScrollbars() const
 {
-    return (verticalScrollbar() && verticalScrollbar()->isOverlayScrollbar())
-        || (horizontalScrollbar() && horizontalScrollbar()->isOverlayScrollbar());
+    return (verticalScrollbar() && protect(verticalScrollbar())->isOverlayScrollbar())
+        || (horizontalScrollbar() && protect(horizontalScrollbar())->isOverlayScrollbar());
 }
 
 bool ScrollableArea::canShowNonOverlayScrollbars() const
@@ -745,12 +753,12 @@ RectEdges<bool> ScrollableArea::edgePinnedState() const
 
 int ScrollableArea::horizontalScrollbarIntrusion() const
 {
-    return verticalScrollbar() ? verticalScrollbar()->occupiedWidth() : 0;
+    return verticalScrollbar() ? protect(verticalScrollbar())->occupiedWidth() : 0;
 }
 
 int ScrollableArea::verticalScrollbarIntrusion() const
 {
-    return horizontalScrollbar() ? horizontalScrollbar()->occupiedHeight() : 0;
+    return horizontalScrollbar() ? protect(horizontalScrollbar())->occupiedHeight() : 0;
 }
 
 IntSize ScrollableArea::scrollbarIntrusion() const

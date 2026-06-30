@@ -186,6 +186,7 @@ namespace WebKit {
 enum class ColorControlSupportsAlpha : bool;
 enum class UndoOrRedo : bool;
 enum class ForceSoftwareCapturingViewportSnapshot : bool;
+enum class InputType : uint8_t;
 enum class TapHandlingResult : uint8_t;
 
 class ContextMenuContextData;
@@ -560,7 +561,7 @@ public:
 
     virtual void registerInsertionUndoGrouping() = 0;
 
-    virtual void setEditableElementIsFocused(bool) = 0;
+    virtual void setFocusedElementInputType(InputType) = 0;
 #endif // PLATFORM(MAC)
 
 #if ENABLE(HORIZONTAL_BANNER_VIEW_OVERLAYS)
@@ -572,7 +573,7 @@ public:
     virtual void didCommitMainFrameData(const MainFrameData&) = 0;
     virtual void layerTreeCommitComplete() { }
 
-#if ENABLE(SCROLL_STRETCH_NOTIFICATIONS)
+#if HAVE(NSREFRESHCONTROLLER)
     virtual void topScrollStretchDidChange(CGFloat) { }
 #endif
 
@@ -745,6 +746,8 @@ public:
 
     virtual void pageDidScroll(const WebCore::IntPoint& scrollOffset) { }
 
+    virtual void didEndSyntheticMomentumScrolling() { }
+
     virtual void didRestoreScrollPosition() = 0;
 
     virtual bool windowIsFrontWindowUnderMouse(const NativeWebMouseEvent&) { return false; }
@@ -768,7 +771,7 @@ public:
     virtual void didReceiveInteractiveModelElement(std::optional<WebCore::NodeIdentifier>) = 0;
 #endif
 
-    virtual void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, WebCore::DOMPasteRequiresInteraction, const WebCore::IntRect& elementRect, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&) = 0;
+    virtual void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, WebCore::DOMPasteRequiresInteraction, WebCore::FrameIdentifier, const WebCore::IntRect& elementRect, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&) = 0;
 
 #if ENABLE(ATTACHMENT_ELEMENT)
     virtual void didInsertAttachment(API::Attachment&, const String& source) { }

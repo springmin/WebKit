@@ -985,6 +985,7 @@ exclude
 //
 var
 env
+random-item
 -internal-auto-base
 
 //
@@ -1542,6 +1543,7 @@ rem
 to-zero
 // nearest
 // progress
+no-clamp
 random
 element-scoped
 // fixed

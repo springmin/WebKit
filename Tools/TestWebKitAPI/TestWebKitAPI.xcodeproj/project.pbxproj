@@ -529,15 +529,20 @@
 		07AA27602F83C3A900FE10FC /* Exceptions for "Tests" folder in "TestWebKitAPI" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				WebKit/WebPage/AppKitGesturesTests.swift,
+				"WebKit/WebPage/AppKit Gesture Tests/AppKitGesturesTestsSupport.swift",
+				"WebKit/WebPage/AppKit Gesture Tests/BasicAppKitGesturesTests.swift",
+				"WebKit/WebPage/AppKit Gesture Tests/EmbeddedAppKitGesturesTests.swift",
 				WebKit/WebPage/EditingFontSizeTests.swift,
 				WebKit/WebPage/JavaScriptExpressionTests.swift,
+				WebKit/WebPage/NavigatorWebDriverOverride.swift,
 				WebKit/WebPage/SendInspectorMessage.swift,
+				WebKit/WebPage/SimulateClickOverTextTests.swift,
 				WebKit/WebPage/URLSchemeHandlerTests.swift,
 				WebKit/WebPage/WebPageMouseEventsTests.swift,
 				WebKit/WebPage/WebPageNavigationTests.swift,
 				WebKit/WebPage/WebPageTests.swift,
 				WebKit/WebPage/WebPageTransferableTests.swift,
+				WebKit/WKWebView/CodingTests.swift,
 				WebKit/WKWebView/WKWebViewSwiftOverlayTests.swift,
 			);
 			target = 8DD76F960486AA7600D96B5E /* TestWebKitAPI */;
@@ -667,6 +672,7 @@
 				WebCore/cocoa/AudioStreamDescriptionCocoa.mm,
 				WebCore/cocoa/AudioVideoRendererAVFObjCTests.mm,
 				WebCore/cocoa/AVFoundationSoftLinkTest.mm,
+				WebCore/cocoa/AttributedStringFontCache.mm,
 				WebCore/cocoa/BifurcatedGraphicsContextTestsCG.cpp,
 				WebCore/cocoa/CaptionPreferencesTests.mm,
 				WebCore/cocoa/CoreMediaUtilities.mm,
@@ -778,6 +784,7 @@
 				WebCore/TransformationMatrix.cpp,
 				WebCore/U2fCommandConstructorTest.cpp,
 				WebCore/URLParserTextEncoding.cpp,
+				WebCore/UserAgentStringParser.cpp,
 				WebCore/WritingModeTests.cpp,
 				WebCore/XRCompositionLayer.cpp,
 				WebCore/YouTubePluginReplacement.cpp,
@@ -985,6 +992,7 @@
 				WebKit/WKWebView/mac/FullscreenPointerLeave.mm,
 				WebKit/WKWebView/mac/FullscreenZoomInitialFrame.mm,
 				WebKit/WKWebView/mac/GetMatchedCSSRules.mm,
+				WebKit/WKWebView/mac/GrammarMarkerPrecedence.mm,
 				WebKit/WKWebView/mac/HIDGamepads.mm,
 				WebKit/WKWebView/mac/HTMLCollectionNamedItem.mm,
 				WebKit/WKWebView/mac/HTMLFormCollectionNamedItem.mm,
@@ -1010,6 +1018,7 @@
 				WebKit/WKWebView/mac/PageVisibilityStateWithWindowChanges.mm,
 				WebKit/WKWebView/mac/RenderedImageFromDOMNode.mm,
 				WebKit/WKWebView/mac/RenderedImageFromDOMRange.mm,
+				WebKit/WKWebView/mac/RunningBoardManagement.mm,
 				WebKit/WKWebView/mac/ScrollbarTests.mm,
 				WebKit/WKWebView/mac/ScrollingCoordinatorTests.mm,
 				WebKit/WKWebView/mac/SetAndUpdateCacheModel.mm,
@@ -1210,7 +1219,7 @@
 				WTF/RobinHoodHashSet.cpp,
 				WTF/RunLoop.cpp,
 				WTF/SafeStrerror.cpp,
-				WTF/SaturatedArithmeticOperations.cpp,
+				WTF/SaturatingArithmeticOperations.cpp,
 				WTF/Scope.cpp,
 				WTF/ScopedLambda.cpp,
 				WTF/SegmentedVector.cpp,
@@ -1290,14 +1299,20 @@
 		07C913DE2F820CCA003A09D8 /* Exceptions for "Tests" folder in "TestWebKitAPIBundle" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				WebKit/WebPage/AppKitGesturesTests.swift,
+				"WebKit/WebPage/AppKit Gesture Tests/AppKitGesturesTestsSupport.swift",
+				"WebKit/WebPage/AppKit Gesture Tests/BasicAppKitGesturesTests.swift",
+				"WebKit/WebPage/AppKit Gesture Tests/EmbeddedAppKitGesturesTests.swift",
 				WebKit/WebPage/EditingFontSizeTests.swift,
 				WebKit/WebPage/JavaScriptExpressionTests.swift,
+				WebKit/WebPage/NavigatorWebDriverOverride.swift,
 				WebKit/WebPage/SendInspectorMessage.swift,
+				WebKit/WebPage/SimulateClickOverTextTests.swift,
 				WebKit/WebPage/URLSchemeHandlerTests.swift,
+				WebKit/WebPage/WebPageMouseEventsTests.swift,
 				WebKit/WebPage/WebPageNavigationTests.swift,
 				WebKit/WebPage/WebPageTests.swift,
 				WebKit/WebPage/WebPageTransferableTests.swift,
+				WebKit/WKWebView/CodingTests.swift,
 				WebKit/WKWebView/WKWebViewSwiftOverlayTests.swift,
 				WTF/cocoa/SwiftCxxInteropTestbed.cpp,
 				WTF/cocoa/SwiftCxxInteropTests.swift,
@@ -2110,7 +2125,7 @@
 			isa = PBXProject;
 			attributes = {
 				LastSwiftUpdateCheck = 0700;
-				LastUpgradeCheck = 1140;
+				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					0723A7492F80357300CB96E7 = {
 						CreatedOnToolsVersion = 26.0;

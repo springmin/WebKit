@@ -277,6 +277,8 @@ public:
     void removeWebPage(WebPageProxy&, EndsUsingDataStore);
 
     void sendPageCloseMessage(std::optional<WebPageProxyIdentifier>, WebCore::PageIdentifier, CompletionHandler<void()>&& = [] { });
+    void addPagePendingClose(WebPageProxyIdentifier);
+    void removePagePendingClose(WebPageProxyIdentifier);
 
     void addProvisionalPageProxy(ProvisionalPageProxy&);
     void removeProvisionalPageProxy(ProvisionalPageProxy&);
@@ -327,6 +329,9 @@ public:
     void addPreviouslyApprovedFileURL(const URL&);
     void addPreviouslyApprovedFileURLsFromFrameStateTree(const FrameState&);
     bool wasPreviouslyApprovedFileURL(const URL&) const;
+    bool hasGrantedSandboxExtensionForFile(const URL&) const;
+
+    bool isAssociatedWithPage(WebPageProxyIdentifier) const;
 
     void updateTextCheckerState();
 
@@ -439,7 +444,6 @@ public:
     void didChangeThrottleState(ProcessThrottleState) final;
     void prepareToDropLastAssertion(CompletionHandler<void()>&&) final;
     void didDropLastAssertion() final;
-    ASCIILiteral clientName() const final { return "WebProcess"_s; }
 
 #if PLATFORM(COCOA)
     enum SandboxExtensionType : uint32_t {
@@ -687,7 +691,6 @@ private:
     void initializePreferencesForGPUAndNetworkProcesses(const WebPageProxy&);
 
     void reportProcessDisassociatedWithPageIfNecessary(WebPageProxyIdentifier);
-    bool isAssociatedWithPage(WebPageProxyIdentifier) const;
 
     void platformInitialize();
     void platformDestroy();
@@ -842,6 +845,7 @@ private:
     ForegroundWebProcessToken m_foregroundToken;
     BackgroundWebProcessToken m_backgroundToken;
     bool m_areThrottleStateChangesEnabled { true };
+    bool m_lastNotifiedNetworkProcessSuspended { false };
 
 #if HAVE(DISPLAY_LINK)
     const UniqueRef<DisplayLinkProcessProxyClient> m_displayLinkClient;

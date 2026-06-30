@@ -374,7 +374,7 @@ void RenderBox::styleDidChange(Style::Difference diff, const Style::ComputedStyl
 
     if (layer() && oldStyle && oldStyle->scrollbarWidth() != newStyle.scrollbarWidth()) {
         if (isDocElementRenderer)
-            view().frameView().scrollbarWidthChanged(Style::toPlatform(newStyle.scrollbarWidth()));
+            protect(view())->frameView().scrollbarWidthChanged(Style::toPlatform(newStyle.scrollbarWidth()));
         else if (CheckedPtr scrollableArea = layer()->scrollableArea())
             scrollableArea->scrollbarWidthChanged(Style::toPlatform(newStyle.scrollbarWidth()));
     }
@@ -410,7 +410,7 @@ void RenderBox::styleDidChange(Style::Difference diff, const Style::ComputedStyl
     bool isBodyRenderer = isBody();
 
     if (isDocElementRenderer || isBodyRenderer) {
-        view().frameView().recalculateScrollbarOverlayStyle();
+        protect(view())->frameView().recalculateScrollbarOverlayStyle();
         
         if (diff != Style::DifferenceResult::Equal)
             view().compositor().rootOrBodyStyleChanged(*this, oldStyle);
@@ -688,7 +688,7 @@ void RenderBox::setScrollPosition(const ScrollPosition& position, const ScrollPo
 
 void RenderBox::boundingRects(Vector<LayoutRect>& rects, const LayoutPoint& accumulatedOffset) const
 {
-    rects.append({ accumulatedOffset, size() });
+    rects.append({ accumulatedOffset, borderBoxSize() });
 }
 
 void RenderBox::absoluteQuads(Vector<FloatQuad>& quads, bool* wasFixed) const
@@ -696,7 +696,7 @@ void RenderBox::absoluteQuads(Vector<FloatQuad>& quads, bool* wasFixed) const
     if (CheckedPtr fragmentedFlow = enclosingFragmentedFlow(); fragmentedFlow && fragmentedFlow->absoluteQuadsForBox(quads, wasFixed, *this))
         return;
 
-    auto localRect = FloatRect { 0, 0, width(), height() };
+    auto localRect = FloatRect { 0, 0, borderBoxWidth(), borderBoxHeight() };
     quads.append(localToAbsoluteQuad(localRect, MapCoordinatesMode::UseTransforms, wasFixed));
 }
 
@@ -900,11 +900,14 @@ IntRect absoluteInteractionBounds(const RenderObject& renderer)
     }
 
     auto& style = renderer.style();
+    auto zoom = style.usedZoomForLength();
+    auto deviceScaleFactor = style.deviceScaleFactor();
+
     FloatRect boundingBox = renderer.absoluteBoundingBoxRect(true /* use transforms*/);
     // This is wrong. It's subtracting borders after converting to absolute coords on something that probably doesn't represent a rectangular element.
-    boundingBox.move(Style::evaluate<float>(style.usedBorderLeftWidth(), Style::ZoomNeeded { }), Style::evaluate<float>(style.usedBorderTopWidth(), Style::ZoomNeeded { }));
-    boundingBox.setWidth(boundingBox.width() - Style::evaluate<float>(style.usedBorderLeftWidth(), Style::ZoomNeeded { }) - Style::evaluate<float>(style.usedBorderRightWidth(), Style::ZoomNeeded { }));
-    boundingBox.setHeight(boundingBox.height() - Style::evaluate<float>(style.usedBorderBottomWidth(), Style::ZoomNeeded { }) - Style::evaluate<float>(style.usedBorderTopWidth(), Style::ZoomNeeded { }));
+    boundingBox.move(Style::evaluate<float>(style.usedBorderLeftWidth(), zoom, deviceScaleFactor), Style::evaluate<float>(style.usedBorderTopWidth(), zoom, deviceScaleFactor));
+    boundingBox.setWidth(boundingBox.width() - Style::evaluate<float>(style.usedBorderLeftWidth(), zoom, deviceScaleFactor) - Style::evaluate<float>(style.usedBorderRightWidth(), zoom, deviceScaleFactor));
+    boundingBox.setHeight(boundingBox.height() - Style::evaluate<float>(style.usedBorderBottomWidth(), zoom, deviceScaleFactor) - Style::evaluate<float>(style.usedBorderTopWidth(), zoom, deviceScaleFactor));
     return enclosingIntRect(boundingBox);
 }
 
@@ -935,8 +938,8 @@ LayoutRect RenderBox::paddingBoxRect() const
     return LayoutRect {
         borderWidths.left() + offsetForScrollbar,
         borderWidths.top(),
-        width() - borderWidths.left() - borderWidths.right() - verticalScrollbarWidth,
-        height() - borderWidths.top() - borderWidths.bottom() - horizontalScrollbarHeight
+        borderBoxWidth() - borderWidths.left() - borderWidths.right() - verticalScrollbarWidth,
+        borderBoxHeight() - borderWidths.top() - borderWidths.bottom() - horizontalScrollbarHeight
     };
 }
 
@@ -1008,7 +1011,7 @@ LayoutRect RenderBox::outlineBoundsForRepaint(const RenderLayerModelObject* repa
     // repaint containers. https://bugs.webkit.org/show_bug.cgi?id=23308
     box.move(view().frameView().layoutContext().layoutDelta());
 
-    return LayoutRect(snapRectToDevicePixels(box, document().deviceScaleFactor()));
+    return LayoutRect(snapRectToDevicePixels(box, protect(document())->deviceScaleFactor()));
 }
 
 int RenderBox::reflectionOffset() const
@@ -1197,7 +1200,7 @@ bool RenderBox::canBeProgramaticallyScrolled() const
     if (hasScrollableOverflowX() || hasScrollableOverflowY())
         return true;
 
-    return element() && element()->hasEditableStyle();
+    return element() && protect(element())->hasEditableStyle();
 }
 
 bool RenderBox::usesCompositedScrolling() const
@@ -1215,7 +1218,7 @@ void RenderBox::autoscroll(const IntPoint& position)
 bool RenderBox::canAutoscroll() const
 {
     if (isRenderView())
-        return view().frameView().isScrollable();
+        return protect(view())->frameView().isScrollable();
 
     // Check for a box that can be scrolled in its own right.
     if (canBeScrolledAndHasScrollableArea())
@@ -1229,8 +1232,8 @@ bool RenderBox::canAutoscroll() const
 IntSize RenderBox::calculateAutoscrollDirection(const IntPoint& windowPoint) const
 {
     IntRect box(absoluteBoundingBoxRect());
-    box.moveBy(view().frameView().scrollPosition());
-    IntRect windowBox = view().frameView().contentsToWindow(box);
+    box.moveBy(protect(view())->frameView().scrollPosition());
+    IntRect windowBox = protect(view())->frameView().contentsToWindow(box);
 
     IntPoint windowAutoscrollPoint = windowPoint;
 
@@ -1673,7 +1676,7 @@ bool RenderBox::hitTestClipPath(const HitTestLocation& hitTestLocation, const La
             return Style::path(clipPath.shape(), referenceBoxRect(clipPath.referenceBox()), style().usedZoomForLength()).contains(hitTestLocationInLocalCoordinates, Style::windRule(clipPath.shape()));
         },
         [&](const Style::ReferencePath& clipPath) {
-            RefPtr element = document().getElementById(clipPath.fragment());
+            RefPtr element = protect(document())->getElementById(clipPath.fragment());
             return !is<SVGClipPathElement>(element) || !element->renderer() || hitsClipContent(*element);
         },
         [&](const Style::BoxPath&) {
@@ -1828,7 +1831,7 @@ void RenderBox::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoint& pai
         // beginning the layer).
         stateSaver.save();
         auto borderShape = BorderShape::shapeForBorderRect(style(), paintRect);
-        borderShape.clipToOuterShape(paintInfo.context(), document().deviceScaleFactor());
+        borderShape.clipToOuterShape(paintInfo.context(), protect(document())->deviceScaleFactor());
         paintInfo.context().beginTransparencyLayer(1);
     }
 
@@ -1956,7 +1959,7 @@ static bool isCandidateForOpaquenessTest(const RenderBox& childBox)
         return false;
     if (!childStyle.shapeOutside().isNone())
         return false;
-    if (!childBox.width() || !childBox.height())
+    if (!childBox.borderBoxWidth() || !childBox.borderBoxHeight())
         return false;
     if (CheckedPtr childLayer = childBox.layer()) {
         if (childLayer->isComposited())
@@ -1993,7 +1996,7 @@ bool RenderBox::foregroundIsKnownToBeOpaqueInRect(const LayoutRect& localRect, u
                 return false;
             continue;
         }
-        if (childLocalRect.maxY() > childBox.height() || childLocalRect.maxX() > childBox.width())
+        if (childLocalRect.maxY() > childBox.borderBoxHeight() || childLocalRect.maxX() > childBox.borderBoxWidth())
             continue;
         if (childBox.backgroundIsKnownToBeOpaqueInRect(childLocalRect))
             return true;
@@ -2055,7 +2058,7 @@ void RenderBox::paintMask(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
     if (!paintInfo.shouldPaintWithinRoot(*this) || style().usedVisibility() != Visibility::Visible || paintInfo.phase != PaintPhase::Mask || paintInfo.context().paintingDisabled())
         return;
 
-    LayoutRect paintRect = LayoutRect(paintOffset, size());
+    LayoutRect paintRect = LayoutRect(paintOffset, borderBoxSize());
     adjustBorderBoxRectForPainting(paintRect);
     paintMaskImages(paintInfo, paintRect);
 }
@@ -2065,7 +2068,7 @@ void RenderBox::paintClippingMask(PaintInfo& paintInfo, const LayoutPoint& paint
     if (!paintInfo.shouldPaintWithinRoot(*this) || style().usedVisibility() != Visibility::Visible || paintInfo.phase != PaintPhase::ClippingMask || paintInfo.context().paintingDisabled())
         return;
 
-    LayoutRect paintRect = LayoutRect(paintOffset, size());
+    LayoutRect paintRect = LayoutRect(paintOffset, borderBoxSize());
 
     if (document().settings().layerBasedSVGEngineEnabled() && WTF::holdsAlternative<Style::ReferencePath>(style().clipPath())) {
         paintSVGClippingMask(paintInfo, paintRect);
@@ -2115,7 +2118,7 @@ LayoutRect RenderBox::maskClipRect(const LayoutPoint& paintOffset)
         LayoutRect borderImageRect = borderBoxRect();
         
         // Apply outsets to the border box.
-        borderImageRect.expand(style().maskBorderOutsets());
+        borderImageRect.expand(style().maskBorderOutsets(style().deviceScaleFactor()));
         return borderImageRect;
     }
 
@@ -2175,7 +2178,7 @@ void RenderBox::imageChanged(WrappedImagePtr image, const IntRect*)
     if (styleImage && isNonEmpty) {
         incrementVisuallyNonEmptyPixelCountIfNeeded(flooredIntSize(styleImage->imageSize(this, style().usedZoom())));
         if (auto styleable = Styleable::fromRenderer(*this))
-            protect(document())->didLoadImage(protect(styleable->element).get(), styleImage->cachedImage());
+            protect(document())->didLoadImage(protect(styleable->element).get(), protect(styleImage->cachedImage()));
     }
 
     if (!isComposited())
@@ -2193,7 +2196,7 @@ void RenderBox::incrementVisuallyNonEmptyPixelCountIfNeeded(const IntSize& size)
     if (didContibuteToVisuallyNonEmptyPixelCount())
         return;
 
-    view().frameView().incrementVisuallyNonEmptyPixelCount(size);
+    protect(view())->frameView().incrementVisuallyNonEmptyPixelCount(size);
     setDidContibuteToVisuallyNonEmptyPixelCount();
 }
 
@@ -2212,13 +2215,13 @@ bool RenderBox::repaintLayerRectsForImage(WrappedImagePtr image, const Layers& l
                     layerRenderer = &view();
 
                     auto& renderView = downcast<RenderView>(*layerRenderer);
-                    LayoutUnit rw = renderView.frameView().contentsWidth();
-                    LayoutUnit rh = renderView.frameView().contentsHeight();
+                    LayoutUnit rw = protect(renderView)->frameView().contentsWidth();
+                    LayoutUnit rh = protect(renderView)->frameView().contentsHeight();
 
                     rendererRect = LayoutRect(-layerRenderer->marginLeft(),
                         -layerRenderer->marginTop(),
-                        std::max(layerRenderer->width() + layerRenderer->horizontalMarginExtent() + layerRenderer->borderLeft() + layerRenderer->borderRight(), rw),
-                        std::max(layerRenderer->height() + layerRenderer->verticalMarginExtent() + layerRenderer->borderTop() + layerRenderer->borderBottom(), rh));
+                        std::max(layerRenderer->borderBoxWidth() + layerRenderer->horizontalMarginExtent() + layerRenderer->borderLeft() + layerRenderer->borderRight(), rw),
+                        std::max(layerRenderer->borderBoxHeight() + layerRenderer->verticalMarginExtent() + layerRenderer->borderTop() + layerRenderer->borderBottom(), rh));
 
                     // If we're drawing the root background, then we want to use the bounds of the view
                     // (since root backgrounds cover the canvas, not just the element). If the root element
@@ -2247,9 +2250,9 @@ bool RenderBox::repaintLayerRectsForImage(WrappedImagePtr image, const Layers& l
             // If this is the root background layer, we may need to extend the repaintRect if the FrameView has an
             // extendedBackground. We should only extend the rect if it is already extending the full width or height
             // of the rendererRect.
-            if (drawingRootBackground && view().frameView().hasExtendedBackgroundRectForPainting()) {
+            if (drawingRootBackground && protect(view())->frameView().hasExtendedBackgroundRectForPainting()) {
                 shouldClipToLayer = false;
-                IntRect extendedBackgroundRect = view().frameView().extendedBackgroundRectForPainting();
+                IntRect extendedBackgroundRect = protect(view())->frameView().extendedBackgroundRectForPainting();
                 if (rectToRepaint.width() == rendererRect.width()) {
                     rectToRepaint.move(extendedBackgroundRect.x(), 0);
                     rectToRepaint.setWidth(extendedBackgroundRect.width());
@@ -2270,13 +2273,13 @@ bool RenderBox::repaintLayerRectsForImage(WrappedImagePtr image, const Layers& l
 
 void RenderBox::clipToPaddingBoxShape(GraphicsContext& context, const LayoutPoint& accumulatedOffset, float deviceScaleFactor) const
 {
-    auto borderShape = BorderShape::shapeForBorderRect(style(), LayoutRect(accumulatedOffset, size()));
+    auto borderShape = BorderShape::shapeForBorderRect(style(), LayoutRect(accumulatedOffset, borderBoxSize()));
     borderShape.clipToInnerShape(context, deviceScaleFactor);
 }
 
 void RenderBox::clipToContentBoxShape(GraphicsContext& context, const LayoutPoint& accumulatedOffset, float deviceScaleFactor) const
 {
-    auto borderShape = borderShapeForContentClipping(LayoutRect { accumulatedOffset, size() });
+    auto borderShape = borderShapeForContentClipping(LayoutRect { accumulatedOffset, borderBoxSize() });
     borderShape.clipToInnerShape(context, deviceScaleFactor);
 }
 
@@ -2298,7 +2301,7 @@ bool RenderBox::pushContentsClip(PaintInfo& paintInfo, const LayoutPoint& accumu
         paintObject(paintInfo, accumulatedOffset);
         paintInfo.phase = PaintPhase::ChildBlockBackgrounds;
     }
-    float deviceScaleFactor = document().deviceScaleFactor();
+    float deviceScaleFactor = protect(document())->deviceScaleFactor();
     FloatRect clipRect = snapRectToDevicePixels((isControlClip ? controlClipRect(accumulatedOffset) : overflowClipRect(accumulatedOffset, OverlayScrollbarSizeRelevancy::IgnoreOverlayScrollbarSize, paintInfo.phase)), deviceScaleFactor);
     paintInfo.context().save();
     if (style().border().hasBorderRadius())
@@ -2368,7 +2371,7 @@ LayoutRect RenderBox::clipRect(const LayoutPoint& location) const
             // from the left and top edges. Therefore it's better to avoid constraining to smaller widths and heights.
 
             if (auto clipRight = rect.value->right().tryLength())
-                clipRect.contract(width() - LayoutUnit { clipRight->resolveZoom(Style::ZoomNeeded { }) }, 0_lu);
+                clipRect.contract(borderBoxWidth() - LayoutUnit { clipRight->resolveZoom(Style::ZoomNeeded { }) }, 0_lu);
 
             if (auto clipTop = rect.value->top().tryLength()) {
                 auto c = LayoutUnit { clipTop->resolveZoom(Style::ZoomNeeded { }) };
@@ -2377,7 +2380,7 @@ LayoutRect RenderBox::clipRect(const LayoutPoint& location) const
             }
 
             if (auto clipBottom = rect.value->bottom().tryLength())
-                clipRect.contract(0_lu, height() - LayoutUnit { clipBottom->resolveZoom(Style::ZoomNeeded { }) });
+                clipRect.contract(0_lu, borderBoxHeight() - LayoutUnit { clipBottom->resolveZoom(Style::ZoomNeeded { }) });
 
             return clipRect;
         }
@@ -2483,7 +2486,9 @@ LayoutUnit RenderBox::perpendicularContainingBlockLogicalHeight() const
         return containingBlock->adjustContentBoxLogicalHeightForBoxSizing(LayoutUnit { fixedLogicalHeight->resolveZoom(containingBlockStyle.usedZoomForLength()) });
     }
 
-    LayoutUnit fillFallbackExtent = containingBlockStyle.writingMode().isHorizontal() ? view().frameView().layoutSize().height() : view().frameView().layoutSize().width();
+    LayoutUnit fillFallbackExtent = containingBlockStyle.writingMode().isHorizontal()
+        ? protect(view())->frameView().layoutSize().height()
+        : protect(view())->frameView().layoutSize().width();
     auto containingBlockHasIndefiniteHeight = [&] {
         // When the containing block's block size is indefinite, the orthogonal
         // child's available inline space is indefinite. Use the viewport fallback
@@ -2642,7 +2647,7 @@ auto RenderBox::computeVisibleRectsUsingPaintOffset(const RepaintRects& rects) c
     auto* layoutState = view().frameView().layoutContext().layoutState();
 
     if (hasLayer() && layer()->transform())
-        adjustedRects.transform(*layer()->transform(), document().deviceScaleFactor());
+        adjustedRects.transform(*layer()->transform(), protect(document())->deviceScaleFactor());
 
     // We can't trust the bits on RenderObject, because this might be called while re-resolving style.
     if (style().hasInFlowPosition() && layer())
@@ -2723,7 +2728,7 @@ auto RenderBox::computeVisibleRectsInContainer(const RepaintRects& rects, const 
     auto position = styleToUse.position();
     if (hasLayer() && layer()->isTransformed()) {
         context.hasPositionFixedDescendant = position == PositionType::Fixed;
-        adjustedRects.transform(layer()->currentTransform(), document().deviceScaleFactor());
+        adjustedRects.transform(layer()->currentTransform(), protect(document())->deviceScaleFactor());
     } else if (position == PositionType::Fixed)
         context.hasPositionFixedDescendant = true;
 
@@ -3547,7 +3552,7 @@ RenderBox::LogicalExtentComputedValues RenderBox::computeLogicalHeight(LayoutUni
     // height since we don't set a height in RenderView when we're printing. So without this quirk, the 
     // height has nothing to be a percentage of, and it ends up being 0. That is bad.
     auto paginatedContentNeedsBaseHeight = [&] {
-        if (!document().printing() || !computedLogicalHeight.isPercentOrCalculated() || isInline())
+        if (!protect(document())->printing() || !computedLogicalHeight.isPercentOrCalculated() || isInline())
             return false;
         if (isDocumentElementRenderer())
             return true;
@@ -4243,9 +4248,9 @@ LayoutRange RenderBox::containingBlockRangeForPositioned(const RenderBoxModelObj
             if (auto boxInfo = containingBlock->renderBoxFragmentInfo(fragment)) {
                 auto size = boxInfo->logicalWidth();
                 if (BoxAxis::Horizontal == physicalAxis)
-                    size -= containingBlock->width() - containingBlock->clientWidth();
+                    size -= containingBlock->borderBoxWidth() - containingBlock->clientWidth();
                 else
-                    size -= containingBlock->height() - containingBlock->clientHeight();
+                    size -= containingBlock->borderBoxHeight() - containingBlock->clientHeight();
                 return LayoutRange(startEdge, std::max<LayoutUnit>(0, size));
             }
         }
@@ -4556,7 +4561,7 @@ PositionWithAffinity RenderBox::positionForPoint(const LayoutPoint& point, HitTe
 {
     // no children...return this render object's element, if there is one, and offset 0
     if (!firstChild())
-        return createPositionWithAffinity(nonPseudoElement() ? firstPositionInOrBeforeNode(nonPseudoElement()) : Position());
+        return createPositionWithAffinity(nonPseudoElement() ? firstPositionInOrBeforeNode(protect(nonPseudoElement())) : Position());
 
     if (isRenderTable() && nonPseudoElement()) {
         LayoutUnit right = contentBoxWidth() + horizontalBorderAndPaddingExtent();
@@ -4564,8 +4569,8 @@ PositionWithAffinity RenderBox::positionForPoint(const LayoutPoint& point, HitTe
         
         if (point.x() < 0 || point.x() > right || point.y() < 0 || point.y() > bottom) {
             if (point.x() <= right / 2)
-                return createPositionWithAffinity(firstPositionInOrBeforeNode(nonPseudoElement()));
-            return createPositionWithAffinity(lastPositionInOrAfterNode(nonPseudoElement()));
+                return createPositionWithAffinity(firstPositionInOrBeforeNode(protect(nonPseudoElement())));
+            return createPositionWithAffinity(lastPositionInOrAfterNode(protect(nonPseudoElement())));
         }
     }
 
@@ -4629,7 +4634,7 @@ PositionWithAffinity RenderBox::positionForPoint(const LayoutPoint& point, HitTe
     if (closestRenderer)
         return closestRenderer->positionForPoint(point - closestRenderer->locationOffset(), source, fragment);
     
-    return createPositionWithAffinity(firstPositionInOrBeforeNode(nonPseudoElement()));
+    return createPositionWithAffinity(firstPositionInOrBeforeNode(protect(nonPseudoElement())));
 }
 
 bool RenderBox::shrinkToAvoidFloats() const
@@ -4727,7 +4732,7 @@ LayoutRect RenderBox::applyVisualEffectOverflow(const LayoutRect& borderBox, Enu
 
     // Now compute border-image-outset overflow.
     if (style().hasBorderImageOutsets()) {
-        auto borderOutsets = style().borderImageOutsets();
+        auto borderOutsets = style().borderImageOutsets(style().deviceScaleFactor());
         convertOutsetsToOverflowCoordinates(borderOutsets, writingMode());
 
         overflowMinX = std::min(overflowMinX, borderBox.x() - borderOutsets.left());
@@ -4737,8 +4742,7 @@ LayoutRect RenderBox::applyVisualEffectOverflow(const LayoutRect& borderBox, Enu
     }
 
     if (outlineStyleForRepaint().hasOutlineInVisualOverflow()) {
-        auto outlineSize = LayoutUnit { outlineStyleForRepaint().usedOutlineSize() };
-
+        auto outlineSize = LayoutUnit { outlineStyleForRepaint().usedOutlineSize(outlineStyleForRepaint().usedZoomForLength(), outlineStyleForRepaint().deviceScaleFactor()) };
         overflowMinX = std::min(overflowMinX, borderBox.x() - outlineSize);
         overflowMaxX = std::max(overflowMaxX, borderBox.maxX() + outlineSize);
         overflowMinY = std::min(overflowMinY, borderBox.y() - outlineSize);
@@ -4971,7 +4975,7 @@ bool RenderBox::hasUnsplittableScrollingOverflow() const
     // Fragmenting scrollbars is only problematic in interactive media, e.g. multicol on a
     // screen. If we're printing, which is non-interactive media, we should allow objects with
     // non-visible overflow to be paginated as normally.
-    if (document().printing())
+    if (protect(document())->printing())
         return false;
 
     // We do have overflow. We'll still be willing to paginate as long as the block
@@ -5065,9 +5069,9 @@ LayoutRect RenderBox::convertRectToParentWritingMode(LayoutRect rect, const Writ
     // We are putting ourselves into our parent's coordinate space. If there is a flipped block mismatch
     // in a particular axis, then we have to flip the rect along that axis.
     if (writingMode().blockDirection() == FlowDirection::RightToLeft || parentWritingMode.blockDirection() == FlowDirection::RightToLeft)
-        rect.setX(width() - rect.maxX());
+        rect.setX(borderBoxWidth() - rect.maxX());
     else if (writingMode().blockDirection() == FlowDirection::BottomToTop || parentWritingMode.blockDirection() == FlowDirection::BottomToTop)
-        rect.setY(height() - rect.maxY());
+        rect.setY(borderBoxHeight() - rect.maxY());
 
     return rect;
 }
@@ -5154,8 +5158,8 @@ LayoutPoint RenderBox::flipForWritingModeForChild(const RenderBox& child, const 
     // The child is going to add in its x() and y(), so we have to make sure it ends up in
     // the right place.
     if (isHorizontalWritingMode())
-        return LayoutPoint(point.x(), point.y() + height() - child.height() - (2 * child.y()));
-    return LayoutPoint(point.x() + width() - child.width() - (2 * child.x()), point.y());
+        return LayoutPoint(point.x(), point.y() + borderBoxHeight() - child.borderBoxHeight() - (2 * child.y()));
+    return LayoutPoint(point.x() + borderBoxWidth() - child.borderBoxWidth() - (2 * child.x()), point.y());
 }
 
 void RenderBox::flipForWritingMode(LayoutRect& rect) const
@@ -5164,9 +5168,9 @@ void RenderBox::flipForWritingMode(LayoutRect& rect) const
         return;
 
     if (isHorizontalWritingMode())
-        rect.setY(height() - rect.maxY());
+        rect.setY(borderBoxHeight() - rect.maxY());
     else
-        rect.setX(width() - rect.maxX());
+        rect.setX(borderBoxWidth() - rect.maxX());
 }
 
 LayoutUnit RenderBox::flipForWritingMode(LayoutUnit position) const
@@ -5180,21 +5184,21 @@ LayoutPoint RenderBox::flipForWritingMode(const LayoutPoint& position) const
 {
     if (!writingMode().isBlockFlipped())
         return position;
-    return isHorizontalWritingMode() ? LayoutPoint(position.x(), height() - position.y()) : LayoutPoint(width() - position.x(), position.y());
+    return isHorizontalWritingMode() ? LayoutPoint(position.x(), borderBoxHeight() - position.y()) : LayoutPoint(borderBoxWidth() - position.x(), position.y());
 }
 
 LayoutSize RenderBox::flipForWritingMode(const LayoutSize& offset) const
 {
     if (!writingMode().isBlockFlipped())
         return offset;
-    return isHorizontalWritingMode() ? LayoutSize(offset.width(), height() - offset.height()) : LayoutSize(width() - offset.width(), offset.height());
+    return isHorizontalWritingMode() ? LayoutSize(offset.width(), borderBoxHeight() - offset.height()) : LayoutSize(borderBoxWidth() - offset.width(), offset.height());
 }
 
 FloatPoint RenderBox::flipForWritingMode(const FloatPoint& position) const
 {
     if (!writingMode().isBlockFlipped())
         return position;
-    return isHorizontalWritingMode() ? FloatPoint(position.x(), height() - position.y()) : FloatPoint(width() - position.x(), position.y());
+    return isHorizontalWritingMode() ? FloatPoint(position.x(), borderBoxHeight() - position.y()) : FloatPoint(borderBoxWidth() - position.x(), position.y());
 }
 
 void RenderBox::flipForWritingMode(FloatRect& rect) const
@@ -5203,9 +5207,9 @@ void RenderBox::flipForWritingMode(FloatRect& rect) const
         return;
 
     if (isHorizontalWritingMode())
-        rect.setY(height() - rect.maxY());
+        rect.setY(borderBoxHeight() - rect.maxY());
     else
-        rect.setX(width() - rect.maxX());
+        rect.setX(borderBoxWidth() - rect.maxX());
 }
 
 void RenderBox::flipForWritingMode(RepaintRects& rects) const
@@ -5213,7 +5217,7 @@ void RenderBox::flipForWritingMode(RepaintRects& rects) const
     if (!writingMode().isBlockFlipped())
         return;
 
-    rects.flipForWritingMode(size(), isHorizontalWritingMode());
+    rects.flipForWritingMode(borderBoxSize(), isHorizontalWritingMode());
 }
 
 LayoutPoint RenderBox::topLeftLocationWithFlipping() const

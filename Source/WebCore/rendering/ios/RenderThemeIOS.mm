@@ -282,7 +282,7 @@ void RenderThemeIOS::adjustTextFieldStyle(Style::ComputedStyle& style, const Ele
     }
 
     auto adjustBackgroundColor = [&] {
-        auto styleColorOptions = element->document().styleColorOptions(&style);
+        auto styleColorOptions = protect(element->document())->styleColorOptions(&style);
         if (style.backgroundColor() != systemColor(CSSValueAppleSystemOpaqueTertiaryFill, styleColorOptions))
             return;
 
@@ -334,7 +334,7 @@ void RenderThemeIOS::paintTextFieldDecorations(const RenderBox& box, const Paint
     GraphicsContextStateSaver stateSaver(context);
 
     auto shouldPaintFillAndInnerShadow = false;
-    auto element = box.element();
+    RefPtr element = box.element();
     if (RefPtr input = dynamicDowncast<HTMLInputElement>(*element)) {
         if (input->isTextField() && !input->isSearchField())
             shouldPaintFillAndInnerShadow = true;
@@ -343,11 +343,11 @@ void RenderThemeIOS::paintTextFieldDecorations(const RenderBox& box, const Paint
 
     if (PAL::currentUserInterfaceIdiomIsVision() && shouldPaintFillAndInnerShadow) {
         auto borderShape = BorderShape::shapeForBorderRect(box.style(), LayoutRect(rect));
-        auto path = borderShape.pathForOuterShape(box.document().deviceScaleFactor());
+        auto path = borderShape.pathForOuterShape(protect(box.document())->deviceScaleFactor());
         context.setFillColor(Color::black.colorWithAlphaByte(10));
         context.drawPath(path);
         context.clipPath(path);
-        paintTextFieldInnerShadow(paintInfo,  borderShape.deprecatedPixelSnappedRoundedRect(box.document().deviceScaleFactor()));
+        paintTextFieldInnerShadow(paintInfo,  borderShape.deprecatedPixelSnappedRoundedRect(protect(box.document())->deviceScaleFactor()));
     }
 }
 
@@ -396,7 +396,7 @@ Style::PaddingBox RenderThemeIOS::platformPopupInternalPaddingBox(const Style::C
 
     if (style.usedAppearance() == StyleAppearance::MenulistButton) {
         // FIXME: Reduce code duplication with toTruncatedPaddingEdge.
-        auto value = Style::PaddingEdge::Fixed { static_cast<float>(std::trunc(padding + Style::evaluate<float>(style.usedBorderTopWidth(),  Style::ZoomNeeded { }))) / style.usedZoom() };
+        auto value = Style::PaddingEdge::Fixed { static_cast<float>(std::trunc(padding + Style::evaluate<float>(style.usedBorderTopWidth(), style.usedZoomForLength(), style.deviceScaleFactor()))) / style.usedZoom() };
 
         // Return in horizontal-tb LTR; popupInternalPaddingBox() handles conversion.
         // The chevron is always on the logical end, so pad the end to prevent text from overlapping with it.
@@ -432,7 +432,7 @@ void RenderThemeIOS::adjustRoundBorderRadius(Style::ComputedStyle& style, Render
     auto boxLogicalHeight = box.logicalHeight();
     auto unzoomedBoxLogicalHeight = box.logicalHeight() / usedZoom.value;
 
-    auto minDimension = std::min(box.width(), box.height());
+    auto minDimension = std::min(box.borderBoxWidth(), box.borderBoxHeight());
     auto unzoomedMinDimension = minDimension / usedZoom.value;
 
     if ((isAnyOf<RenderButton, RenderMenuList>(box)) && boxLogicalHeight >= largeButtonSize) {
@@ -564,7 +564,7 @@ void RenderThemeIOS::paintMenuListButtonDecorations(const RenderBox& box, const 
     auto& context = paintInfo.context();
     GraphicsContextStateSaver stateSaver(context);
 
-    auto& style = box.style();
+    CheckedRef style = box.style();
 
     Path glyphPath;
     FloatSize glyphSize;
@@ -619,18 +619,21 @@ void RenderThemeIOS::paintMenuListButtonDecorations(const RenderBox& box, const 
     auto glyphScale = 0.65f * emPixels / glyphSize.width();
     glyphSize = glyphScale * glyphSize;
 
-    bool isHorizontalWritingMode = style.writingMode().isHorizontal();
+    bool isHorizontalWritingMode = style->writingMode().isHorizontal();
     auto logicalRect = isHorizontalWritingMode ? rect : rect.transposedRect();
 
     auto glyphInlineSize = isHorizontalWritingMode ? glyphSize.width() : glyphSize.height();
     auto glyphBlockSize = isHorizontalWritingMode ? glyphSize.height() : glyphSize.width();
 
+    auto zoom = style->usedZoomForLength();
+    auto deviceScaleFactor = style->deviceScaleFactor();
+
     FloatPoint glyphOrigin;
     glyphOrigin.setY(logicalRect.center().y() - glyphBlockSize / 2.0f);
-    if (!style.writingMode().isInlineFlipped())
-        glyphOrigin.setX(logicalRect.maxX() - glyphInlineSize - Style::evaluate<float>(box.style().usedBorderWidthEnd(), Style::ZoomNeeded { }) - Style::evaluate<float>(box.style().paddingEnd(), logicalRect.width(), box.style().usedZoomForLength()));
+    if (!style->writingMode().isInlineFlipped())
+        glyphOrigin.setX(logicalRect.maxX() - glyphInlineSize - Style::evaluate<float>(style->usedBorderWidthEnd(), zoom, deviceScaleFactor) - Style::evaluate<float>(style->paddingEnd(), logicalRect.width(), zoom));
     else
-        glyphOrigin.setX(logicalRect.x() + Style::evaluate<float>(box.style().usedBorderWidthEnd(), Style::ZoomNeeded { }) + Style::evaluate<float>(box.style().paddingEnd(), logicalRect.width(), box.style().usedZoomForLength()));
+        glyphOrigin.setX(logicalRect.x() + Style::evaluate<float>(style->usedBorderWidthEnd(), zoom, deviceScaleFactor) + Style::evaluate<float>(style->paddingEnd(), logicalRect.width(), zoom));
 
     if (!isHorizontalWritingMode)
         glyphOrigin = glyphOrigin.transposedPoint();
@@ -641,7 +644,7 @@ void RenderThemeIOS::paintMenuListButtonDecorations(const RenderBox& box, const 
     glyphPath.transform(transform);
 
     if (isEnabled(box))
-        context.setFillColor(style.color());
+        context.setFillColor(style->color());
     else
         context.setFillColor(systemColor(CSSValueAppleSystemTertiaryLabel, box.styleColorOptions()));
 
@@ -926,7 +929,7 @@ void RenderThemeIOS::adjustButtonLikeControlStyle(Style::ComputedStyle& style, c
         return;
 
     if (!style.accentColor().isAuto()) {
-        auto tintColor = style.usedAccentColor(element.document().styleColorOptions(&style));
+        auto tintColor = style.usedAccentColor(protect(element.document())->styleColorOptions(&style));
         if (isSubmitStyleButton(&element))
             style.setBackgroundColor(WTF::move(tintColor));
         else
@@ -1035,7 +1038,7 @@ Color RenderThemeIOS::insertionPointColor()
 
 Color RenderThemeIOS::autocorrectionReplacementMarkerColor(const RenderText& renderer) const
 {
-    auto caretColor = CaretBase::computeCaretColor(renderer.style(), renderer.textNode());
+    auto caretColor = CaretBase::computeCaretColor(renderer.style(), protect(renderer.textNode()));
     if (!caretColor.isValid())
         caretColor = insertionPointColor();
 
@@ -1845,11 +1848,11 @@ void RenderThemeIOS::paintSliderTicks(const RenderElement& box, const PaintInfo&
     GraphicsContextStateSaver stateSaver(context);
 
     auto value = input->valueAsNumber();
-    auto deviceScaleFactor = box.document().deviceScaleFactor();
+    auto deviceScaleFactor = protect(box.document())->deviceScaleFactor();
     auto styleColorOptions = box.styleColorOptions();
 
     bool isInlineFlipped = (!isHorizontal && box.writingMode().isHorizontal()) || box.writingMode().isInlineFlipped();
-    for (auto& optionElement : dataList->suggestions()) {
+    for (Ref optionElement : dataList->suggestions()) {
         if (auto optionValue = input->listOptionValueAsDouble(optionElement)) {
             auto tickFraction = (*optionValue - min) / (max - min);
             auto tickRatio = isInlineFlipped ? 1.0 - tickFraction : tickFraction;

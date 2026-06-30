@@ -40,24 +40,7 @@ namespace WebCore {
 
 FontCustomPlatformData::~FontCustomPlatformData() = default;
 
-static bool fontHasWeightVariationAxis(CTFontRef font)
-{
-    constexpr uint32_t wghtAxisIdentifier = ('w' << 24) | ('g' << 16) | ('h' << 8) | 't';
-    RetainPtr axes = adoptCF(CTFontCopyVariationAxes(font));
-    if (!axes)
-        return false;
-    auto count = CFArrayGetCount(axes.get());
-    for (CFIndex axisIndex = 0; axisIndex < count; ++axisIndex) {
-        RetainPtr axis = static_cast<CFDictionaryRef>(CFArrayGetValueAtIndex(axes.get(), axisIndex));
-        RetainPtr axisIdentifier = static_cast<CFNumberRef>(CFDictionaryGetValue(axis.get(), kCTFontVariationAxisIdentifierKey));
-        uint32_t rawAxisIdentifier = 0;
-        if (CFNumberGetValue(axisIdentifier.get(), kCFNumberSInt32Type, &rawAxisIdentifier) && rawAxisIdentifier == wghtAxisIdentifier)
-            return true;
-    }
-    return false;
-}
-
-FontPlatformData FontCustomPlatformData::fontPlatformData(const FontDescription& fontDescription, bool italic, const FontCreationContext& fontCreationContext)
+FontPlatformData FontCustomPlatformData::fontPlatformData(const FontDescription& fontDescription, const FontCreationContext& fontCreationContext)
 {
     auto size = fontDescription.adjustedSizeForFontFace(fontCreationContext.sizeAdjust());
     UnrealizedCoreTextFont unrealizedFont = { RetainPtr { fontDescriptor } };
@@ -72,7 +55,12 @@ FontPlatformData FontCustomPlatformData::fontPlatformData(const FontDescription&
     auto font = preparePlatformFont(WTF::move(unrealizedFont), fontDescription, fontCreationContext);
     ASSERT(font);
 
-    FontPlatformData platformData(font.get(), size, computeSyntheticBold(fontHasWeightVariationAxis(font.get()), fontDescription, fontCreationContext), italic, orientation, widthVariant, fontDescription.textRenderingMode(), this);
+    auto variationAxes = defaultVariationValues(font.get(), ShouldLocalizeAxisNames::No);
+    bool hasWeightVariationAxis = variationAxes.contains(FontVariationAxisTag::wght);
+    bool hasSlopeVariationAxis = variationAxes.contains(FontVariationAxisTag::slnt) || variationAxes.contains(FontVariationAxisTag::ital);
+    bool syntheticBold = computeSyntheticBold(hasWeightVariationAxis, fontDescription, fontCreationContext);
+    bool syntheticItalic = computeSyntheticItalic(hasSlopeVariationAxis, fontDescription, fontCreationContext);
+    FontPlatformData platformData(font.get(), size, syntheticBold, syntheticItalic, orientation, widthVariant, fontDescription.textRenderingMode(), this);
 
     platformData.updateSizeWithFontSizeAdjust(fontDescription.fontSizeAdjust(), fontDescription.computedSize());
     return platformData;

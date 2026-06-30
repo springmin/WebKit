@@ -55,7 +55,7 @@ static LayoutUnit logicalTopOffset(const RenderBox&);
 
 LayoutRect ShapeOutsideInfo::computedShapePhysicalBoundingBox() const
 {
-    LayoutRect physicalBoundingBox = computedShape().shapeMarginLogicalBoundingBox();
+    LayoutRect physicalBoundingBox = protect(computedShape())->shapeMarginLogicalBoundingBox();
     if (m_renderer.writingMode().isBlockFlipped())
         physicalBoundingBox.setY(m_renderer.logicalHeight() - physicalBoundingBox.maxY());
     if (!m_renderer.isHorizontalWritingMode())
@@ -76,7 +76,7 @@ FloatPoint ShapeOutsideInfo::shapeToRendererPoint(const FloatPoint& point) const
 static LayoutSize computeLogicalBoxSize(const RenderBox& renderer, bool isHorizontalWritingMode)
 {
     auto& shapeOutside = renderer.style().shapeOutside();
-    auto size = isHorizontalWritingMode ? renderer.size() : renderer.size().transposedSize();
+    auto size = isHorizontalWritingMode ? renderer.borderBoxSize() : renderer.borderBoxSize().transposedSize();
     switch (shapeOutside.effectiveCSSBox()) {
     case CSSBoxType::MarginBox:
         if (isHorizontalWritingMode)
@@ -247,7 +247,7 @@ Ref<const LayoutShape> makeShapeForShapeOutside(const RenderBox& renderer)
     auto zoom = style.usedZoomForLength();
 
     auto boxSize = computeLogicalBoxSize(renderer, isHorizontalWritingMode);
-    auto borderBoxLogicalWidth = isHorizontalWritingMode ? renderer.width() : renderer.height();
+    auto borderBoxLogicalWidth = isHorizontalWritingMode ? renderer.borderBoxWidth() : renderer.borderBoxHeight();
 
     auto logicalMargin = [&] {
         auto shapeMargin = Style::evaluate<LayoutUnit>(style.shapeMargin(), containingBlock.contentBoxLogicalWidth(), zoom).toFloat();
@@ -344,7 +344,7 @@ bool ShapeOutsideInfo::isEnabledFor(const RenderBox& box)
         [](const Style::ShapeOutside::Shape&) { return true; },
         [](const Style::ShapeOutside::ShapeBox&) { return true; },
         [](const Style::ShapeOutside::ShapeAndShapeBox&) { return true; },
-        [&](const Style::ShapeOutside::Image& image) { return image.isValid() && checkShapeImageOrigin(box.document(), image.image.value); }
+        [&](const Style::ShapeOutside::Image& image) { return image.isValid() && checkShapeImageOrigin(protect(box.document()), image.image.value); }
     );
 }
 
@@ -361,8 +361,8 @@ ShapeOutsideDeltas ShapeOutsideInfo::computeDeltasForContainingBlockLine(const R
     if (isShapeDirty() || !m_shapeOutsideDeltas.isForLine(borderBoxLineTop, lineHeight)) {
         LayoutUnit floatMarginBoxWidth = std::max<LayoutUnit>(0_lu, containingBlock.logicalWidthForFloat(floatingObject));
 
-        if (computedShape().lineOverlapsShapeMarginBounds(borderBoxLineTop, lineHeight)) {
-            LineSegment segment = computedShape().getExcludedInterval(borderBoxLineTop, std::min(lineHeight, shapeLogicalBottom() - borderBoxLineTop));
+        if (protect(computedShape())->lineOverlapsShapeMarginBounds(borderBoxLineTop, lineHeight)) {
+            LineSegment segment = protect(computedShape())->getExcludedInterval(borderBoxLineTop, std::min(lineHeight, shapeLogicalBottom() - borderBoxLineTop));
             if (segment.isValid) {
                 LayoutUnit logicalLeftMargin = containingBlock.writingMode().isLogicalLeftInlineStart() ? containingBlock.marginStartForChild(m_renderer) : containingBlock.marginEndForChild(m_renderer);
                 LayoutUnit rawLeftMarginBoxDelta { segment.logicalLeft + logicalLeftMargin };

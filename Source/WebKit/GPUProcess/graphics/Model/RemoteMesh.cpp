@@ -118,11 +118,6 @@ void RemoteMesh::setFOV(float fovY)
     m_backing->setFOV(fovY);
 }
 
-void RemoteMesh::setBackgroundColor(const WebModel::Float3& color)
-{
-    m_backing->setBackgroundColor(color);
-}
-
 void RemoteMesh::play(bool playing)
 {
     m_backing->play(playing);
@@ -159,6 +154,13 @@ void RemoteMesh::updateRenderBuffers(unsigned width, unsigned height, Completion
 void RemoteMesh::processRemovals(Vector<WebModel::TypedResourceId>&& meshRemovals, Vector<WebModel::TypedResourceId>&& materialRemovals, Vector<WebModel::TypedResourceId>&& textureRemovals, CompletionHandler<void(bool)>&& completionHandler)
 {
     m_backing->processRemovals(WTF::move(meshRemovals), WTF::move(materialRemovals), WTF::move(textureRemovals), WTF::move(completionHandler));
+}
+
+void RemoteMesh::paintCurrentFrameToImageBuffer(WebCore::RenderingResourceIdentifier imageBufferIdentifier, uint32_t bufferIndex, CompletionHandler<void()>&& completionHandler)
+{
+    if (RefPtr nativeImage { m_backing->getCurrentFrameAsNativeImage(bufferIndex) })
+        m_gpu->paintNativeImageToImageBuffer(*nativeImage, imageBufferIdentifier);
+    completionHandler();
 }
 
 } // namespace WebKit

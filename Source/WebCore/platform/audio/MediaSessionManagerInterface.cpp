@@ -133,6 +133,11 @@ void MediaSessionManagerInterface::resetRestrictions()
     m_restrictions[indexFromMediaType(PlatformMediaSession::MediaType::DOMMediaSession)] = MediaSessionRestriction::NoRestrictions;
 }
 
+bool MediaSessionManagerInterface::isMediaSessionManagerGLib() const
+{
+    return false;
+}
+
 bool MediaSessionManagerInterface::has(PlatformMediaSession::MediaType type) const
 {
     return anyOfSessions([type] (auto& session) {
@@ -571,6 +576,19 @@ void MediaSessionManagerInterface::removeAudioCaptureSource(AudioCaptureSource& 
 {
     m_audioCaptureSources.remove(source);
     scheduleUpdateSessionState();
+}
+
+void MediaSessionManagerInterface::audioCaptureSourceStateChanged(IsCaptureStarting isCaptureStarting)
+{
+    updateSessionState();
+#if USE(AUDIO_SESSION)
+    if (isCaptureStarting == IsCaptureStarting::Yes)
+        maybeActivateAudioSession();
+    else if (!activeAudioSessionRequired())
+        maybeDeactivateAudioSession();
+#else
+    UNUSED_PARAM(isCaptureStarting);
+#endif
 }
 
 int MediaSessionManagerInterface::countActiveAudioCaptureSources()

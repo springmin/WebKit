@@ -415,7 +415,8 @@ final class WebBackForwardList {
             return nil
         }
 
-        if currentIndex + delta < 0 {
+        let (targetIndex, overflow) = currentIndex.addingReportingOverflow(delta)
+        if overflow || targetIndex < 0 {
             return nil
         }
 
@@ -708,9 +709,12 @@ final class WebBackForwardList {
 
         // FIXME: Enable restoring resourceDirectoryURL.
         entries.removeAll()
-        entries.reserveCapacity(backForwardListState.items.size())
-        for itemState in CxxVectorIterator(vec: backForwardListState.items) {
-            entries.append(createItemFromState(itemState, page.identifier()).ptr())
+        let restoredItems = createItemsFromState(backForwardListState, page.identifier())
+        let count = restoredItems.size()
+        entries.reserveCapacity(count)
+        for i in 0..<count {
+            // swift-format-ignore: NeverForceUnwrap
+            entries.append(itemAtIndexInBackForwardListItemVector(restoredItems, i)!)
         }
 
         currentIndex = Optional(fromCxx: backForwardListState.currentIndex).map({ val in Int(val) })
@@ -891,6 +895,7 @@ final class WebBackForwardList {
     func findFrameStateInItem(
         itemID: WebCore.BackForwardItemIdentifier,
         parentFrameID: WebCore.FrameIdentifier,
+        childFrameID: WebCore.FrameIdentifier,
         childFrameIndex: UInt64
     ) -> WebKit.FrameState? {
         guard let targetItem = itemForID(identifier: itemID) else {
@@ -902,7 +907,12 @@ final class WebBackForwardList {
         // This only works correctly for direct children of the main frame; nested frames
         // (e.g., subframe > nestedframe) will get the wrong FrameState.
         let parentFrameItem = targetItem.mainFrameItem().childItemForFrameID(parentFrameID) ?? targetItem.mainFrameItem()
-        guard let childFrameItem = parentFrameItem.childItemAtIndex(childFrameIndex) else {
+        var childFrameItem = parentFrameItem.childItemForFrameID(childFrameID)
+        if childFrameItem == nil {
+            // The identifier is absent after session restore or cross-site child-frame recreation; fall back to position.
+            childFrameItem = parentFrameItem.childItemAtIndex(childFrameIndex)
+        }
+        guard let childFrameItem else {
             return nil
         }
         return getFrameState(childFrameItem)
@@ -932,10 +942,7 @@ final class WebBackForwardList {
     }
 
     func setBackForwardItemIdentifier(frameState: WebKit.FrameState, itemID: WebCore.BackForwardItemIdentifier) {
-        frameState.itemID = WebCore.MarkableBackForwardItemIdentifier(itemID)
-        for child in CxxVectorIterator(vec: frameState.children) {
-            setBackForwardItemIdentifier(frameState: child.ptr(), itemID: itemID)
-        }
+        setFrameStateBackForwardItemIdentifier(frameState, itemID)
     }
 
     func completeFrameStateForNavigation(navigatedFrameState: WebKit.FrameState) -> WebKit.FrameState {
@@ -955,7 +962,8 @@ final class WebBackForwardList {
         if mainFrameItem.childItemForFrameID(navigatedFrameID) == nil {
             return navigatedFrameState
         }
-        let frameState = currentItem.copyMainFrameStateWithChildren().ptr()
+        let frameStateRef = currentItem.copyMainFrameStateWithChildren()
+        let frameState = frameStateRef.ptr()
         setBackForwardItemIdentifier(frameState: frameState, itemID: navigatedFrameState.itemID.pointee)
         frameState.replaceChildFrameState(consuming: WebKit.RefFrameState(navigatedFrameState))
         return frameState
@@ -1003,6 +1011,22 @@ final class WebBackForwardList {
     ) {
         let process = WebKit.WebProcessProxy.fromConnection(connection)
 
+        // __convertToBool necessary due to rdar://137879510
+        if messageCheck(
+            process: process,
+            !navigatedFrameState.ptr().itemID.__convertToBool()
+                || contentsMatch(navigatedFrameState.ptr().itemID.pointee.processIdentifier(), process.ptr().coreProcessIdentifier())
+        ) {
+            return
+        }
+        if messageCheck(
+            process: process,
+            !navigatedFrameState.ptr().frameItemID.__convertToBool()
+                || contentsMatch(navigatedFrameState.ptr().frameItemID.pointee.processIdentifier(), process.ptr().coreProcessIdentifier())
+        ) {
+            return
+        }
+
         if messageCheckItemURLs(frameState: navigatedFrameState, process: process) {
             return
         }
@@ -1011,6 +1035,19 @@ final class WebBackForwardList {
         let targetFrame = WebKit.WebFrameProxy.webFrame(navigatedFrameID)
 
         guard let targetFrame else {
+            return
+        }
+
+        let listPage = page.get()
+        let framePage = targetFrame.page()
+        let pagesMatch: Bool
+        if let framePage, let listPage {
+            // We can't use == here due to rdar://162357139
+            pagesMatch = contentsMatch(framePage.identifier(), listPage.identifier())
+        } else {
+            pagesMatch = framePage == nil && listPage == nil
+        }
+        if messageCheck(process: process, pagesMatch) {
             return
         }
 
@@ -1121,7 +1158,7 @@ final class WebBackForwardList {
         // We can't use == here due to rdar://162357139
         assert(contentsMatch(webPageProxy.identifier(), item.pageID()) && contentsMatch(itemID, item.identifier()))
         let oldFrameID = frameItem.frameID()
-        frameItem.setFrameState(consuming: frameState)
+        frameItem.updateFrameStatePayload(consuming: frameState)
         let newFrameID = frameItem.frameID()
         if let oldFrameID = Optional(fromCxx: oldFrameID) {
             if let newFrameID = Optional(fromCxx: newFrameID) {
@@ -1139,6 +1176,19 @@ final class WebBackForwardList {
         for entry in entries {
             entry.updateFrameID(oldFrameID, newFrameID)
         }
+    }
+
+    @used
+    func replaceFrameStateForChild(
+        item: WebKit.WebBackForwardListItem,
+        frameID: WebCore.FrameIdentifier,
+        newFrameState: WebKit.RefFrameState
+    ) {
+        guard let targetFrameItem = item.mainFrameItem().childItemForFrameID(frameID) else {
+            return
+        }
+
+        targetFrameItem.updateFrameStatePayload(consuming: newFrameState)
     }
 
     @used
@@ -1203,10 +1253,20 @@ final class WebBackForwardList {
 
     @used
     func backForwardItemAtIndexForWebContent(
+        connection: IPC.Connection,
         delta: Int32,
         frameID: WebCore.FrameIdentifier,
         completionHandler: CompletionHandlers.WebBackForwardList.BackForwardItemAtIndexForWebContentCompletionHandler
     ) {
+        let process = WebKit.WebProcessProxy.fromConnection(connection)
+        if messageCheckCompletion(
+            process: process,
+            completionHandler: { completionHandler.pointee(consuming: WebKit.RefPtrFrameState()) },
+            delta != Int32.min
+        ) {
+            return
+        }
+
         // FIXME: This should verify that the web process requesting the item hosts the specified frame.
         let delta = Int(delta)
         guard let item = itemAtDeltaFromCurrentIndex(delta: delta, allowSkipping: false) else {

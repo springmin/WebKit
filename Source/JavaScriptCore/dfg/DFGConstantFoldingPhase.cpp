@@ -369,7 +369,13 @@ private:
                     // https://bugs.webkit.org/show_bug.cgi?id=125425
                     break;
                 }
-                
+
+                if (view->isResizableOrGrowableShared()) {
+                    // Because resizable and growable-shared views can have their backing store reallocated
+                    // by resize() / WebAssembly.Memory.grow(), a folded vector pointer would go stale.
+                    break;
+                }
+
                 m_interpreter.execute(indexInBlock);
                 eliminated = true;
                 
@@ -2440,9 +2446,7 @@ private:
     void addStructureTransitionCheck(NodeOrigin origin, unsigned indexInBlock, JSCell* cell, Structure* structure)
     {
         {
-            StructureRegistrationResult result;
-            m_graph.registerStructure(cell->structure(), result);
-            if (result == StructureRegisteredAndWatched)
+            if (m_graph.tryWatch(cell->structure()))
                 return;
         }
         

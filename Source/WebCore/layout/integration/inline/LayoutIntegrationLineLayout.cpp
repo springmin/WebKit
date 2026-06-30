@@ -217,7 +217,7 @@ LineLayout::~LineLayout()
         return !m_inlineContentCache.inlineItems().isPopulatedFromCache();
     };
     if (shouldPopulateBreakingPositionCache())
-        Layout::InlineItemsBuilder::populateBreakingPositionCache(m_inlineContentCache.inlineItems().content(), rootRenderer->document());
+        Layout::InlineItemsBuilder::populateBreakingPositionCache(m_inlineContentCache.inlineItems().content(), protect(rootRenderer->document()));
 
     auto prepareAndDetachInlineContent = [&] {
         if (!m_inlineContent)
@@ -1135,7 +1135,7 @@ LayoutRect LineLayout::firstInlineBoxRect(const RenderInline& renderInline) cons
     case FlowDirection::LeftToRight:
         return firstBoxRect;
     case FlowDirection::RightToLeft:
-        firstBoxRect.setX(flow().width() - firstBoxRect.maxX());
+        firstBoxRect.setX(flow().borderBoxWidth() - firstBoxRect.maxX());
         return firstBoxRect;
     default:
         ASSERT_NOT_REACHED();

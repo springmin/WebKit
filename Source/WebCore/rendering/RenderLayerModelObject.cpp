@@ -117,9 +117,45 @@ void RenderLayerModelObject::createLayer()
     m_layer->insertOnlyThisLayer();
 }
 
+bool RenderLayerModelObject::createLayerIfAllowed()
+{
+    if (m_layer || !layerCreationAllowedForSubtree())
+        return false;
+    createLayer();
+    if (parent() && !needsLayout())
+        m_layer->setRepaintStatus(RepaintStatus::NeedsFullRepaint);
+    return true;
+}
+
+void RenderLayerModelObject::removeOnlyThisLayerWithRepaint()
+{
+    ASSERT(m_layer && m_layer->parent());
+    // Repaint the about-to-be-destroyed self-painting layer when a repaint is pending.
+    if (m_layer->isSelfPaintingLayer() && m_layer->repaintStatus() == RepaintStatus::NeedsFullRepaint && m_layer->cachedClippedOverflowRect())
+        repaintUsingContainer(containerForRepaint().renderer.get(), *m_layer->cachedClippedOverflowRect());
+    m_layer->removeOnlyThisLayer();
+}
+
 bool RenderLayerModelObject::hasSelfPaintingLayer() const
 {
     return m_layer && m_layer->isSelfPaintingLayer();
+}
+
+bool RenderLayerModelObject::requiresLayerForSVGIntrinsicReasons() const
+{
+    // Plain 2D transforms need no layer, paintRendererByApplyingTransformForSVG() handles them.
+    // 3D transforms require compositing, hence a layer, as do grouping effects, z-index, etc.
+    return createsGroup()
+        || style().transform().has3DOperation()
+        || style().translate().is3DOperation()
+        || style().scale().is3DOperation()
+        || style().rotate().is3DOperation()
+        || style().transformStyle3D() == TransformStyle3D::Preserve3D
+        || !style().perspective().isNone()
+        || hasHiddenBackface()
+        || hasReflection()
+        || !style().specifiedZIndex().isAuto()
+        || style().isolation() != Isolation::Auto;
 }
 
 void RenderLayerModelObject::styleWillChange(Style::Difference diff, const Style::ComputedStyle& newStyle)
@@ -158,27 +194,27 @@ void RenderLayerModelObject::styleDidChange(Style::Difference diff, const Style:
 
     bool gainedOrLostLayer = false;
     if (requiresLayer()) {
-        if (!layer() && layerCreationAllowedForSubtree()) {
+        if (createLayerIfAllowed()) {
             gainedOrLostLayer = true;
             if (s_wasFloating && isFloating())
                 setChildNeedsLayout();
-            createLayer();
-            if (parent() && !needsLayout())
-                layer()->setRepaintStatus(RepaintStatus::NeedsFullRepaint);
         }
     } else if (layer() && layer()->parent()) {
         gainedOrLostLayer = true;
         if (oldStyle && oldStyle->blendMode() != BlendMode::Normal)
             layer()->willRemoveChildWithBlendMode();
-        setHasTransformRelatedProperty(false); // All transform-related properties force layers, so we know we don't have one or the object doesn't support them.
-        setHasSVGTransform(false); // Same reason as for setHasTransformRelatedProperty().
+        // For CSS renderers every transform-related property forces a layer, so reaching the
+        // layer-removal branch means there is no transform and these flags can be cleared. Under
+        // LBSE a plain 2D SVG transform needs no layer, so an SVG renderer can lose its layer while
+        // still being transformed. updateFromStyle() above already set the correct flags for it, so
+        // leave them untouched here.
+        if (!isSVGLayerAwareRenderer()) {
+            setHasTransformRelatedProperty(false);
+            setHasSVGTransform(false);
+        }
         setHasReflection(false);
 
-        // Repaint the about to be destroyed self-painting layer when style change also triggers repaint.
-        if (layer()->isSelfPaintingLayer() && layer()->repaintStatus() == RepaintStatus::NeedsFullRepaint && layer()->cachedClippedOverflowRect())
-            repaintUsingContainer(containerForRepaint().renderer.get(), *(layer()->cachedClippedOverflowRect()));
-
-        layer()->removeOnlyThisLayer(); // calls destroyLayer() which clears m_layer
+        removeOnlyThisLayerWithRepaint();
         if (s_wasFloating && isFloating())
             setChildNeedsLayout();
         if (s_wasTransformed)
@@ -481,7 +517,10 @@ void RenderLayerModelObject::updateHasSVGTransformFlags()
     // the DOM-order list. A stale classification either drops those descendants (when toggled
     // to transformed) or leaves them un-wrapped by the new transform (when toggled away).
     if (isTransformed() != wasTransformed) {
-        if (CheckedPtr layer = enclosingLayer())
+        // dirtyChildrenInDOMOrderForSVG() asserts m_svgData, so only an SVG layer may receive it. A
+        // non-SVG enclosing layer (reachable for an SVG renderer reparented under non-SVG content) has
+        // no DOM-order cache to rebuild.
+        if (CheckedPtr layer = enclosingLayer(); layer && layer->isSVGLayer())
             layer->dirtyChildrenInDOMOrderForSVG();
     }
 }
@@ -698,6 +737,19 @@ bool RenderLayerModelObject::pointInSVGClippingArea(const FloatPoint& point) con
     );
 }
 
+bool RenderLayerModelObject::svgTransformAttributeChangeInducesLayerComposition()
+{
+    // True when a just-parsed SVG transform attribute flips whether this container needs a layer,
+    // so the change must create or destroy one. A 2D transform gates layer creation for any SVG
+    // container (requiresLayer() returns true for isTransformed() && isRenderSVGContainer()), which
+    // covers both <g> (RenderSVGTransformableContainer) and nested <svg> (RenderSVGViewportContainer).
+    if (!isRenderSVGContainer())
+        return false;
+    // requiresLayer() reads the cached hasSVGTransform() flag - so make sure it's not stale.
+    updateHasSVGTransformFlags();
+    return requiresLayer() != hasLayer();
+}
+
 void RenderLayerModelObject::updateTransformAndRepaintForSVGAfterAttributeChange(SVGAttributeChangeRepaintMode repaintMode)
 {
     ASSERT(document().settings().layerBasedSVGEngineEnabled());
@@ -706,6 +758,7 @@ void RenderLayerModelObject::updateTransformAndRepaintForSVGAfterAttributeChange
 
     // A layer is neither created nor destroyed below, so probe it once up front.
     const bool isLayered = hasLayer();
+    ASSERT(!isRenderSVGContainer() || requiresLayer() == isLayered);
 
     // Refresh the transform, returning the (previous, current) pair. For layered renderers this
     // forces a stacking context on an identity-to-non-identity transition (the batched flush skips

@@ -459,6 +459,12 @@ file(WRITE "${WebKit_CMAKE_MODULEMAP_DIR}/module.modulemap"
         header \"${WEBKIT_DIR}/UIProcess/API/Cocoa/WKWebViewConfigurationInternal.h\"
         export *
     }
+
+    module SwiftDemoLogoConfirmation {
+        requires cplusplus20
+        header \"${WEBKIT_DIR}/UIProcess/SwiftDemoLogoConfirmation.h\"
+        export *
+    }
 }
 ")
 set(WebKit_SWIFT_INTEROP_MODULE_PATH "${WebKit_CMAKE_MODULEMAP_DIR}")
@@ -545,10 +551,6 @@ target_compile_options(WebKit PRIVATE
     "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-emit-private-module-interface-path ${CMAKE_BINARY_DIR}/Source/WebKit/WebKit.private.swiftinterface>"
 )
 
-# FIXME: Re-enable Swift C++ interop header generation once WebKit_Internal
-# umbrella module compiles cleanly on iOS. https://bugs.webkit.org/show_bug.cgi?id=312083
-set(WebKit_SWIFT_TYPECHECK_SOURCES "")
-
 # iOS WebKit's Swift compile transitively imports UIKit→UIKitCore→WebKit_Private.
 # Explicit-module-build pre-builds those PCMs with our project -Xcc -I/-D set
 # (via libSwiftScan), so WebKit_Private compiles cleanly. With implicit modules,
@@ -592,7 +594,6 @@ list(APPEND WebKit_SOURCES
     ${WEBKIT_DIR}/UIProcess/Cocoa/WKUIDelegateAdapter.swift
     ${WEBKIT_DIR}/UIProcess/Cocoa/WebPageWebView.swift
     ${WEBKIT_DIR}/UIProcess/Cocoa/WKScrollGeometryAdapter.swift
-    ${WEBKIT_DIR}/UIProcess/Cocoa/WKTextEffectManager+VersionCheck.swift
     ${WEBKIT_DIR}/UIProcess/Cocoa/WKURLSchemeHandlerAdapter.swift
     ${WEBKIT_DIR}/UIProcess/WKMouseDeviceObserver.swift
 )
@@ -1371,6 +1372,9 @@ with open(sys.argv[2], 'wb') as f:
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${WEBKIT_DIR}/Resources/ResourceLoadStatistics/corePrediction_model
             ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/WebKit.framework/corePrediction_model
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${WEBKIT_DIR}/Resources/TextExtractionFilter.mlmodel
+            ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/WebKit.framework/TextExtractionFilter.mlmodel
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             ${_wk_assets_staging}/Assets.car
             ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/WebKit.framework/Assets.car

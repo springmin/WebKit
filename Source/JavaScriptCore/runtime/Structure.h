@@ -190,10 +190,7 @@ inline CompactPropertyTableEntry::CompactPropertyTableEntry(const PropertyTableE
 
 class StructureFireDetail final : public FireDetail {
 public:
-    StructureFireDetail(const Structure* structure)
-        : m_structure(structure)
-    {
-    }
+    inline StructureFireDetail(const Structure*); // Defined in StructureInlines.h.
 
     void dump(PrintStream& out) const final;
 
@@ -716,7 +713,7 @@ public:
         return m_transitionWatchpointSet.isStillValid();
     }
     
-    bool dfgShouldWatchIfPossible() const
+    bool dfgMayWatchIfPossible() const
     {
         // FIXME: We would like to not watch things that are unprofitable to watch, like
         // dictionaries. Unfortunately, we can't do such things: a dictionary could get flattened,
@@ -737,14 +734,14 @@ public:
         return true;
     }
     
-    bool dfgShouldWatch() const
+    bool dfgMayWatch() const
     {
-        return dfgShouldWatchIfPossible() && transitionWatchpointSetIsStillValid();
+        return dfgMayWatchIfPossible() && transitionWatchpointSetIsStillValid();
     }
 
-    bool propertyNameEnumeratorShouldWatch() const
+    bool propertyNameEnumeratorMayWatch() const
     {
-        return dfgShouldWatch() && !hasPolyProto();
+        return dfgMayWatch() && !hasPolyProto();
     }
         
     inline void addTransitionWatchpoint(Watchpoint* watchpoint) const; // Defined in StructureInlinesLight.h
@@ -1047,7 +1044,7 @@ private:
     friend class Integrity::Analyzer;
 };
 
-void dumpTransitionKind(PrintStream&, TransitionKind);
+JS_EXPORT_PRIVATE void dumpTransitionKind(PrintStream&, TransitionKind);
 MAKE_PRINT_ADAPTOR(TransitionKindDump, TransitionKind, dumpTransitionKind);
 
 // Defined here rather than in JSCell.h because it needs Structure to be complete.

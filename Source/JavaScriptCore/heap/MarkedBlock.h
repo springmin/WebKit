@@ -348,13 +348,14 @@ public:
     inline MarkedSpace* space() const;
 
     static bool isAtomAligned(const void*);
+    static constexpr bool isAtomAligned(uintptr_t);
     static MarkedBlock* blockFor(const void*);
     unsigned atomNumber(const void*);
     size_t candidateAtomNumber(const void*);
         
-    size_t markCount();
+    JS_EXPORT_PRIVATE size_t markCount();
 
-    bool isMarked(const void*);
+    JS_EXPORT_PRIVATE bool isMarked(const void*);
     bool isMarked(HeapVersion markingVersion, const void*);
     bool isMarked(const void*, Dependency);
     bool testAndSetMarked(const void*, Dependency);
@@ -380,7 +381,7 @@ public:
     bool hasAnyMarked() const;
     inline void noteMarked();
 #if ASSERT_ENABLED
-    void assertValidCell(VM&, HeapCell*) const;
+    JS_EXPORT_PRIVATE void assertValidCell(VM&, HeapCell*) const;
 #else
     void assertValidCell(VM&, HeapCell*) const { }
 #endif
@@ -425,7 +426,7 @@ private:
     JS_EXPORT_PRIVATE void aboutToMarkSlow(HeapVersion markingVersion, HeapCell*);
     void NODELETE clearHasAnyMarked();
     
-    void noteMarkedSlow();
+    JS_EXPORT_PRIVATE void noteMarkedSlow();
     
     inline bool marksConveyLivenessDuringMarking(HeapVersion markingVersion);
     inline bool marksConveyLivenessDuringMarking(HeapVersion myMarkingVersion, HeapVersion markingVersion);
@@ -473,7 +474,12 @@ inline MarkedBlock::Atom* MarkedBlock::atoms()
 
 inline bool MarkedBlock::isAtomAligned(const void* p)
 {
-    return !(reinterpret_cast<uintptr_t>(p) & atomAlignmentMask);
+    return isAtomAligned(std::bit_cast<uintptr_t>(p));
+}
+
+inline constexpr bool MarkedBlock::isAtomAligned(uintptr_t p)
+{
+    return !(p & atomAlignmentMask);
 }
 
 inline void* MarkedBlock::Handle::cellAlign(void* p)

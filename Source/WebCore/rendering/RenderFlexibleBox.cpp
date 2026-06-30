@@ -714,7 +714,7 @@ Style::FlexBasis RenderFlexibleBox::flexBasisForFlexItem(const RenderBox& flexIt
 
 LayoutUnit RenderFlexibleBox::crossAxisExtentForFlexItem(const RenderBox& flexItem) const
 {
-    return isHorizontalFlow() ? flexItem.height() : flexItem.width();
+    return isHorizontalFlow() ? flexItem.borderBoxHeight() : flexItem.borderBoxWidth();
 }
 
 LayoutUnit RenderFlexibleBox::flexItemContentLogicalHeight(const RenderBox& flexItem) const
@@ -787,7 +787,7 @@ LayoutUnit RenderFlexibleBox::crossAxisIntrinsicExtentForFlexItem(RenderBox& fle
 
 LayoutUnit RenderFlexibleBox::mainAxisExtentForFlexItem(const RenderBox& flexItem) const
 {
-    return isHorizontalFlow() ? flexItem.size().width() : flexItem.size().height();
+    return isHorizontalFlow() ? flexItem.borderBoxSize().width() : flexItem.borderBoxSize().height();
 }
 
 LayoutUnit RenderFlexibleBox::mainAxisContentExtentForFlexItemIncludingScrollbar(const RenderBox& flexItem) const
@@ -797,12 +797,12 @@ LayoutUnit RenderFlexibleBox::mainAxisContentExtentForFlexItemIncludingScrollbar
 
 LayoutUnit RenderFlexibleBox::crossAxisExtent() const
 {
-    return isHorizontalFlow() ? size().height() : size().width();
+    return isHorizontalFlow() ? borderBoxSize().height() : borderBoxSize().width();
 }
 
 LayoutUnit RenderFlexibleBox::mainAxisExtent() const
 {
-    return isHorizontalFlow() ? size().width() : size().height();
+    return isHorizontalFlow() ? borderBoxSize().width() : borderBoxSize().height();
 }
 
 LayoutUnit RenderFlexibleBox::crossAxisContentExtent() const
@@ -1589,7 +1589,7 @@ void RenderFlexibleBox::performFlexLayout(RelayoutChildren relayoutChildren)
     if (allItems.isEmpty()) {
         if (hasLineIfEmpty()) {
             auto minHeight = borderAndPaddingLogicalHeight() + lineHeight() + scrollbarLogicalHeight();
-            if (height() < minHeight)
+            if (borderBoxHeight() < minHeight)
                 setLogicalHeight(minHeight);
         }
         updateLogicalHeight();
@@ -1642,7 +1642,7 @@ void RenderFlexibleBox::performFlexLayout(RelayoutChildren relayoutChildren)
     if (!lineStates.isEmpty()) {
         auto isWrapReverse = this->isWrapReverse();
         auto firstLineItemsCountInOriginalOrder = lineStates.first().flexLayoutItems.size();
-        auto lastLineItemsCountInOriginalOrder = lineStates.first().flexLayoutItems.size();
+        auto lastLineItemsCountInOriginalOrder = lineStates.last().flexLayoutItems.size();
 
         m_numberOfFlexItemsOnFirstLine = !isWrapReverse ? firstLineItemsCountInOriginalOrder : lastLineItemsCountInOriginalOrder;
         m_numberOfFlexItemsOnLastLine = !isWrapReverse ? lastLineItemsCountInOriginalOrder : firstLineItemsCountInOriginalOrder;
@@ -1654,7 +1654,7 @@ void RenderFlexibleBox::performFlexLayout(RelayoutChildren relayoutChildren)
         // Instead of just checking if we have a line, make sure the flexbox
         // has at least a line's worth of height to cover this case.
         LayoutUnit minHeight = borderAndPaddingLogicalHeight() + lineHeight() + scrollbarLogicalHeight();
-        if (size().height() < minHeight)
+        if (borderBoxSize().height() < minHeight)
             setLogicalHeight(minHeight);
     }
 

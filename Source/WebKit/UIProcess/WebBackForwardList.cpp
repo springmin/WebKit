@@ -779,9 +779,14 @@ static void messageCheckItemURLs(Ref<FrameState>& frameState, Ref<WebProcessProx
 void WebBackForwardList::backForwardAddItemShared(IPC::Connection& connection, Ref<FrameState>&& navigatedFrameState, LoadedWebArchive loadedWebArchive)
 {
     Ref process = WebProcessProxy::fromConnection(connection);
+
+    MESSAGE_CHECK(process, !navigatedFrameState->itemID || navigatedFrameState->itemID->processIdentifier() == process->coreProcessIdentifier());
+    MESSAGE_CHECK(process, !navigatedFrameState->frameItemID || navigatedFrameState->frameItemID->processIdentifier() == process->coreProcessIdentifier());
+
     messageCheckItemURLs(navigatedFrameState, process);
 
     if (RefPtr targetFrame = WebFrameProxy::webFrame(navigatedFrameState->frameID)) {
+        MESSAGE_CHECK(process, targetFrame->page() == m_page.get());
         if (targetFrame->isPendingInitialHistoryItem()) {
             targetFrame->setIsPendingInitialHistoryItem(false);
             if (RefPtr parent = targetFrame->parentFrame())
@@ -843,7 +848,7 @@ void WebBackForwardList::backForwardUpdateItem(IPC::Connection& connection, Ref<
         ASSERT(webPageProxy->identifier() == item->pageID() && frameState->itemID == item->identifier());
 
         auto oldFrameID = frameItem->frameID();
-        frameItem->setFrameState(WTF::move(frameState));
+        frameItem->updateFrameStatePayload(WTF::move(frameState));
         auto newFrameID = frameItem->frameID();
 
         if (oldFrameID && newFrameID && oldFrameID != newFrameID)
@@ -857,6 +862,15 @@ void WebBackForwardList::updateFrameIdentifier(FrameIdentifier oldFrameID, Frame
 {
     for (auto& entry : m_entries)
         entry->updateFrameID(oldFrameID, newFrameID);
+}
+
+void WebBackForwardList::replaceFrameStateForChild(WebBackForwardListItem& item, WebCore::FrameIdentifier frameID, Ref<FrameState>&& newFrameState)
+{
+    RefPtr targetFrameItem = item.mainFrameItem().childItemForFrameID(frameID);
+    if (!targetFrameItem)
+        return;
+
+    targetFrameItem->updateFrameStatePayload(WTF::move(newFrameState));
 }
 
 void WebBackForwardList::backForwardGoToItem(BackForwardItemIdentifier itemID, CompletionHandler<void(const WebBackForwardListCounts&)>&& completionHandler)
@@ -919,7 +933,7 @@ void WebBackForwardList::backForwardListCounts(CompletionHandler<void(WebBackFor
     completionHandler(rawCounts());
 }
 
-FrameState* WebBackForwardList::findFrameStateInItem(WebCore::BackForwardItemIdentifier itemID, WebCore::FrameIdentifier parentFrameID, uint64_t childFrameIndex)
+FrameState* WebBackForwardList::findFrameStateInItem(WebCore::BackForwardItemIdentifier itemID, WebCore::FrameIdentifier parentFrameID, WebCore::FrameIdentifier childFrameID, uint64_t childFrameIndex)
 {
     RefPtr targetItem = itemForID(itemID);
     if (!targetItem)
@@ -935,7 +949,11 @@ FrameState* WebBackForwardList::findFrameStateInItem(WebCore::BackForwardItemIde
         parentFrameItem = &targetItem->mainFrameItem();
     }
 
-    RefPtr childFrameItem = parentFrameItem->childItemAtIndex(childFrameIndex);
+    RefPtr childFrameItem = parentFrameItem->childItemForFrameID(childFrameID);
+    if (!childFrameItem) {
+        // The identifier is absent after session restore or cross-site child-frame recreation; fall back to position.
+        childFrameItem = parentFrameItem->childItemAtIndex(childFrameIndex);
+    }
     if (!childFrameItem)
         return nullptr;
 
@@ -969,10 +987,16 @@ void WebBackForwardList::didReceiveProvisionalMessage(IPC::Connection& connectio
 
 WebBackForwardListWrapper::WebBackForwardListWrapper(WebPageProxy& webPageProxy)
     : m_impl(WTF::makeUniqueWithoutFastMallocCheck<WebBackForwardList>(WebBackForwardList::init(webPageProxy)))
+    , m_messageForwarder(m_impl->getMessageReceiver())
 {
 }
 
 WebBackForwardListWrapper::~WebBackForwardListWrapper() = default;
+
+WebBackForwardListMessageForwarder& WebBackForwardListWrapper::messageReceiver() const
+{
+    return m_messageForwarder.get();
+}
 
 WebBackForwardListItem* WebBackForwardListWrapper::currentItem() const
 {
@@ -1072,11 +1096,32 @@ void appendToBackForwardStateItems(Vector<WebKit::BackForwardListItemState>& ite
     items.append({ entry.copyMainFrameStateWithChildren(), entry.navigatedFrameID() });
 }
 
+void setFrameStateBackForwardItemIdentifier(WebKit::FrameState& frameState, const WebCore::BackForwardItemIdentifier& itemID)
+{
+    frameState.itemID = itemID;
+    for (auto& child : frameState.children)
+        setFrameStateBackForwardItemIdentifier(child, itemID);
+}
+
 Ref<WebKit::WebBackForwardListItem> createItemFromState(const WebKit::BackForwardListItemState& itemState, WebKit::WebPageProxyIdentifier pageIdentifier)
 {
     Ref stateCopy = itemState.frameState->copy();
     setBackForwardItemIdentifiers(stateCopy, WebCore::BackForwardItemIdentifier::generate());
     return WebKit::WebBackForwardListItem::create(WTF::move(stateCopy), pageIdentifier, itemState.navigatedFrameID);
+}
+
+Vector<Ref<WebKit::WebBackForwardListItem>> createItemsFromState(const WebKit::BackForwardListState& state, WebKit::WebPageProxyIdentifier pageIdentifier)
+{
+    Vector<Ref<WebKit::WebBackForwardListItem>> items;
+    items.reserveInitialCapacity(state.items.size());
+    for (auto& itemState : state.items)
+        items.append(createItemFromState(itemState, pageIdentifier));
+    return items;
+}
+
+WebKit::WebBackForwardListItem* itemAtIndexInBackForwardListItemVector(const Vector<Ref<WebKit::WebBackForwardListItem>>& items, size_t index)
+{
+    return items[index].ptr();
 }
 
 

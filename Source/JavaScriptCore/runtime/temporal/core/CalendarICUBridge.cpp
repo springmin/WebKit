@@ -271,13 +271,13 @@ static std::optional<String> mapICUEraToTemporalEra(CalendarID calendarId, int32
     if (calendarId == rocCalendarID())
         return !icuEra ? "broc"_s : "roc"_s;
     if (calendarId == copticCalendarID() || calendarId == ethiopicCalendarID())
-        return !icuEra ? "bce"_s : "ce"_s;
+        return "am"_s;
     if (calendarId == ethioaaCalendarID())
         return "aa"_s;
     if (calendarId == hebrewCalendarID())
         return "am"_s;
     if (calendarId == indianCalendarID())
-        return "saka"_s;
+        return "shaka"_s;
     if (calendarId == persianCalendarID())
         return "ap"_s;
     if (calendarIsIslamic(calendarId))
@@ -398,19 +398,14 @@ static std::optional<int32_t> mapTemporalEraToICUEra(CalendarID calendarId, Stri
             return 1;
         return std::nullopt;
     }
-    if (calendarId == copticCalendarID() || calendarId == ethiopicCalendarID()) {
-        if (era == "bce"_s)
-            return 0;
-        if (era == "ce"_s)
-            return 1;
-        return std::nullopt;
-    }
+    if (calendarId == copticCalendarID() || calendarId == ethiopicCalendarID())
+        return era == "am"_s ? std::optional<int32_t>(0) : std::nullopt;
     if (calendarId == ethioaaCalendarID())
         return era == "aa"_s ? std::optional<int32_t>(0) : std::nullopt;
     if (calendarId == hebrewCalendarID())
         return era == "am"_s ? std::optional<int32_t>(0) : std::nullopt;
     if (calendarId == indianCalendarID())
-        return era == "saka"_s ? std::optional<int32_t>(0) : std::nullopt;
+        return era == "shaka"_s ? std::optional<int32_t>(0) : std::nullopt;
     if (calendarId == persianCalendarID())
         return era == "ap"_s ? std::optional<int32_t>(0) : std::nullopt;
     if (calendarIsIslamic(calendarId))
@@ -1731,8 +1726,11 @@ TemporalResult<ISO8601::PlainDate> calendarDateFromFields(CalendarID calendarId,
                         return makeUnexpected(rangeError("Day is out of range for the given month in this calendar"_s));
                     clampedDay = static_cast<uint8_t>(maxDay);
                 }
-                if (clampedDay > 1)
+                if (clampedDay > 1) {
                     ucal_add(cal, UCAL_DAY_OF_MONTH, clampedDay - 1, &status);
+                    if (U_FAILURE(status)) [[unlikely]]
+                        return makeUnexpected(rangeError(icuCalendarArithmeticFailed));
+                }
             } else if (calendarId == hebrewCalendarID()) [[unlikely]] {
                 // Hebrew non-lunisolar path — shouldn't reach here since Hebrew IS lunisolar.
                 ASSERT_NOT_REACHED();

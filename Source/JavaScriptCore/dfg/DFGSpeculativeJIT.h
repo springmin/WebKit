@@ -164,7 +164,7 @@ public:
 
     BasicBlock* nextBlock()
     {
-        for (BlockIndex resultIndex = m_block->index + 1; ; resultIndex++) {
+        for (BlockIndex resultIndex = m_block->index() + 1; ; resultIndex++) {
             if (resultIndex >= m_graph.numBlocks())
                 return nullptr;
             if (BasicBlock* result = m_graph.block(resultIndex))
@@ -956,6 +956,22 @@ public:
         }
     }
 
+#if USE(JSVALUE64)
+    void jsValueTupleResultWithoutUsingChildren(GPRReg reg, Node* node, unsigned index, DataFormat format = DataFormatJS)
+    {
+        ASSERT(index < node->tupleSize());
+        unsigned refCount = m_graph.m_tupleData.at(node->tupleOffset() + index).refCount;
+        if (!refCount)
+            return;
+        ASSERT(refCount == 1);
+        ASSERT(format & DataFormatJS);
+        VirtualRegister virtualRegister = m_graph.m_tupleData.at(node->tupleOffset() + index).virtualRegister;
+        GenerationInfo& info = generationInfoFromVirtualRegister(virtualRegister);
+        m_gprs.retain(reg, virtualRegister, SpillOrderJS);
+        info.initJSValue(node, refCount, reg, format);
+    }
+#endif
+
     void cellTupleResultWithoutUsingChildren(GPRReg reg, Node* node, unsigned index)
     {
         ASSERT(index < node->tupleSize());
@@ -968,21 +984,6 @@ public:
         m_gprs.retain(reg, virtualRegister, SpillOrderCell);
         info.initCell(node, refCount, reg);
     }
-
-#if USE(JSVALUE64)
-    void jsValueTupleResultWithoutUsingChildren(GPRReg reg, Node* node, unsigned index)
-    {
-        ASSERT(index < node->tupleSize());
-        unsigned refCount = m_graph.m_tupleData.at(node->tupleOffset() + index).refCount;
-        if (!refCount)
-            return;
-        ASSERT(refCount == 1);
-        VirtualRegister virtualRegister = m_graph.m_tupleData.at(node->tupleOffset() + index).virtualRegister;
-        GenerationInfo& info = generationInfoFromVirtualRegister(virtualRegister);
-        m_gprs.retain(reg, virtualRegister, SpillOrderJS);
-        info.initJSValue(node, refCount, reg, DataFormatJS);
-    }
-#endif
 
     template<typename OperationType>
     void operationExceptionCheck()
@@ -1480,6 +1481,7 @@ public:
     void compileNumberToStringWithRadix(Node*);
     void compileNumberToStringWithValidRadixConstant(Node*);
     void compileNumberToStringWithValidRadixConstant(Node*, int32_t radix);
+    void compileInt32ToStringRadix10(Node*);
     void compileNewStringObject(Node*);
     void compileNewSymbol(Node*);
     void compileNewMap(Node*);
@@ -1733,6 +1735,7 @@ public:
     void compileRegExpTest(Node*);
     void compileRegExpTestInline(Node*);
     void compileRegExpSearch(Node*);
+    void compileRegExpStringIteratorNext(Node*);
     void compileStringReplace(Node*);
     void compileStringReplaceAll(Node*);
     void compileStringReplaceString(Node*);

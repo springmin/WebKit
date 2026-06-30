@@ -76,6 +76,7 @@ struct CSSParserContext {
     bool targetTextPseudoElementEnabled : 1 { false };
     bool htmlEnhancedSelectEnabled : 1 { false };
     bool cssRandomFunctionEnabled : 1 { false };
+    bool cssRandomItemFunctionEnabled : 1 { false };
     bool cssRubyDisplayTypesEnabled : 1 { false };
     bool cssTreeCountingFunctionsEnabled : 1 { false };
     bool cssURLModifiersEnabled : 1 { false };
@@ -92,6 +93,7 @@ struct CSSParserContext {
     bool cssAttrSubstitutionFunctionEnabled : 1 { false };
     bool cssScrollStateContainerQueriesEnabled : 1 { false };
     bool cssCalcMixEnabled : 1 { false };
+    bool cssIdentFunctionEnabled : 1 { false };
 
     // Settings, those affecting properties.
     CSSPropertySettings propertySettings;

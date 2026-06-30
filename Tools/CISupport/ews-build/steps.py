@@ -3356,7 +3356,6 @@ class CompileWebKit(shell.Compile, AddToLogMixin, ShellMixin):
     def __init__(self, skipUpload=False, **kwargs):
         self.skipUpload = skipUpload
         self.cancelled_due_to_huge_logs = False
-        self.build_failed = False
         super().__init__(timeout=60 * 60, logEnviron=False, **kwargs)
 
     def doStepIf(self, step):
@@ -3417,9 +3416,8 @@ class CompileWebKit(shell.Compile, AddToLogMixin, ShellMixin):
         defer.returnValue(rc)
 
     def errorReceived(self, error):
-        # Temporary workaround for catching silent failures: https://bugs.webkit.org/show_bug.cgi?id=276081
-        self.build_failed = True
         # FIXME: Re-enable error filtering from logs.
+        pass
 
     def handleExcessiveLogging(self):
         build_url = f'{self.master.config.buildbotURL}#/builders/{self.build._builderid}/builds/{self.build.number}'
@@ -3493,8 +3491,6 @@ class CompileWebKit(shell.Compile, AddToLogMixin, ShellMixin):
         return super().evaluateCommand(cmd)
 
     def getResultSummary(self):
-        if self.build_failed:
-            self.results = FAILURE
         if self.results == FAILURE:
             return {'step': 'Failed to compile WebKit'}
         if self.results == SKIPPED:
@@ -6591,6 +6587,9 @@ class RunAPITestsParallelSafety(RunAPITests):
 
     @defer.inlineCallbacks
     def run(self):
+        self.log_observer = ParseByLineLogObserver(self.parseOutputLine)
+        self.addLogObserver('stdio', self.log_observer)
+
         modified_tests_raw = self.getProperty('modified_api_tests', [])
         if not modified_tests_raw:
             return defer.returnValue(SKIPPED)
@@ -6625,6 +6624,9 @@ class RunAPITestsParallelSafety(RunAPITests):
         for test in modified_tests:
             self.command += ['--test-parallel-safety', test]
 
+        if SHOULD_FILTER_LOGS is True:
+            self.command = self.shell_command(' '.join(self.command) + ' 2>&1 | Tools/Scripts/filter-test-logs api')
+
         yield self._addToLog('stdio', f'Running parallel safety testing on {len(modified_tests)} test(s)\n')
         yield self._addToLog('stdio', f'Command: {" ".join(self.command)}\n\n')
 
@@ -6633,6 +6635,21 @@ class RunAPITestsParallelSafety(RunAPITests):
         if self.failedTestCount:
             rc = FAILURE
 
+        if SHOULD_FILTER_LOGS is True:
+            self.steps_to_add += [
+                GenerateS3URL(
+                    f"{self.getProperty('fullPlatform')}-{self.getProperty('archForUpload')}-{self.getProperty('configuration')}-{self.name}",
+                    extension='txt',
+                    additions=f'{self.build.number}',
+                    content_type='text/plain',
+                ), UploadFileToS3(
+                    'logs.txt',
+                    links={self.name: 'Full logs'},
+                    content_type='text/plain',
+                )
+            ]
+
+        self.build.addStepsAfterCurrentStep(self.steps_to_add)
         defer.returnValue(rc)
 
     def doOnFailure(self):

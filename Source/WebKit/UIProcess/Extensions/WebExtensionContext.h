@@ -414,6 +414,9 @@ public:
     bool hasAccessToPrivateData() const { return m_hasAccessToPrivateData; }
     void setHasAccessToPrivateData(bool);
 
+    bool hasAccessToFileURLs() const { return m_hasAccessToFileURLs; }
+    void setHasAccessToFileURLs(bool);
+
     void grantPermissions(PermissionsSet&&, WallTime expirationDate = WallTime::infinity());
     void denyPermissions(PermissionsSet&&, WallTime expirationDate = WallTime::infinity());
 
@@ -1074,6 +1077,7 @@ private:
 
     bool m_requestedOptionalAccessToAllHosts { false };
     bool m_hasAccessToPrivateData { false };
+    bool m_hasAccessToFileURLs { false };
 
     VoidFunctionVector m_actionsToPerformAfterBackgroundContentLoads;
     EventListenerTypeCountedSet m_backgroundContentEventListeners;
@@ -1095,6 +1099,7 @@ private:
     std::unique_ptr<RunLoop::Timer> m_unloadBackgroundWebViewTimer;
     MonotonicTime m_lastBackgroundPortActivityTime;
     bool m_backgroundContentIsLoaded { false };
+    bool m_backgroundContentHasLoadedOnce { false };
     bool m_safeToLoadBackgroundContent { false };
 
 #if ENABLE(INSPECTOR_EXTENSIONS)

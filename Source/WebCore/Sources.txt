@@ -582,6 +582,7 @@ Modules/webxr/WebXRRay.cpp
 Modules/webxr/XRReferenceSpaceEvent.cpp
 Modules/webxr/XRSessionEvent.cpp
 Modules/webxr/XRSubImage.cpp
+Modules/webxr/XRWebGLCubeLayerBacking.cpp
 Modules/webxr/XRWebGLCylinderLayerBacking.cpp
 Modules/webxr/XRWebGLEquirectLayerBacking.cpp
 Modules/webxr/XRWebGLLayerBacking.cpp
@@ -1957,7 +1958,7 @@ inspector/agents/InspectorWorkerAgent.cpp
 inspector/agents/WebConsoleAgent.cpp
 inspector/agents/WebDebuggerAgent.cpp
 inspector/agents/WebHeapAgent.cpp
-inspector/agents/frame/FrameCSSAgent.cpp
+inspector/agents/frame/FrameCSSAgent.cpp @header:RenderStyleGetters
 inspector/agents/frame/FrameConsoleAgent.cpp
 inspector/agents/frame/FrameDOMAgent.cpp
 inspector/agents/frame/FrameDOMAgentStubs.cpp
@@ -2378,6 +2379,7 @@ page/scrolling/ThreadedScrollingCoordinator.cpp
 page/scrolling/ThreadedScrollingTree.cpp
 page/scrolling/ThreadedScrollingTreeScrollingNodeDelegate.cpp
 page/text-extraction/TextExtraction.cpp @header:RenderStyleGetters @cost:12
+page/text-extraction/TextExtractionScriptFiltering.cpp @header:RenderStyleGetters
 page/text-extraction/TextExtractionTypes.cpp
 platform/AudioDecoder.cpp
 platform/AudioEncoder.cpp
@@ -2570,6 +2572,7 @@ platform/graphics/BitmapImageSource.cpp
 platform/graphics/ByteArrayPixelBuffer.cpp
 platform/graphics/CachedSubimage.cpp
 platform/graphics/CodecUtilities.cpp
+platform/graphics/CornerShapeUtilities.cpp
 platform/graphics/Color.cpp
 platform/graphics/ColorBlending.cpp
 platform/graphics/ColorConversion.cpp
@@ -2998,6 +3001,7 @@ rendering/RenderImageResource.cpp @header:RenderStyleGetters @cost:5
 rendering/RenderInline.cpp @header:RenderStyleGetters @cost:7
 rendering/RenderLayer.cpp @header:RenderStyleGetters @cost:11
 rendering/RenderLayerBacking.cpp @header:RenderStyleGetters @cost:10
+rendering/RenderLayerBackingSVGAdditions.cpp @header:RenderStyleGetters @cost:7
 rendering/RenderLayerCompositor.cpp @header:RenderStyleGetters @cost:9
 rendering/RenderLayerFilters.cpp @header:RenderStyleGetters @cost:6
 rendering/RenderLayerModelObject.cpp @header:RenderStyleGetters @cost:8

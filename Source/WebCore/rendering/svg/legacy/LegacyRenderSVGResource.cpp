@@ -138,10 +138,8 @@ LegacyRenderSVGResource* LegacyRenderSVGResource::strokePaintingResource(RenderE
 
 LegacyRenderSVGResourceSolidColor* LegacyRenderSVGResource::sharedSolidPaintingResource()
 {
-    static LegacyRenderSVGResourceSolidColor* s_sharedSolidPaintingResource = 0;
-    if (!s_sharedSolidPaintingResource)
-        s_sharedSolidPaintingResource = new LegacyRenderSVGResourceSolidColor;
-    return s_sharedSolidPaintingResource;
+    static NeverDestroyed<LegacyRenderSVGResourceSolidColor> s_sharedSolidPaintingResource;
+    return &s_sharedSolidPaintingResource.get();
 }
 
 static void removeFromCacheAndInvalidateDependencies(RenderElement& renderer, bool needsLayout, SingleThreadWeakHashSet<RenderObject>* visitedRenderers)
@@ -157,7 +155,7 @@ static void removeFromCacheAndInvalidateDependencies(RenderElement& renderer, bo
             clipper->removeClientFromCacheAndMarkForInvalidation(renderer);
     }
 
-    auto svgElement = dynamicDowncast<SVGElement>(protect(renderer.element()));
+    RefPtr svgElement = dynamicDowncast<SVGElement>(renderer.element());
     if (!svgElement)
         return;
 
@@ -167,7 +165,7 @@ static void removeFromCacheAndInvalidateDependencies(RenderElement& renderer, bo
             // reference graph adjustments on changes, so we need to break possible cycles here.
             static NeverDestroyed<WeakHashSet<SVGElement, WeakPtrImplWithEventTargetData>> invalidatingDependencies;
             if (!invalidatingDependencies.get().add(element.get()).isNewEntry) [[unlikely]] {
-                // Reference cycle: we are in process of invalidating this dependant.
+                // Reference cycle: we are in process of invalidating this dependent.
                 continue;
             }
             LegacyRenderSVGResource::markForLayoutAndParentResourceInvalidationIfNeeded(*renderer, needsLayout, visitedRenderers);

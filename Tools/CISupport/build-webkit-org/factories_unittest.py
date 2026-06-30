@@ -1301,28 +1301,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'jhbuild',
             'compile-webkit'
         ],
-        'WPE-Linux-ARM32-bit-Release-Debian-Stable-Build': [
-            'configure-build',
-            'configuration',
-            'clean-and-update-working-directory',
-            'checkout-specific-revision',
-            'show-identifier',
-            'kill-old-processes',
-            'delete-WebKitBuild-directory',
-            'delete-stale-build-files',
-            'compile-webkit'
-        ],
-        'WPE-Linux-ARM64-bit-Release-Debian-Stable-Build': [
-            'configure-build',
-            'configuration',
-            'clean-and-update-working-directory',
-            'checkout-specific-revision',
-            'show-identifier',
-            'kill-old-processes',
-            'delete-WebKitBuild-directory',
-            'delete-stale-build-files',
-            'compile-webkit'
-        ],
         'WPE-Linux-RPi4-32bits-Mesa-Release-Perf-Build': [
             'configure-build',
             'configuration',
@@ -1474,6 +1452,33 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'extract-built-product',
             'jscore-test',
             'test262-test'
+        ],
+        'WPE-Linux-ARM64-bit-Release-v252-BuildAndTest': [
+            'configure-build',
+            'configuration',
+            'clean-and-update-working-directory',
+            'checkout-specific-revision',
+            'show-identifier',
+            'kill-old-processes',
+            'delete-WebKitBuild-directory',
+            'delete-stale-build-files',
+            'jhbuild',
+            'compile-webkit',
+            'jscore-test',
+            'layout-test',
+            'dashboard-tests',
+            'archive-test-results',
+            'upload',
+            'extract-test-results',
+            'set-permissions',
+            'run-api-tests',
+            'webkitpy-test',
+            'webkitperl-test',
+            'bindings-generation-tests',
+            'builtins-generator-tests',
+            'test262-test',
+            'webdriver-test',
+            'MVT-tests'
         ]
     }
 

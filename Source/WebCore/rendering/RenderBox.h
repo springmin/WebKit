@@ -46,7 +46,6 @@ struct PaintInfo;
 
 enum class AvailableLogicalHeightType : bool { ExcludeMarginBorderPadding, IncludeMarginBorderPadding };
 
-enum class ShouldComputePreferred : bool { ComputeActual, ComputePreferred };
 
 enum class StretchingMode { Normal, Explicit };
 
@@ -65,8 +64,8 @@ public:
 
     LayoutUnit x() const { return m_frameRect.x(); }
     LayoutUnit y() const { return m_frameRect.y(); }
-    LayoutUnit width() const { return m_frameRect.width(); }
-    LayoutUnit height() const { return m_frameRect.height(); }
+    LayoutUnit borderBoxWidth() const { return m_frameRect.width(); }
+    LayoutUnit borderBoxHeight() const { return m_frameRect.height(); }
 
     // These represent your location relative to your container as a physical offset.
     // In layout related methods you almost always want the logical location (e.g. x() and y()).
@@ -99,21 +98,20 @@ public:
 
     LayoutPoint location() const { return m_frameRect.location(); }
     LayoutSize locationOffset() const { return LayoutSize(x(), y()); }
-    LayoutSize size() const { return m_frameRect.size(); }
+    LayoutSize borderBoxSize() const { return m_frameRect.size(); }
     inline LayoutSize logicalSize() const;
 
     void setLocation(const LayoutPoint& location) { m_frameRect.setLocation(location); }
     
-    void setSize(const LayoutSize& size) { m_frameRect.setSize(size); }
+    void setBorderBoxSize(const LayoutSize& size) { m_frameRect.setSize(size); }
     void move(LayoutUnit dx, LayoutUnit dy) { m_frameRect.move(dx, dy); }
 
     LayoutRect frameRect() const { return m_frameRect; }
     void setFrameRect(const LayoutRect& rect) { m_frameRect = rect; }
 
     inline LayoutRect marginBoxRect() const;
-    LayoutRect borderBoxRect() const { return LayoutRect(LayoutPoint(), size()); }
+    LayoutRect borderBoxRect() const { return LayoutRect(LayoutPoint(), borderBoxSize()); }
     LayoutRect borderBoundingBox() const final { return borderBoxRect(); }
-    inline LayoutSize borderBoxLogicalSize() const;
 
     // Don't use this; it doesn't make sense in a future world with corner-shape. Use BorderShape instead.
     WEBCORE_EXPORT LayoutRoundedRectRadii borderRadii() const;
@@ -214,8 +212,8 @@ public:
 
     // IE extensions. Used to calculate offsetWidth/Height.  Overridden by inlines (RenderFlow)
     // to return the remaining width on a given line (and the height of a single line).
-    LayoutUnit offsetWidth() const override { return width(); }
-    LayoutUnit offsetHeight() const override { return height(); }
+    LayoutUnit offsetWidth() const override { return borderBoxWidth(); }
+    LayoutUnit offsetHeight() const override { return borderBoxHeight(); }
 
     // More IE extensions.  clientWidth and clientHeight represent the interior of an object
     // excluding border and scrollbar.  clientLeft/Top are just the borderLeftWidth and borderTopWidth.
@@ -502,10 +500,10 @@ public:
     // that just updates the object's position. If the size does change, the object remains dirty.
     bool tryLayoutDoingOutOfFlowMovementOnly()
     {
-        LayoutUnit oldWidth = width();
+        LayoutUnit oldWidth = borderBoxWidth();
         updateLogicalWidth();
         // If we shrink to fit our width may have changed, so we still need full layout.
-        if (oldWidth != width())
+        if (oldWidth != borderBoxWidth())
             return false;
         updateLogicalHeight();
         return true;

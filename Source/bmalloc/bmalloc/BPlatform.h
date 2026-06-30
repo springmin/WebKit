@@ -78,6 +78,9 @@
 #define BOS_HAIKU 1
 #endif
 
+/* Bun: keep the CMake guard upstream dropped in WebKit 279137d4b8. Our Linux-to-macOS
+   cross CMake build compiles no Cocoa .mm sources, so BPLATFORM(COCOA) must stay off
+   or ProcessCheck.mm's gigacageEnabledForProcess() is undefined at link. */
 #if BOS(DARWIN) && !defined(BUILDING_WITH_CMAKE)
 #if TARGET_OS_IOS
 #define BOS_IOS 1

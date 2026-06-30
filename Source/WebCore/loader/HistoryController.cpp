@@ -597,7 +597,7 @@ void HistoryController::updateForStandardLoad(HistoryUpdateType updateType)
         if (RefPtr page = m_frame->page())
             addVisitedLink(*page, historyURL);
 
-        if (!documentLoader->didCreateGlobalHistoryEntry() && documentLoader->unreachableURL().isEmpty() && !m_frame->document()->url().isEmpty())
+        if (!documentLoader->didCreateGlobalHistoryEntry() && documentLoader->unreachableURL().isEmpty() && !protect(m_frame->document())->url().isEmpty())
             protect(frameLoader->client())->updateGlobalHistoryRedirectLinks();
     }
 }
@@ -624,7 +624,10 @@ void HistoryController::updateForRedirectWithLockedBackForwardList()
             }
         }
         // The client redirect replaces the current history item.
-        updateCurrentItem();
+        if (RefPtr page = m_frame->page()) {
+            auto scope = protect(page->historyItemClient())->ignoreChangesForScopeDuringRedirect(m_frame);
+            updateCurrentItem();
+        }
     } else {
         RefPtr page = m_frame->page();
         RefPtr parentFrame = dynamicDowncast<LocalFrame>(m_frame->tree().parent());
@@ -754,7 +757,7 @@ void HistoryController::recursiveUpdateForCommit()
 void HistoryController::updateForSameDocumentNavigation()
 {
     Ref frame = m_frame.get();
-    if (frame->document()->url().isEmpty())
+    if (protect(frame->document())->url().isEmpty())
         return;
 
     RefPtr page = frame->page();
@@ -765,7 +768,7 @@ void HistoryController::updateForSameDocumentNavigation()
 
     bool canRecordHistory = canRecordHistoryForFrame(frame);
     if (canRecordHistory)
-        addVisitedLink(*page, frame->document()->url());
+        addVisitedLink(*page, protect(frame->document())->url());
 
     if (RefPtr localFrame = dynamicDowncast<LocalFrame>(frame->mainFrame()))
         localFrame->loader().history().recursiveUpdateForSameDocumentNavigation();

@@ -55,7 +55,9 @@ using CascadeLayerPriority = uint16_t;
 struct RuleSetAndNegation {
     RefPtr<const RuleSet> ruleSet;
     IsNegation isNegation { IsNegation::No };
-    const CSSSelectorList* scopeSelector { nullptr };
+    // Selector for the :has() scope element, used to bound invalidation traversal.
+    // Null means scope-breaking (no scope element can be identified).
+    RefPtr<const RefCountedCSSSelectorList> scopeSelector { };
 };
 using InvalidationRuleSetVector = Vector<RuleSetAndNegation, 1>;
 
@@ -258,6 +260,9 @@ private:
     bool m_hasHostPseudoClassRulesMatchingInShadowTree { false };
     bool m_hasViewportDependentMediaQueries { false };
     bool m_hasHostOrScopePseudoClassRulesInUniversalBucket { false };
+
+    // For checking against re-entrancy.
+    bool m_isBuilding { false };
 };
 
 inline const RuleSet::RuleDataVector* RuleSet::attributeRules(const AtomString& key, bool isHTMLName) const

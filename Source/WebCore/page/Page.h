@@ -231,6 +231,7 @@ struct ApplePayAMSUIRequest;
 struct AttributedString;
 struct CharacterRange;
 struct ClientOrigin;
+struct CueMatch;
 struct DocumentSyncSerializationData;
 struct FixedContainerEdges;
 struct ResolvedCaptionDisplaySettingsOptions;
@@ -586,6 +587,10 @@ public:
     };
     WEBCORE_EXPORT MatchingRanges findTextMatches(const String&, FindOptions, unsigned maxCount, bool markMatches = true);
 
+#if ENABLE(VIDEO)
+    WEBCORE_EXPORT Vector<CueMatch> findCueMatches(const String&, FindOptions);
+#endif
+
 #if PLATFORM(COCOA)
     void platformInitialize();
     WEBCORE_EXPORT void addSchedulePair(Ref<WTF::SchedulePair>&&);
@@ -633,7 +638,7 @@ public:
     WEBCORE_EXPORT void setZoomedOutPageScaleFactor(float);
     float zoomedOutPageScaleFactor() const { return m_zoomedOutPageScaleFactor; }
 
-    float deviceScaleFactor() const { return m_deviceScaleFactor; }
+    float NODELETE deviceScaleFactor() const { return m_deviceScaleFactor; }
     WEBCORE_EXPORT void setDeviceScaleFactor(float);
 
     float initialScaleIgnoringContentSize() const { return m_initialScaleIgnoringContentSize; }
@@ -672,9 +677,9 @@ public:
     const FloatBoxExtent& obscuredContentInsets() const LIFETIME_BOUND { return m_obscuredContentInsets; }
     WEBCORE_EXPORT void setObscuredContentInsets(const FloatBoxExtent&);
 
-#if ENABLE(TOP_BANNER_VIEW_OVERLAYS)
-    bool hasBannerViewOverlay() const { return m_hasBannerViewOverlay; }
-    WEBCORE_EXPORT void setHasBannerViewOverlay(bool);
+#if HAVE(NSREFRESHCONTROLLER)
+    bool hasRefreshController() const { return m_hasRefreshController; }
+    WEBCORE_EXPORT void setHasRefreshController(bool);
 #endif
 
     WEBCORE_EXPORT void useSystemAppearanceChanged();
@@ -1570,8 +1575,8 @@ private:
     
     bool m_suppressScrollbarAnimations { false };
 
-#if ENABLE(TOP_BANNER_VIEW_OVERLAYS)
-    bool m_hasBannerViewOverlay { false };
+#if HAVE(NSREFRESHCONTROLLER)
+    bool m_hasRefreshController { false };
 #endif
     ScrollElasticity m_verticalScrollElasticity { ScrollElasticity::Allowed };
     ScrollElasticity m_horizontalScrollElasticity { ScrollElasticity::Allowed };

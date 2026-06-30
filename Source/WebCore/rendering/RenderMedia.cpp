@@ -54,9 +54,9 @@ void RenderMedia::paintReplaced(PaintInfo&, const LayoutPoint&)
 
 void RenderMedia::layout()
 {
-    LayoutSize oldSize = size();
+    LayoutSize oldSize = borderBoxSize();
     RenderImage::layout();
-    if (oldSize != size())
+    if (oldSize != borderBoxSize())
         protect(mediaElement())->layoutSizeChanged();
 }
 
@@ -68,6 +68,9 @@ void RenderMedia::styleDidChange(Style::Difference difference, const Style::Comp
 
     if (!oldStyle || style().dynamicRangeLimit() != oldStyle->dynamicRangeLimit())
         protect(mediaElement())->dynamicRangeLimitDidChange(style().dynamicRangeLimit().toPlatformDynamicRangeLimit());
+
+    if (oldStyle && style().transform() != oldStyle->transform())
+        protect(mediaElement())->layoutSizeChanged();
 }
 
 } // namespace WebCore

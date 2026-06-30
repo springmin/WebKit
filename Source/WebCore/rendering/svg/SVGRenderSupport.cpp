@@ -28,6 +28,7 @@
 #include "config.h"
 #include "SVGRenderSupport.h"
 
+#include "DashArray.h"
 #include "ElementAncestorIteratorInlines.h"
 #include "LegacyRenderSVGForeignObject.h"
 #include "LegacyRenderSVGImage.h"
@@ -87,8 +88,10 @@ std::optional<FloatRect> SVGRenderSupport::computeFloatVisibleRectInContainer(co
     if (!is<SVGElement>(parent.element()))
         return FloatRect();
 
+    CheckedRef style = renderer.style();
+
     FloatRect adjustedRect = rect;
-    adjustedRect.inflate(renderer.style().usedOutlineSize());
+    adjustedRect.inflate(style->usedOutlineSize(style->usedZoomForLength(), style->deviceScaleFactor()));
 
     // Translate to coords in our parent renderer, and then call computeFloatVisibleRectInContainer() on our parent.
     adjustedRect = renderer.localToParentTransform().mapRect(adjustedRect);
@@ -552,7 +555,7 @@ void SVGRenderSupport::applyStrokeStyleToContext(GraphicsContext& context, const
         }
         
         bool canSetLineDash = false;
-        auto dashArray = DashArray::map(dashes, [&](auto& dash) -> DashArrayElement {
+        auto dashArray = DashArray::map(dashes, [&lengthContext, scaleFactor, &canSetLineDash](auto& dash) -> DashArrayElement {
             auto value = lengthContext.valueForLength(dash, Style::ZoomNeeded { }) * scaleFactor;
             if (value > 0)
                 canSetLineDash = true;

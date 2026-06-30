@@ -58,6 +58,11 @@
 #ifdef __OBJC__
 #include "WKSeparatedImageView.h"
 #include "WKUIDelegatePrivate.h"
+#if PLATFORM(MAC) && HAVE(NSREFRESHCONTROLLER)
+// Spells out the NSRefreshControlHosting protocol referenced by WKWebView extensions
+// in WebKit-Swift-Generated.h. rdar://179255418
+#include "AppKitSPI.h"
+#endif
 #endif
 
 #if USE(APPLE_INTERNAL_SDK)
@@ -70,11 +75,7 @@ IGNORE_CLANG_WARNINGS_BEGIN("arc-bridge-casts-disallowed-in-nonarc")
 IGNORE_CLANG_WARNINGS_BEGIN("objc-property-no-attribute")
 // rdar://175148090
 IGNORE_CLANG_WARNINGS_BEGIN("#warnings")
-#ifdef GENERATE_SINGLE_SWIFT_INTEROP_FILE
 #include "WebKit-Swift-Generated.h"
-#else
-#include "WebKit-Swift-CPP.h"
-#endif
 IGNORE_CLANG_WARNINGS_END
 IGNORE_CLANG_WARNINGS_END
 IGNORE_CLANG_WARNINGS_END

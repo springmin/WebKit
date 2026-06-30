@@ -458,7 +458,7 @@ void RenderGrid::layoutGrid(RelayoutChildren relayoutChildren)
         preparePaginationBeforeBlockLayout(relayoutChildren);
         beginUpdateScrollInfoAfterLayoutTransaction();
 
-        LayoutSize previousSize = size();
+        LayoutSize previousSize = borderBoxSize();
 
         auto aspectRatioBlockSizeDependentGridItems = computeAspectRatioDependentAndBaselineItems(gridLayoutState);
 
@@ -548,7 +548,7 @@ void RenderGrid::layoutGrid(RelayoutChildren relayoutChildren)
         updateInFlowDescendantTransformsAfterLayout();
         computeInFlowOverflow(contentOverflowRect(), ComputeOverflowOptions::MarginsExtendLayoutOverflow);
 
-        if (isDocumentElementRenderer() || size() != previousSize)
+        if (isDocumentElementRenderer() || borderBoxSize() != previousSize)
             layoutOutOfFlowBoxes(RelayoutChildren::Yes);
         else
             layoutOutOfFlowBoxes(relayoutChildren);
@@ -593,7 +593,7 @@ void RenderGrid::layoutMasonry(RelayoutChildren relayoutChildren)
         preparePaginationBeforeBlockLayout(relayoutChildren);
         beginUpdateScrollInfoAfterLayoutTransaction();
 
-        LayoutSize previousSize = size();
+        LayoutSize previousSize = borderBoxSize();
 
         // FIXME: We should use RenderBlock::hasDefiniteLogicalHeight() only but it does not work for positioned stuff.
         // FIXME: Consider caching the hasDefiniteLogicalHeight value throughout the layout.
@@ -692,7 +692,7 @@ void RenderGrid::layoutMasonry(RelayoutChildren relayoutChildren)
         updateInFlowDescendantTransformsAfterLayout();
         computeInFlowOverflow(contentOverflowRect());
 
-        if (isDocumentElementRenderer() || size() != previousSize)
+        if (isDocumentElementRenderer() || borderBoxSize() != previousSize)
             layoutOutOfFlowBoxes(RelayoutChildren::Yes);
         else
             layoutOutOfFlowBoxes(relayoutChildren);
@@ -2240,7 +2240,7 @@ LayoutRange RenderGrid::gridAreaRangeForOutOfFlow(const RenderBox& gridItem, Sty
         defaultRange = isRowAxis == writingMode().isHorizontal()
             ? scrollablePaddingAreaOverflowRect().xRange() : scrollablePaddingAreaOverflowRect().yRange();
         if (writingMode().isInlineFlipped() && isRowAxis)
-            defaultRange.moveTo(width() - defaultRange.max());
+            defaultRange.moveTo(borderBoxWidth() - defaultRange.max());
     }
 
     if (currentGrid().needsItemsPlacement()) {

@@ -30,6 +30,7 @@
 #pragma once
 
 #include "LayoutRoundedRect.h"
+#include "RectCorners.h"
 #include "RectEdges.h"
 #include "RenderStyleConstants.h"
 
@@ -61,6 +62,7 @@ public:
 
     BorderShape(const LayoutRect& borderRect, const RectEdges<LayoutUnit>& borderWidths);
     BorderShape(const LayoutRect& borderRect, const RectEdges<LayoutUnit>& borderWidths, const LayoutRoundedRectRadii&);
+    BorderShape(const LayoutRect& borderRect, const RectEdges<LayoutUnit>& borderWidths, const LayoutRoundedRectRadii&, const RectCorners<float>& cornerCurvatures);
 
     BorderShape(const BorderShape&) = default;
 
@@ -94,7 +96,7 @@ public:
     FloatRect snappedOuterRect(float deviceScaleFactor) const;
     FloatRect snappedInnerRect(float deviceScaleFactor) const;
 
-    bool isRounded() const { return m_borderRect.isRounded(); }
+    bool hasNonZeroRadii() const { return m_borderRect.hasNonZeroRadii(); }
 
     bool NODELETE outerShapeIsRectangular() const;
     bool NODELETE innerShapeIsRectangular() const;
@@ -128,9 +130,19 @@ public:
 private:
     static LayoutRoundedRect computeInnerEdgeRoundedRect(const LayoutRoundedRect& borderRoundedRect, const RectEdges<LayoutUnit>& borderWidths);
 
+    // True if any corner uses a non-`round` shape (curvature != 1), so the shape
+    bool hasNonRoundCornerShape() const;
+
+    Path pathForOuterRoundedRect(const FloatRoundedRect& outerSnapped) const;
+    Path pathForInnerRoundedRect(const FloatRoundedRect& innerSnapped) const;
+
+    Path pathForOuterCornerShape(const FloatRoundedRect& outerSnapped) const;
+    Path pathForInnerCornerShape(const FloatRoundedRect& outerSnapped, const FloatRoundedRect& innerSnapped) const;
+
     LayoutRoundedRect m_borderRect;
     LayoutRoundedRect m_innerEdgeRect;
     RectEdges<LayoutUnit> m_borderWidths;
+    RectCorners<float> m_cornerCurvatures { 1.0f, 1.0f, 1.0f, 1.0f };
 };
 
 } // namespace WebCore

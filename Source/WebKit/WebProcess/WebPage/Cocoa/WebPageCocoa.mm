@@ -67,6 +67,7 @@
 #import <WebCore/CSSKeywordValue.h>
 #import <WebCore/Chrome.h>
 #import <WebCore/ChromeClient.h>
+#import <WebCore/ContainerNodeInlines.h>
 #if ENABLE(CONTENT_CHANGE_OBSERVER)
 #import <WebCore/ContentChangeObserver.h>
 #endif
@@ -2180,10 +2181,7 @@ void WebPage::firstRectForCharacterRangeAsync(const EditingRange& editingRange, 
 
     auto rangeForFirstLine = EditingRange::fromRange(*frame, makeSimpleRange(range->start, WTF::move(endBoundary)));
 
-    rangeForFirstLine.location = std::min(std::max(rangeForFirstLine.location, editingRange.location), editingRange.location + editingRange.length);
-    rangeForFirstLine.length = std::min(rangeForFirstLine.location + rangeForFirstLine.length, editingRange.location + editingRange.length) - rangeForFirstLine.location;
-
-    completionHandler(rect, rangeForFirstLine);
+    completionHandler(rect, EditingRange::clampedFirstLineRange(rangeForFirstLine, editingRange));
 }
 
 void WebPage::setCompositionAsync(const String& text, const Vector<CompositionUnderline>& underlines, const Vector<CompositionHighlight>& highlights, const HashMap<String, Vector<CharacterRange>>& annotations, const EditingRange& selection, const EditingRange& replacementEditingRange)
@@ -2797,6 +2795,28 @@ void WebPage::updateSelectionWithExtentPointAndBoundary(WebCore::IntPoint point,
     if (auto range = makeSimpleRange(selectionStart, selectionEnd))
         protect(frame->selection())->setSelectedRange(range, Affinity::Upstream, WebCore::FrameSelection::ShouldCloseTyping::Yes, UserTriggered::Yes);
 
+#if PLATFORM(MAC)
+    // AppKit's selection gesture has no edge-autoscroll equivalent to UIKit's `UITextAutoscrolling`,
+    // so the web process owns the decision: start autoscrolling toward `point` while it sits in the
+    // visible-edge band, and stop once the drag returns to the middle. Re-evaluated on every extent
+    // update (including the re-extensions the UI process issues as the page scrolls), so holding near
+    // the edge keeps scrolling and dragging back stops it.
+    //
+    // Capture the drag's first extent as its origin (cleared in `cancelAutoscroll` at gesture begin/end)
+    // and pass it to the edge check, which only autoscrolls once the drag has moved toward an edge by a
+    // threshold - so a selection that merely originates near an edge doesn't scroll. The origin survives
+    // hot-zone enter/exit within a drag because the else branch cancels via the EventHandler, not
+    // `WebPage::cancelAutoscroll`.
+    if (!m_selectionAutoscrollDragOrigin)
+        m_selectionAutoscrollDragOrigin = point;
+
+    if (frame->eventHandler().isPointNearSelectionAutoscrollEdge(point, *m_selectionAutoscrollDragOrigin)) {
+        if (CheckedPtr renderer = rendererForSelectionAutoscroll(*frame))
+            frame->eventHandler().startSelectionAutoscroll(renderer.get(), point);
+    } else
+        frame->eventHandler().cancelSelectionAutoscroll();
+#endif
+
 #if PLATFORM(IOS_FAMILY)
     if (!m_hasAnyActiveTouchPoints) {
         // Ensure that `Touch` doesn't linger around in `m_activeTextInteractionSources` after
@@ -2861,6 +2881,43 @@ void WebPage::updateSelectionWithExtentPoint(WebCore::IntPoint point, bool isInt
     callback(m_selectionAnchor == SelectionAnchor::Start);
 #else
     callback(true);
+#endif
+}
+
+RenderObject* WebPage::rendererForSelectionAutoscroll(LocalFrame& frame) const
+{
+    if (m_focusedElement && m_focusedElement->renderer())
+        return m_focusedElement->renderer();
+
+    auto& selection = frame.selection().selection();
+    if (!selection.isRange())
+        return nullptr;
+
+    auto range = selection.toNormalizedRange();
+    if (!range)
+        return nullptr;
+
+    return range->start.container->renderer();
+}
+
+void WebPage::startAutoscrollAtPosition(const WebCore::FloatPoint& positionInWindow)
+{
+    RefPtr frame = m_page->focusController().focusedOrMainFrame();
+    if (!frame)
+        return;
+
+    if (CheckedPtr renderer = rendererForSelectionAutoscroll(*frame))
+        frame->eventHandler().startSelectionAutoscroll(renderer.get(), positionInWindow);
+}
+
+void WebPage::cancelAutoscroll()
+{
+    if (RefPtr frame = m_page->focusController().focusedOrMainFrame())
+        frame->eventHandler().cancelSelectionAutoscroll();
+
+#if PLATFORM(MAC)
+    // Reset the drag-origin so the next gesture's edge check starts measuring from its own first extent.
+    m_selectionAutoscrollDragOrigin = std::nullopt;
 #endif
 }
 
@@ -3378,6 +3435,9 @@ void WebPage::completeSyntheticClick(std::optional<WebCore::FrameIdentifier> fra
     if ((!handledPress && !handledRelease) || !nodeRespondingToClick.isElementNode())
         send(Messages::WebPageProxy::DidNotHandleTapAsClick(roundedIntPoint(location)));
 
+#if PLATFORM(IOS_FAMILY)
+    flushPendingFocusedElementUpdateIfNeeded();
+#endif
     send(Messages::WebPageProxy::DidCompleteSyntheticClick());
 
 #if PLATFORM(IOS_FAMILY)

@@ -410,9 +410,11 @@ template <class TreeBuilder> TreeSourceElements Parser<LexerType>::parseSourceEl
     TreeSourceElements sourceElements = context.createSourceElements();
     const Identifier* directive = nullptr;
     unsigned directiveLiteralLength = 0;
-    auto savePoint = createSavePoint(context);
+    std::optional<SavePoint> savePoint;
     bool shouldCheckForUseStrict = mode == CheckForStrictMode;
-    
+    if (shouldCheckForUseStrict)
+        savePoint.emplace(createSavePoint(context));
+
     while (TreeStatement statement = parseStatementListItem(context, directive, &directiveLiteralLength)) {
         if (shouldCheckForUseStrict) {
             if (directive) {
@@ -431,7 +433,7 @@ template <class TreeBuilder> TreeSourceElements Parser<LexerType>::parseSourceEl
                         semanticFailIfFalse(isValidStrictMode(), "Invalid parameters or function name in strict mode");
                     }
                     // Since strict mode is changed, restoring lexer state by calling next() may cause errors.
-                    restoreSavePoint(context, savePoint);
+                    restoreSavePoint(context, *savePoint);
                     propagateError();
                     continue;
                 }
@@ -4299,7 +4301,9 @@ template <typename TreeBuilder> TreeExpression Parser<LexerType>::parseAssignmen
     // Whether spec identifier is will be validated by isArrowFunctionParameters().
     bool wasIdentifierOrKeyword = matchIdentifierOrKeyword() || (m_token.m_type == ESCAPED_KEYWORD);
     bool maybeValidArrowFunctionStart = wasOpenParen || wasIdentifierOrKeyword;
-    SavePoint savePoint = createSavePoint(context);
+    std::optional<SavePoint> savePoint;
+    if (maybeValidArrowFunctionStart || maybeAssignmentPattern)
+        savePoint.emplace(createSavePoint(context));
     size_t usedVariablesSize = 0;
 
     if (wasOpenParen) {
@@ -4328,7 +4332,7 @@ template <typename TreeBuilder> TreeExpression Parser<LexerType>::parseAssignmen
     if (maybeValidArrowFunctionStart && !match(EOFTOK)) {
         bool isArrowFunctionToken = match(ARROWFUNCTION);
         if (!lhs || isArrowFunctionToken) {
-            SavePointWithError errorRestorationSavePoint = swapSavePointForError(context, savePoint);
+            SavePointWithError errorRestorationSavePoint = swapSavePointForError(context, *savePoint);
             bool isAsync = false;
             if (matchContextualKeyword(m_vm.propertyNames->async)) {
                 next();
@@ -4336,7 +4340,7 @@ template <typename TreeBuilder> TreeExpression Parser<LexerType>::parseAssignmen
                     isAsync = true;
                 else {
                     // This is async => ... case. So this "async" is not a contextual keyword, it is parameter name.
-                    restoreSavePoint(context, savePoint);
+                    restoreSavePoint(context, *savePoint);
                 }
             }
 
@@ -4362,7 +4366,7 @@ template <typename TreeBuilder> TreeExpression Parser<LexerType>::parseAssignmen
 
     if (maybeAssignmentPattern && (!lhs || (match(EQUAL) && context.isObjectOrArrayLiteral(lhs)))) {
         bool isPossiblePattern = !lhs;
-        SavePointWithError expressionErrorLocation = swapSavePointForError(context, savePoint);
+        SavePointWithError expressionErrorLocation = swapSavePointForError(context, *savePoint);
         auto pattern = tryParseDestructuringPatternExpression(context, AssignmentContext::AssignmentExpression);
 
         // The reason why we use restoreSavePointWithError only when isPossiblePattern = true is that
@@ -4501,7 +4505,7 @@ template <class TreeBuilder> TreeExpression Parser<LexerType>::parseConditionalE
     JSTokenLocation location(tokenLocation());
     TreeExpression cond = parseBinaryExpression(context);
     failIfFalse(cond, "Cannot parse expression");
-    if (!match(QUESTION))
+    if (!match(QUESTION)) [[likely]]
         return cond;
     m_parserState.nonTrivialExpressionCount++;
     m_parserState.nonLHSCount++;
@@ -4568,7 +4572,7 @@ template <class TreeBuilder> TreeExpression Parser<LexerType>::parseBinaryExpres
 
         context.appendBinaryExpressionInfo(operandStackDepth, current, exprStart, lastTokenEndPosition(), lastTokenEndPosition(), initialAssignments != m_parserState.assignmentCount);
         int precedence = isBinaryOperator(m_token.m_type);
-        if (!precedence)
+        if (!precedence) [[likely]]
             break;
 
         // 12.6 https://tc39.github.io/ecma262/#sec-exp-operator

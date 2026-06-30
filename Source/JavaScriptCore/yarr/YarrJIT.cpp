@@ -1140,6 +1140,30 @@ class YarrGenerator final : public YarrJITInfo {
             return;
         }
 
+        if (charClass->m_latin1Table) {
+            bool pureLatin1 = charClass->m_matches32.isEmpty() && charClass->m_ranges32.isEmpty();
+            if (m_charSize == CharSize::Char8 || pureLatin1) {
+                const auto* table = m_boyerMooreData->addLatin1Table(*charClass->m_latin1Table);
+                bool needsHighGuard = m_charSize != CharSize::Char8;
+                if (matchTargets.hasFailedTarget()) {
+                    if (needsHighGuard)
+                        matchTargets.appendFailed(m_jit.branch32(MacroAssembler::AboveOrEqual, character, MacroAssembler::TrustedImm32(0x100)));
+                    MacroAssembler::ExtendedAddress tableEntry(character, reinterpret_cast<intptr_t>(table));
+                    matchTargets.appendFailed(m_jit.branchTest8(MacroAssembler::Zero, tableEntry));
+                    return;
+                }
+
+                MacroAssembler::Jump isHigh;
+                if (needsHighGuard)
+                    isHigh = m_jit.branch32(MacroAssembler::AboveOrEqual, character, MacroAssembler::TrustedImm32(0x100));
+                MacroAssembler::ExtendedAddress tableEntry(character, reinterpret_cast<intptr_t>(table));
+                matchTargets.appendSucceeded(m_jit.branchTest8(MacroAssembler::NonZero, tableEntry));
+                if (isHigh.isSet())
+                    isHigh.link(&m_jit);
+                return;
+            }
+        }
+
         Vector<char32_t, 32> unifiedMatches;
         Vector<CharacterRange, 32> unifiedRanges;
         unifiedMatches.appendVector(charClass->m_matches8);
@@ -1562,9 +1586,9 @@ class YarrGenerator final : public YarrJITInfo {
         return MacroAssembler::Address(m_regs.output, offsetForDuplicateNamedGroupId(duplicateNamedGroupId) * sizeof(int));
     }
 
-    static bool NODELETE needsSubpatternRecording(JITCompileMode compileMode, const YarrPattern& pattern)
+    static bool NODELETE needsSubpatternRecording(ExecutionMode executionMode, const YarrPattern& pattern)
     {
-        return compileMode == JITCompileMode::IncludeSubpatterns || (compileMode == JITCompileMode::MatchOnly && pattern.m_containsBackreferences);
+        return executionMode == ExecutionMode::IncludeSubpatterns || (executionMode == ExecutionMode::MatchOnly && pattern.m_containsBackreferences);
     }
 
     static unsigned NODELETE alignCallFrameSizeInBytes(unsigned originalCallFrameSize)
@@ -1584,7 +1608,7 @@ class YarrGenerator final : public YarrJITInfo {
         m_jit.move(MacroAssembler::TrustedImm32(0), m_regs.returnRegister2);
 
 #if ENABLE(YARR_JIT_REGEXP_TEST_INLINE)
-        if (m_compileMode == JITCompileMode::InlineTest) {
+        if (m_executionMode == ExecutionMode::InlineTest) {
             m_inlinedFailedMatch.append(m_jit.jump());
             return;
         }
@@ -1615,7 +1639,7 @@ class YarrGenerator final : public YarrJITInfo {
         generateReturn();
     }
 
-    // Used to record subpatterns, should be called in JITCompileMode::IncludeSubpatterns　or when m_needsInternalSubpatternOutput is true (MatchOnly with backreferences).
+    // Used to record subpatterns, should be called in ExecutionMode::IncludeSubpatterns　or when m_needsInternalSubpatternOutput is true (MatchOnly with backreferences).
     void setSubpatternStart(MacroAssembler::RegisterID reg, unsigned subpattern)
     {
         ASSERT(subpattern);
@@ -1700,15 +1724,15 @@ class YarrGenerator final : public YarrJITInfo {
 
     bool NODELETE shouldRecordSubpatterns() const
     {
-        return m_compileMode == JITCompileMode::IncludeSubpatterns || m_needsInternalSubpatternOutput;
+        return m_executionMode == ExecutionMode::IncludeSubpatterns || m_needsInternalSubpatternOutput;
     }
 
     // We use one of three different strategies to track the start of the current match,
     // while matching.
     // 1) If the pattern has a fixed size, do nothing! - we calculate the value lazily
-    //    at the end of matching. This is irrespective of m_compileMode, and in this case
+    //    at the end of matching. This is irrespective of m_executionMode, and in this case
     //    these methods should never be called.
-    // 2) If we're compiling JITCompileMode::IncludeSubpatterns, 'm_regs.output' contains a pointer to an output
+    // 2) If we're compiling ExecutionMode::IncludeSubpatterns, 'm_regs.output' contains a pointer to an output
     //    vector, store the match start in the output vector.
     // 3) If we're compiling MatchOnly or InlinedTest, 'm_regs.output' is unused, store the match start directly
     //    in this register.
@@ -2178,6 +2202,10 @@ class YarrGenerator final : public YarrJITInfo {
         PatternTerm* term = op.m_term;
         unsigned subpatternId = term->backReferenceSubpatternId;
         unsigned duplicateNamedGroupId = m_pattern.hasDuplicateNamedCaptureGroups() ? m_pattern.m_duplicateNamedGroupForSubpatternId[subpatternId] : 0;
+
+#if ENABLE(YARR_JIT_UNICODE_EXPRESSIONS) && ENABLE(YARR_JIT_UNICODE_CAN_INCREMENT_INDEX_FOR_NON_BMP)
+        SetForScope useOptimizationScope(m_useFirstNonBMPCharacterOptimization, false);
+#endif
 
         MacroAssembler::Label loop(&m_jit);
 
@@ -6625,7 +6653,7 @@ class YarrGenerator final : public YarrJITInfo {
     void generateReturn()
     {
 #if ENABLE(YARR_JIT_REGEXP_TEST_INLINE)
-        if (m_compileMode == JITCompileMode::InlineTest) {
+        if (m_executionMode == ExecutionMode::InlineTest) {
             m_inlinedMatched.append(m_jit.jump());
             return;
         }
@@ -6683,7 +6711,7 @@ class YarrGenerator final : public YarrJITInfo {
     }
 
 public:
-    YarrGenerator(CCallHelpers& jit, VM* vm, YarrCodeBlock* codeBlock, const YarrJITRegs& regs, YarrPattern& pattern, StringView patternString, CharSize charSize, JITCompileMode compileMode, std::optional<StringView> sampleString)
+    YarrGenerator(CCallHelpers& jit, VM* vm, YarrCodeBlock* codeBlock, const YarrJITRegs& regs, YarrPattern& pattern, StringView patternString, CharSize charSize, ExecutionMode executionMode, std::optional<StringView> sampleString)
         : m_jit(jit)
         , m_vm(vm)
         , m_codeBlock(codeBlock)
@@ -6692,14 +6720,14 @@ public:
         , m_pattern(pattern)
         , m_patternString(patternString)
         , m_charSize(charSize)
-        , m_compileMode(compileMode)
+        , m_executionMode(executionMode)
         , m_decodeSurrogatePairs(m_charSize == CharSize::Char16 && m_pattern.eitherUnicode())
         , m_unicodeIgnoreCase(m_pattern.eitherUnicode() && m_pattern.ignoreCase())
         , m_decode16BitForBackreferencesWithCalls(m_charSize == CharSize::Char16 && m_pattern.m_containsBackreferences && (m_pattern.ignoreCase() || m_pattern.m_containsModifiers))
         , m_callFrameSizeInBytes(alignCallFrameSizeInBytes(m_pattern.m_body->m_callFrameSize))
         , m_canonicalMode(m_pattern.eitherUnicode() ? CanonicalMode::Unicode : CanonicalMode::UCS2)
 #if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
-        , m_parenContextSizes(needsSubpatternRecording(compileMode, m_pattern) ? m_pattern.m_numSubpatterns : 0, needsSubpatternRecording(compileMode, m_pattern) ? m_pattern.m_numDuplicateNamedCaptureGroups : 0, m_pattern.m_body->m_callFrameSize)
+        , m_parenContextSizes(needsSubpatternRecording(executionMode, m_pattern) ? m_pattern.m_numSubpatterns : 0, needsSubpatternRecording(executionMode, m_pattern) ? m_pattern.m_numDuplicateNamedCaptureGroups : 0, m_pattern.m_body->m_callFrameSize)
 #endif
         , m_sampleString(sampleString)
         , m_sampler(charSize)
@@ -6707,7 +6735,7 @@ public:
         initializeInternalSubpatternStorageIfNeeded();
     }
 
-    YarrGenerator(CCallHelpers& jit, VM* vm, YarrBoyerMooreData* yarrBMData, const YarrJITRegs& regs, YarrPattern& pattern, StringView patternString, CharSize charSize, JITCompileMode compileMode)
+    YarrGenerator(CCallHelpers& jit, VM* vm, YarrBoyerMooreData* yarrBMData, const YarrJITRegs& regs, YarrPattern& pattern, StringView patternString, CharSize charSize, ExecutionMode executionMode)
         : m_jit(jit)
         , m_vm(vm)
         , m_codeBlock(nullptr)
@@ -6716,14 +6744,14 @@ public:
         , m_pattern(pattern)
         , m_patternString(patternString)
         , m_charSize(charSize)
-        , m_compileMode(compileMode)
+        , m_executionMode(executionMode)
         , m_decodeSurrogatePairs(m_charSize == CharSize::Char16 && m_pattern.eitherUnicode())
         , m_unicodeIgnoreCase(m_pattern.eitherUnicode() && m_pattern.ignoreCase())
         , m_decode16BitForBackreferencesWithCalls(m_charSize == CharSize::Char16 && m_pattern.m_containsBackreferences && (m_pattern.ignoreCase() || m_pattern.m_containsModifiers))
         , m_callFrameSizeInBytes(alignCallFrameSizeInBytes(m_pattern.m_body->m_callFrameSize))
         , m_canonicalMode(m_pattern.eitherUnicode() ? CanonicalMode::Unicode : CanonicalMode::UCS2)
 #if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
-        , m_parenContextSizes(needsSubpatternRecording(compileMode, m_pattern) ? m_pattern.m_numSubpatterns : 0, needsSubpatternRecording(compileMode, m_pattern) ? m_pattern.m_numDuplicateNamedCaptureGroups : 0, m_pattern.m_body->m_callFrameSize)
+        , m_parenContextSizes(needsSubpatternRecording(executionMode, m_pattern) ? m_pattern.m_numSubpatterns : 0, needsSubpatternRecording(executionMode, m_pattern) ? m_pattern.m_numDuplicateNamedCaptureGroups : 0, m_pattern.m_body->m_callFrameSize)
 #endif
         , m_sampler(charSize)
     {
@@ -6737,7 +6765,7 @@ public:
 #if ENABLE(YARR_JIT_BACKREFERENCES)
         // For MatchOnly mode with backreferences, we need internal storage for subpattern results
         // since m_regs.output is not available for subpattern storage in MatchOnly mode.
-        if (m_compileMode == JITCompileMode::MatchOnly && m_pattern.m_containsBackreferences) {
+        if (m_executionMode == ExecutionMode::MatchOnly && m_pattern.m_containsBackreferences) {
             m_needsInternalSubpatternOutput = true;
             // Store subpattern output after the regular frame data
             m_internalSubpatternOutputOffsetInFrame = m_pattern.m_body->m_callFrameSize;
@@ -6834,7 +6862,7 @@ public:
         }
 
 #if ENABLE(YARR_JIT_UNICODE_EXPRESSIONS) && ENABLE(YARR_JIT_UNICODE_CAN_INCREMENT_INDEX_FOR_NON_BMP)
-        if (m_decodeSurrogatePairs && m_compileMode != JITCompileMode::InlineTest && !m_pattern.multiline() && !m_pattern.m_containsBOL && !m_pattern.m_containsLookbehinds && !m_pattern.m_containsModifiers) {
+        if (m_decodeSurrogatePairs && m_executionMode != ExecutionMode::InlineTest && !m_pattern.multiline() && !m_pattern.m_containsBOL && !m_pattern.m_containsLookbehinds && !m_pattern.m_containsModifiers) {
             ASSERT(m_regs.firstCharacterAdditionalReadSize != InvalidGPRReg);
             m_useFirstNonBMPCharacterOptimization = true;
         }
@@ -6929,7 +6957,7 @@ public:
 
         ptrdiff_t codeSize = MacroAssembler::differenceBetween(startOfMainCode, m_jit.label());
         bool canInline = ([&] -> bool {
-            if (m_compileMode == JITCompileMode::IncludeSubpatterns)
+            if (m_executionMode == ExecutionMode::IncludeSubpatterns)
                 return false;
             if (m_pattern.global())
                 return false;
@@ -6982,7 +7010,7 @@ public:
             return;
         }
 
-        if (m_compileMode == JITCompileMode::MatchOnly) {
+        if (m_executionMode == ExecutionMode::MatchOnly) {
             if (m_charSize == CharSize::Char8) {
                 codeBlock.set8BitCodeMatchOnly(FINALIZE_REGEXP_CODE(linkBuffer, YarrMatchOnly8BitPtrTag, nullptr, "Match-only 8-bit regular expression"), WTF::move(m_bmMaps));
                 codeBlock.set8BitInlineStats(codeSize, m_callFrameSizeInBytes, canInline, m_usesT2);
@@ -7091,7 +7119,7 @@ public:
 
     const char* variant() final
     {
-        if (m_compileMode == JITCompileMode::MatchOnly) {
+        if (m_executionMode == ExecutionMode::MatchOnly) {
             if (m_charSize == CharSize::Char8)
                 return "Match-only 8-bit regular expression";
 
@@ -7368,7 +7396,7 @@ private:
     const StringView m_patternString;
 
     const CharSize m_charSize;
-    const JITCompileMode m_compileMode;
+    const ExecutionMode m_executionMode;
 
     // Used to detect regular expression constructs that are not currently
     // supported in the JIT; fall back to the interpreter when this is detected.
@@ -7560,11 +7588,11 @@ static void dumpCompileFailure(JITFailureReason failure)
     }
 }
 
-void jitCompile(YarrPattern& pattern, StringView patternString, CharSize charSize, std::optional<StringView> sampleString, VM* vm, YarrCodeBlock& codeBlock, JITCompileMode mode)
+void jitCompile(YarrPattern& pattern, StringView patternString, CharSize charSize, std::optional<StringView> sampleString, VM* vm, YarrCodeBlock& codeBlock, ExecutionMode mode)
 {
     CCallHelpers masm;
 
-    ASSERT(mode == JITCompileMode::MatchOnly || mode == JITCompileMode::IncludeSubpatterns);
+    ASSERT(mode == ExecutionMode::MatchOnly || mode == ExecutionMode::IncludeSubpatterns);
 
     YarrJITDefaultRegisters jitRegisters;
     YarrGenerator<YarrJITDefaultRegisters>(masm, vm, &codeBlock, jitRegisters, pattern, patternString, charSize, mode, sampleString).compile(codeBlock);
@@ -7586,7 +7614,7 @@ void jitCompile(YarrPattern& pattern, StringView patternString, CharSize charSiz
 void jitCompileInlinedTest(StackCheck* m_compilationThreadStackChecker, StringView patternString, OptionSet<Yarr::Flags> flags, CharSize charSize, VM* vm, YarrBoyerMooreData& boyerMooreData, CCallHelpers& jit, YarrJITRegisters& jitRegisters)
 {
     Yarr::ErrorCode errorCode;
-    Yarr::YarrPattern pattern(patternString, flags, errorCode);
+    Yarr::YarrPattern pattern(patternString, flags, errorCode, ExecutionMode::InlineTest);
 
     if (errorCode != Yarr::ErrorCode::NoError) {
         // This path cannot clobber jitRegisters.regT1 as it is needed for the slow path we'll end up in.
@@ -7596,7 +7624,7 @@ void jitCompileInlinedTest(StackCheck* m_compilationThreadStackChecker, StringVi
 
     jitRegisters.validate();
 
-    YarrGenerator<YarrJITRegisters> yarrGenerator(jit, vm, &boyerMooreData, jitRegisters, pattern, patternString, charSize, JITCompileMode::InlineTest);
+    YarrGenerator<YarrJITRegisters> yarrGenerator(jit, vm, &boyerMooreData, jitRegisters, pattern, patternString, charSize, ExecutionMode::InlineTest);
     yarrGenerator.setStackChecker(m_compilationThreadStackChecker);
     yarrGenerator.compileInline(boyerMooreData);
 }

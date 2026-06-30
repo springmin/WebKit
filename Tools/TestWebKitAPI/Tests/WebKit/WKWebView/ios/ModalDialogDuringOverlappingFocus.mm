@@ -59,6 +59,7 @@ TEST(ModalDialogDuringOverlappingFocus, AlertNotDeferredAfterFIFOAsyncFocusCompl
     }];
 
     RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 320, 500)]);
+    [webView focusInWindow];
     [webView _setInputDelegate:inputDelegate.get()];
 
     __block bool alertDelivered = false;
@@ -73,7 +74,11 @@ TEST(ModalDialogDuringOverlappingFocus, AlertNotDeferredAfterFIFOAsyncFocusCompl
         "<input id='a'></input>"
         "<input id='b'></input>"];
 
-    [webView evaluateJavaScript:@"document.getElementById('a').focus(); document.getElementById('b').focus();" completionHandler:nil];
+    // ElementDidFocus IPCs can be deferred until the next rendering update, so make two explicit
+    // evaluateJavaScript calls for focus() to force any pending ElementDidFocus IPC to be sent.
+    // Both focus() calls in one script would send only one IPC (the last).
+    [webView evaluateJavaScript:@"document.getElementById('a').focus();" completionHandler:nil];
+    [webView evaluateJavaScript:@"document.getElementById('b').focus();" completionHandler:nil];
     Util::run(&gotBothCompletions);
 
     // Invoke the completion handlers in FIFO order, releasing each block immediately afterwards. The

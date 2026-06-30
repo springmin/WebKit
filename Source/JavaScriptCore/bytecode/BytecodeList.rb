@@ -746,18 +746,6 @@ op :get_by_id_direct,
         offset: unsigned,
     }
 
-op :try_get_by_id,
-    args: {
-        dst: VirtualRegister,
-        base: VirtualRegister,
-        property: unsigned,
-        valueProfile: unsigned,
-    },
-    metadata: {
-        structureID: StructureID,
-        offset: unsigned,
-    }
-
 # Alignment: 1
 op :jneq_ptr,
     args: {
@@ -1309,7 +1297,6 @@ op_group :UnaryOp,
         :eq_null,
         :neq_null,
         :to_string,
-        :unsigned,
         :is_empty,
         :typeof_is_undefined,
         :typeof_is_object,
@@ -1384,6 +1371,7 @@ op_group :ProfiledUnaryOp,
         :to_number,
         :to_numeric,
         :bitnot,
+        :unsigned,
     ],
     args: {
         dst: VirtualRegister,

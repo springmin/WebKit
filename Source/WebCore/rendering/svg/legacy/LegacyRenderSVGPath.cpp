@@ -218,7 +218,7 @@ static inline LegacyRenderSVGResourceMarker* NODELETE markerForType(SVGMarkerTyp
     }
 
     ASSERT_NOT_REACHED();
-    return 0;
+    return nullptr;
 }
 
 bool LegacyRenderSVGPath::shouldGenerateMarkerPositions() const
@@ -226,7 +226,7 @@ bool LegacyRenderSVGPath::shouldGenerateMarkerPositions() const
     if (!style().hasMarkers())
         return false;
 
-    if (!graphicsElement().supportsMarkers())
+    if (!protect(graphicsElement())->supportsMarkers())
         return false;
 
     auto* resources = SVGResourcesCache::cachedResourcesForRenderer(*this);

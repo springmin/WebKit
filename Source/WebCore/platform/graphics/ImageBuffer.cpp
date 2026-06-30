@@ -120,7 +120,7 @@ RefPtr<ImageBuffer> ImageBuffer::create(const FloatSize& size, RenderingMode ren
 }
 
 ImageBuffer::ImageBuffer(Parameters parameters, const ImageBufferBackend::Info& backendInfo, const WebCore::ImageBufferCreationContext&, std::unique_ptr<ImageBufferBackend>&& backend, RenderingResourceIdentifier renderingResourceIdentifier)
-    : m_parameters(parameters)
+    : m_parameters(WTF::move(parameters))
     , m_backendInfo(backendInfo)
     , m_backend(WTF::move(backend))
     , m_renderingResourceIdentifier(renderingResourceIdentifier)
@@ -176,6 +176,11 @@ public:
     size_t memoryCost() const final
     {
         return m_buffer->memoryCost();
+    }
+
+    std::unique_ptr<SerializedImageBuffer> clone() const final
+    {
+        return makeUnique<DefaultSerializedImageBuffer>(m_buffer.get());
     }
 
 private:
@@ -595,7 +600,8 @@ std::optional<DynamicContentScalingDisplayList> ImageBuffer::dynamicContentScali
 
 void ImageBuffer::transferToNewContext(const ImageBufferCreationContext& context)
 {
-    backend()->transferToNewContext(context);
+    if (auto* backend = ensureBackend())
+        backend->transferToNewContext(context);
 }
 
 String ImageBuffer::debugDescription() const
