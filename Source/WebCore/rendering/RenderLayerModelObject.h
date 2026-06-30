@@ -60,6 +60,7 @@ public:
     void styleDidChange(Style::Difference, const Style::ComputedStyle* oldStyle) override;
 
     virtual bool requiresLayer() const = 0;
+    bool requiresLayerForSVGIntrinsicReasons() const;
 
     // Returns true if the background is painted opaque in the given rect.
     // The query rect is given in local coordinate system.
@@ -106,8 +107,10 @@ public:
         Defer
     };
     void updateTransformAndRepaintForSVGAfterAttributeChange(SVGAttributeChangeRepaintMode = SVGAttributeChangeRepaintMode::Issue);
+    bool svgTransformAttributeChangeInducesLayerComposition();
 
     LayoutPoint nominalSVGLayoutLocation() const { return flooredLayoutPoint(objectBoundingBoxWithoutTransformations().minXMinYCorner()); }
+    LayoutPoint objectBoundingBoxLocation() const { return flooredLayoutPoint(objectBoundingBox().minXMinYCorner()); }
     virtual LayoutPoint currentSVGLayoutLocation() const { ASSERT_NOT_REACHED(); return { }; }
     virtual void setCurrentSVGLayoutLocation(const LayoutPoint&) { ASSERT_NOT_REACHED(); }
 
@@ -161,6 +164,9 @@ protected:
     virtual void updateFromStyle() { }
 
 private:
+    bool createLayerIfAllowed();
+    void removeOnlyThisLayerWithRepaint();
+
     RenderSVGResourceMarker* svgMarkerResourceFromStyle(const Style::SVGMarkerResource&) const;
 
     UniquelyOwnedPtr<RenderLayer> m_layer;

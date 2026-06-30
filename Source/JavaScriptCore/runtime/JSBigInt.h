@@ -117,6 +117,7 @@ public:
     bool sign() const { return perCellBit(); }
 
     unsigned length() const { return m_length; }
+    unsigned bitLength() const;
 
     ALWAYS_INLINE static JSValue makeHeapBigIntOrBigInt32(JSGlobalObject* globalObject, int64_t value)
     {
@@ -280,6 +281,10 @@ public:
     static JSValue exponentiate(JSGlobalObject*, int32_t base, JSBigInt* exponent);
     static JSValue exponentiate(JSGlobalObject*, int32_t base, int32_t exponent);
 #endif
+
+    // https://tc39.es/proposal-bigint-math/
+    static JSValue sqrt(JSGlobalObject*, JSBigInt*);
+    static JSValue cbrt(JSGlobalObject*, JSBigInt*);
 
     static JSValue multiply(JSGlobalObject*, JSBigInt* x, JSBigInt* y);
 #if USE(BIGINT32)
@@ -455,7 +460,7 @@ public:
     inline static uint64_t toBigUInt64(JSValue); // Defined in JSBigIntInlines.h
     inline static int64_t toBigInt64(JSValue); // Defined in JSBigIntInlines.h
 
-    Digit digit(unsigned);
+    Digit digit(unsigned) const;
     void setDigit(unsigned, Digit); // Use only when initializing.
     std::span<const Digit> digits() const
     {
@@ -542,6 +547,12 @@ private:
 
     static std::span<Digit> NODELETE addTextbook(std::span<const Digit> x, std::span<const Digit> y, std::span<Digit> result);
     static std::span<Digit> NODELETE subTextbook(std::span<const Digit> x, std::span<const Digit> y, std::span<Digit> result);
+
+    static ComparisonResult NODELETE compareDigits(std::span<const Digit> x, std::span<const Digit> y);
+    static std::span<Digit> NODELETE addDigits(std::span<const Digit> x, std::span<const Digit> y, std::span<Digit> result);
+    static std::span<Digit> multiplyDigits(std::span<const Digit> x, std::span<const Digit> y, std::span<Digit> result);
+    static std::span<Digit> divideDigits(std::span<Digit> quotient, std::span<const Digit> x, std::span<const Digit> y);
+    static std::span<Digit> oneShiftedLeft(std::span<Digit> result, unsigned bitIndex);
 
     enum class RoundingResult {
         RoundDown,
@@ -645,7 +656,7 @@ inline JSBigInt* asHeapBigInt(JSValue value)
     return uncheckedDowncast<JSBigInt>(value.asCell());
 }
 
-inline JSBigInt::Digit JSBigInt::digit(unsigned n)
+inline JSBigInt::Digit JSBigInt::digit(unsigned n) const
 {
     ASSERT(n < length());
     return dataStorage()[n];

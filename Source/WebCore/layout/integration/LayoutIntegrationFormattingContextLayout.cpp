@@ -91,7 +91,7 @@ static inline void populateRootRendererWithFloatsFromIFC(auto& rootBlockContaine
             continue;
         }
 
-        auto [marginBoxVisualRect, borderBoxVisualRect] = Layout::IntegrationUtils::toMarginAndBorderBoxVisualRect(floatItem.boxGeometry(), rootBlockContainer.size(), blockFormattingContextRootWritingMode);
+        auto [marginBoxVisualRect, borderBoxVisualRect] = Layout::IntegrationUtils::toMarginAndBorderBoxVisualRect(floatItem.boxGeometry(), rootBlockContainer.borderBoxSize(), blockFormattingContextRootWritingMode);
         floatingObject.setFrameRect(marginBoxVisualRect);
         floatingObject.setMarginOffset({ borderBoxVisualRect.x() - marginBoxVisualRect.x(), borderBoxVisualRect.y() - marginBoxVisualRect.y() });
         floatingObject.setIsPlaced(true);
@@ -218,9 +218,9 @@ LayoutUnit formattingContextRootLogicalWidthForType(const Layout::ElementBox& bo
 
     CheckedRef renderer = downcast<RenderBox>(*box.rendererForIntegration());
     switch (logicalWidthType) {
-    case LogicalWidthType::PreferredMaximum:
+    case LogicalWidthType::MaxContentContribution:
         return renderer->maxContentLogicalWidthContribution();
-    case LogicalWidthType::PreferredMinimum:
+    case LogicalWidthType::MinContentContribution:
         return renderer->minContentLogicalWidthContribution();
     case LogicalWidthType::MaxContent:
     case LogicalWidthType::MinContent: {

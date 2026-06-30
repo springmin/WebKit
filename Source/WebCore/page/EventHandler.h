@@ -394,9 +394,19 @@ public:
     WEBCORE_EXPORT void tryToBeginDragAtPoint(const IntPoint& clientPosition, const IntPoint& globalPosition, CompletionHandler<void(Expected<bool, RemoteFrameGeometryTransformer>)>&&);
 #endif
     
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(COCOA)
     WEBCORE_EXPORT void startSelectionAutoscroll(RenderObject* renderer, const FloatPoint& positionInWindow);
     WEBCORE_EXPORT void cancelSelectionAutoscroll();
+#endif
+
+#if PLATFORM(MAC)
+    // Whether a root-view point sits in the edge band where a selection-extend drag should autoscroll.
+    // Shares the band geometry with `targetPositionInWindowForSelectionAutoscroll` so the start/cancel
+    // decision and the pushed autoscroll target can never disagree. An edge only arms once the drag has
+    // moved toward it from `dragOriginInRootView` (the drag's first extent) by at least half the band, so
+    // a selection that merely originates near an edge (a short drag) doesn't autoscroll - matching the
+    // inset threshold iOS applies in `adjustAutoscrollDestinationForInsetEdges`.
+    WEBCORE_EXPORT bool isPointNearSelectionAutoscrollEdge(const IntPoint& positionInRootView, const IntPoint& dragOriginInRootView) const;
 #endif
 
     WEBCORE_EXPORT std::optional<Cursor> selectCursor(const HitTestResult&, bool shiftKey);
@@ -787,10 +797,13 @@ private:
     int m_activationEventNumber { -1 };
 #endif
 
-#if PLATFORM(IOS_FAMILY)
-    bool m_shouldAllowMouseDownToStartDrag { false };
+#if PLATFORM(COCOA)
     bool m_isAutoscrolling { false };
     IntPoint m_targetAutoscrollPositionInRootView;
+#endif
+
+#if PLATFORM(IOS_FAMILY)
+    bool m_shouldAllowMouseDownToStartDrag { false };
     IntPoint m_targetAutoscrollPositionInUnscrolledRootView;
     std::optional<IntPoint> m_initialAutoscrollPositionInUnscrolledRootView;
 #endif

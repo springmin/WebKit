@@ -61,6 +61,12 @@ typedef NS_ENUM(NSInteger, _WKPitchCorrectionAlgorithm) {
     _WKPitchCorrectionAlgorithmBestForSpeech,
 } WK_API_AVAILABLE(macos(12.0), ios(15.0));
 
+typedef NS_ENUM(NSInteger, _WKNavigatorWebDriverActivePolicy) {
+    _WKNavigatorWebDriverActivePolicyAuto,
+    _WKNavigatorWebDriverActivePolicyEnabled,
+    _WKNavigatorWebDriverActivePolicyDisabled,
+} WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+
 @class _WKFeature;
 @class _WKExperimentalFeature;
 @class _WKInternalDebugFeature;
@@ -178,6 +184,7 @@ typedef NS_ENUM(NSInteger, _WKPitchCorrectionAlgorithm) {
 @property (nonatomic, setter=_setPrivateClickMeasurementDebugModeEnabled:) BOOL _privateClickMeasurementDebugModeEnabled WK_API_AVAILABLE(macos(14.0), ios(17.0));
 @property (nonatomic, setter=_setPitchCorrectionAlgorithm:) _WKPitchCorrectionAlgorithm _pitchCorrectionAlgorithm WK_API_AVAILABLE(macos(12.0), ios(15.0));
 @property (nonatomic, setter=_setMediaSessionEnabled:) BOOL _mediaSessionEnabled WK_API_AVAILABLE(macos(12.0), ios(15.0));
+@property (nonatomic, setter=_setNavigatorWebDriverActivePolicy:) _WKNavigatorWebDriverActivePolicy _navigatorWebDriverActivePolicy WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 @property (nonatomic, getter=_isExtensibleSSOEnabled, setter=_setExtensibleSSOEnabled:) BOOL _extensibleSSOEnabled WK_API_AVAILABLE(macos(12.0), ios(15.0));
 @property (nonatomic, setter=_setRequiresPageVisibilityToPlayAudio:) BOOL _requiresPageVisibilityToPlayAudio WK_API_AVAILABLE(macos(12.0), ios(15.0));
 @property (nonatomic, setter=_setFileSystemAccessEnabled:) BOOL _fileSystemAccessEnabled WK_API_AVAILABLE(macos(13.0), ios(16.0));
@@ -246,6 +253,16 @@ typedef NS_ENUM(NSInteger, _WKPitchCorrectionAlgorithm) {
 #endif
 
 @end
+
+#if TARGET_OS_IPHONE
+
+@interface WKPreferences ()
+
+@property (nonatomic) BOOL tabFocusesLinks WK_API_AVAILABLE(ios(26.0), visionos(26.0));
+
+@end
+
+#endif // TARGET_OS_IPHONE
 
 @interface WKPreferences (WKPrivateDeprecated)
 

@@ -787,6 +787,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/webdatabase/DatabaseTracker.h
     Modules/webdatabase/OriginLock.h
 
+    Modules/webdriver/NavigatorWebDriverActivePolicy.h
+
+    Modules/websockets/IsInitiatedByDedicatedWorker.h
     Modules/websockets/ThreadableWebSocketChannel.h
     Modules/websockets/WebSocketChannelClient.h
     Modules/websockets/WebSocketChannelInspector.h
@@ -1486,6 +1489,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     editing/FontShadow.h
     editing/FrameSelection.h
     editing/HTMLInterchange.h
+    editing/ICUSearcher.h
     editing/InlineRunAndOffset.h
     editing/MarkupExclusionRule.h
     editing/SelectionGeometryGatherer.h
@@ -2170,6 +2174,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/scrolling/ThreadedScrollingTree.h
     page/scrolling/ThreadedScrollingTreeScrollingNodeDelegate.h
     page/text-extraction/TextExtraction.h
+    page/text-extraction/TextExtractionScriptFiltering.h
     page/text-extraction/TextExtractionTypes.h
     page/writing-tools/WritingToolsTypes.h
 
@@ -3729,6 +3734,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     ${WebCore_DERIVED_SOURCES_DIR}/SVGNames.h
     ${WebCore_DERIVED_SOURCES_DIR}/Settings.h
     ${WebCore_DERIVED_SOURCES_DIR}/StyleComputedStyleProperties.h
+    ${WebCore_DERIVED_SOURCES_DIR}/StyleComputedStyleProperties+ConstructionInlines.h
     ${WebCore_DERIVED_SOURCES_DIR}/StyleComputedStyleProperties+GettersInlines.h
     ${WebCore_DERIVED_SOURCES_DIR}/StyleComputedStyleProperties+InitialInlines.h
     ${WebCore_DERIVED_SOURCES_DIR}/TagName.h
@@ -3739,4 +3745,12 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     ${WebCore_DERIVED_SOURCES_DIR}/WebCoreVirtualLogFunctions.h
     ${WebCore_DERIVED_SOURCES_DIR}/WebKitFontFamilyNames.h
     ${WebCore_DERIVED_SOURCES_DIR}/XMLNSNames.h
+)
+
+# FIXME: Eventually add all non-installed headers to this list, so that the
+# per-directory -I paths can be removed.
+set(WebCore_PROJECT_HEADERS
+    loader/cache/CachedCSSStyleSheet.h
+
+    platform/graphics/FloatPolygon.h
 )

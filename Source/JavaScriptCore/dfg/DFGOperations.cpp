@@ -53,6 +53,7 @@
 #include "InterpreterInlines.h"
 #include "IntlCollator.h"
 #include "IntlObjectInlines.h"
+#include "IteratorOperations.h"
 #include "JITCode.h"
 #include "JITWorklist.h"
 #include "JSArrayBufferConstructor.h"
@@ -66,7 +67,7 @@
 #include "JSGenericTypedArrayViewInlines.h"
 #include "JSCellButterfly.h"
 #include "JSIteratorHelper.h"
-#include "JSLexicalEnvironment.h"
+#include "JSLexicalEnvironmentInlines.h"
 #include "JSMap.h"
 #include "JSMapIterator.h"
 #include "JSPromise.h"
@@ -1727,6 +1728,35 @@ JSC_DEFINE_JIT_OPERATION(operationRegExpSplitFast, EncodedJSValue, (JSGlobalObje
     }
 
     OPERATION_RETURN(scope, JSValue::encode(regExpSplitFast(globalObject, regExpObject, string, limit)));
+}
+
+JSC_DEFINE_JIT_OPERATION(operationRegExpStringIteratorNext, EncodedJSValue, (JSGlobalObject* globalObject, JSCell* iterator))
+{
+    SuperSamplerScope superSamplerScope(false);
+
+    VM& vm = globalObject->vm();
+    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
+    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    auto* regExpStringIterator = uncheckedDowncast<JSRegExpStringIterator>(iterator);
+    if (regExpStringIterator->isDone())
+        OPERATION_RETURN(scope, JSValue::encode(jsNull()));
+
+    OPERATION_RETURN(scope, JSValue::encode(regExpStringIterator->nextImpl(globalObject)));
+}
+
+JSC_DEFINE_JIT_OPERATION(operationCreateIteratorResultObject, JSCell*, (VM* vmPointer, Structure* structure, EncodedJSValue encodedValue, EncodedJSValue encodedDone))
+{
+    VM& vm = *vmPointer;
+    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
+    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    JSObject* result = constructEmptyObject(vm, structure);
+    result->putDirectOffset(vm, iteratorResultObjectValuePropertyOffset, JSValue::decode(encodedValue));
+    result->putDirectOffset(vm, iteratorResultObjectDonePropertyOffset, JSValue::decode(encodedDone));
+    OPERATION_RETURN(scope, result);
 }
 
 JSC_DEFINE_JIT_OPERATION(operationRegExpMatchFastGlobalString, EncodedJSValue, (JSGlobalObject* globalObject, RegExp* regExp, JSString* string))
@@ -5919,20 +5949,54 @@ JSC_DEFINE_JIT_OPERATION(operationStringIteratorNext, UGPRPair, (JSGlobalObject*
     OPERATION_RETURN(scope, makeUGPRPair(std::bit_cast<UCPURegister>(value), static_cast<uint32_t>(nextPosition)));
 }
 
-JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationMapIteratorNext, EncodedJSValue, (VM* vmPointer, JSCell* cell))
+JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationMapIteratorNext, UGPRPair, (VM* vmPointer, JSCell* storageCell, JSCell* iteratedObjectCell, int32_t entry))
 {
     VM& vm = *vmPointer;
     CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
     JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
-    return JSValue::encode(uncheckedDowncast<JSMapIterator>(cell)->next(vm));
+
+    JSCell* sentinel = vm.orderedHashTableSentinel();
+    JSCell* storage = storageCell;
+    if (storage == sentinel)
+        return makeUGPRPair(std::bit_cast<UCPURegister>(sentinel), 0);
+
+    if (!storage) {
+        JSMap* map = uncheckedDowncast<JSMap>(iteratedObjectCell);
+        storage = map->storage();
+        if (!storage) [[likely]]
+            return makeUGPRPair(std::bit_cast<UCPURegister>(sentinel), 0);
+    }
+
+    JSMap::Storage& storageRef = *uncheckedDowncast<JSMap::Storage>(storage);
+    auto result = JSMap::Helper::transitAndNext(vm, storageRef, entry);
+    if (!result.storage)
+        return makeUGPRPair(std::bit_cast<UCPURegister>(sentinel), 0);
+    return makeUGPRPair(std::bit_cast<UCPURegister>(result.storage), static_cast<UCPURegister>(result.entry + 1));
 }
 
-JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationSetIteratorNext, EncodedJSValue, (VM* vmPointer, JSCell* cell))
+JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationSetIteratorNext, UGPRPair, (VM* vmPointer, JSCell* storageCell, JSCell* iteratedObjectCell, int32_t entry))
 {
     VM& vm = *vmPointer;
     CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
     JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
-    return JSValue::encode(uncheckedDowncast<JSSetIterator>(cell)->next(vm));
+
+    JSCell* sentinel = vm.orderedHashTableSentinel();
+    JSCell* storage = storageCell;
+    if (storage == sentinel)
+        return makeUGPRPair(std::bit_cast<UCPURegister>(sentinel), 0);
+
+    if (!storage) {
+        JSSet* set = uncheckedDowncast<JSSet>(iteratedObjectCell);
+        storage = set->storage();
+        if (!storage) [[likely]]
+            return makeUGPRPair(std::bit_cast<UCPURegister>(sentinel), 0);
+    }
+
+    JSSet::Storage& storageRef = *uncheckedDowncast<JSSet::Storage>(storage);
+    auto result = JSSet::Helper::transitAndNext(vm, storageRef, entry);
+    if (!result.storage)
+        return makeUGPRPair(std::bit_cast<UCPURegister>(sentinel), 0);
+    return makeUGPRPair(std::bit_cast<UCPURegister>(result.storage), static_cast<UCPURegister>(result.entry + 1));
 }
 
 JSC_DEFINE_JIT_OPERATION(operationSetAdd, void, (JSGlobalObject* globalObject, JSCell* set, EncodedJSValue key, int32_t hash))

@@ -35,6 +35,7 @@
 #include "MediaPlayer.h"
 #include "NotImplemented.h"
 #include "ParsedContentType.h"
+#include "PlatformStrategies.h"
 #include "SharedBuffer.h"
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/WeakPtr.h>

@@ -723,7 +723,7 @@ ResourceRequest SWServer::createScriptRequest(const URL& url, const ServiceWorke
     auto topOrigin = jobData.topOrigin.securityOrigin();
     auto origin = SecurityOrigin::create(jobData.scriptURL);
 
-    request.setDomainForCachePartition(jobData.domainForCachePartition);
+    request.setShouldBlockThirdPartyStorage(jobData.shouldBlockThirdPartyStorage);
     request.setAllowCookies(true);
     request.setFirstPartyForCookies(topOrigin->toURL());
 
@@ -1151,6 +1151,11 @@ void SWServer::installContextData(const ServiceWorkerContextData& data)
     }
 
     RefPtr registration = m_scopeToRegistrationMap.get(data.registration.key);
+    if (!registration) {
+        RELEASE_LOG_ERROR(ServiceWorker, "Cannot install service worker since registration no longer exists");
+        return;
+    }
+
     Ref worker = SWServerWorker::create(*this, *registration, data.scriptURL, data.script, data.certificateInfo, data.contentSecurityPolicy, data.crossOriginEmbedderPolicy, String { data.referrerPolicy }, data.workerType, data.serviceWorkerIdentifier, MemoryCompactRobinHoodHashMap<URL, ServiceWorkerContextData::ImportedScript> { data.scriptResourceMap });
 
     RefPtr connection = worker->contextConnection();

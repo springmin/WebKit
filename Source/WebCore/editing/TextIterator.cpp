@@ -221,7 +221,7 @@ static inline bool fullyClipsContents(const Node& node, TextIteratorBehaviors be
 
     // Quirk to keep copy/paste in the CodeMirror editor version used in Jenkins working.
     if (is<HTMLTextAreaElement>(node))
-        return box->size().isEmpty();
+        return box->borderBoxSize().isEmpty();
 
     if (behaviors.contains(TextIteratorBehavior::EntersSkippedContentRelevantToUser) && isSkippedContentRoot(*box)) {
         // This may reveal collapsed content to find-in-page, but it's uncommon (and highly redundant) to have computed block height 0px while applying c-v: hidden.
@@ -1028,7 +1028,7 @@ static bool NODELETE shouldEmitNewlineBeforeNode(Node& node, bool emitsNewlinesP
 static bool shouldEmitExtraNewlineForNode(Node& node, bool emitsNewlinesPerInnerTextSpec)
 {
     CheckedPtr renderBox = dynamicDowncast<RenderBox>(node.renderer());
-    if (!renderBox || !renderBox->height())
+    if (!renderBox || !renderBox->borderBoxHeight())
         return false;
 
     // Per the WHATWG spec, <p> elements get a required line break count of 2,
@@ -1118,7 +1118,7 @@ bool TextIterator::shouldRepresentNodeOffsetZero()
         return false;
 
     if (auto* renderBlockFlow = dynamicDowncast<RenderBlockFlow>(*currentNode->renderer())) {
-        if (!renderBlockFlow->height() && !is<HTMLBodyElement>(currentNode))
+        if (!renderBlockFlow->borderBoxHeight() && !is<HTMLBodyElement>(currentNode))
             return false;
     }
 

@@ -188,6 +188,7 @@ Shared/Cocoa/DefaultWebBrowserChecks.mm @nonARC
 Shared/Cocoa/EnhancedSecurityLinkUtilities.mm @nonARC
 Shared/Cocoa/InteractionInformationAtPosition.mm @nonARC
 Shared/Cocoa/InteractionInformationRequest.cpp
+Shared/Cocoa/LibAccessibilitySoftLink.mm @nonARC
 Shared/Cocoa/LoadParametersCocoa.mm @nonARC
 Shared/Cocoa/PDFKitSoftLink.mm @nonARC
 Shared/Cocoa/RevealItem.mm @nonARC
@@ -941,7 +942,6 @@ LogStreamMessageReceiver.cpp
 Shared/LogStream.mm @no-unify-when(bundle<=8)
 ModelConnectionToWebProcessMessageReceiver.cpp
 MediaPlayerPrivateRemoteMessageReceiver.cpp @cost:5
-MediaSourcePrivateRemoteMessageReceiverMessageReceiver.cpp
 ModelProcessConnectionMessageReceiver.cpp
 ModelProcessMessageReceiver.cpp
 ModelProcessModelPlayerProxyMessageReceiver.cpp
@@ -993,7 +993,6 @@ RemoteMediaSessionHelperMessageReceiver.cpp
 RemoteMediaSessionHelperProxyMessageReceiver.cpp
 RemoteMediaSessionManagerMessageReceiver.cpp
 RemoteMediaSessionManagerProxyMessageReceiver.cpp
-RemoteMediaSourceProxyMessageReceiver.cpp
 RemoteObjectRegistryMessageReceiver.cpp
 RemoteRemoteCommandListenerMessageReceiver.cpp
 RemoteRemoteCommandListenerProxyMessageReceiver.cpp
@@ -1003,7 +1002,6 @@ RemoteSampleBufferDisplayLayerManagerMessageReceiver.cpp
 RemoteSampleBufferDisplayLayerMessageReceiver.cpp
 RemoteScrollingCoordinatorMessageReceiver.cpp
 RemoteSharedResourceCacheMessageReceiver.cpp @cost:5
-RemoteSourceBufferProxyMessageReceiver.cpp
 RemoteWebInspectorUIMessageReceiver.cpp
 RemoteWebInspectorUIProxyMessageReceiver.cpp
 SampleBufferDisplayLayerMessageReceiver.cpp
@@ -1011,7 +1009,6 @@ SecItemShimProxyMessageReceiver.cpp
 SerializedTypeInfo.mm @nonARC @cost:14
 ServiceWorkerFetchTaskMessageReceiver.cpp
 SmartMagnificationControllerMessageReceiver.cpp
-SourceBufferPrivateRemoteMessageReceiverMessageReceiver.cpp
 SpeechRecognitionRealtimeMediaSourceManagerMessageReceiver.cpp
 SpeechRecognitionRemoteRealtimeMediaSourceManagerMessageReceiver.cpp @cost:10
 SpeechRecognitionServerMessageReceiver.cpp @cost:10

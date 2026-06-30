@@ -301,6 +301,8 @@ public:
 
     bool quickRedirectComing() const { return m_quickRedirectComing; }
 
+    WEBCORE_EXPORT bool shouldReplaceHistoryItemInChildFrame() const;
+
     WEBCORE_EXPORT bool shouldClose();
 
     enum class PageDismissalType { None, BeforeUnload, PageHide, Unload };
@@ -365,7 +367,7 @@ public:
     WEBCORE_EXPORT void NODELETE setPendingAsyncBackForwardNavigation();
     WEBCORE_EXPORT void cancelPendingAsyncBackForwardNavigation();
     bool asyncBackForwardNavigationWasCancelled() const { return m_asyncBackForwardNavigationState == AsyncBackForwardNavigationState::Cancelled; }
-    void clearAsyncBackForwardNavigationState() { m_asyncBackForwardNavigationState = AsyncBackForwardNavigationState::None; }
+    WEBCORE_EXPORT void clearAsyncBackForwardNavigationState();
     bool isWaitingForAsyncBackForwardNavigation() const { return m_asyncBackForwardNavigationState != AsyncBackForwardNavigationState::None; }
 
     void setRequiredCookiesVersion(uint64_t version) { m_requiredCookiesVersion = version; }
@@ -397,6 +399,9 @@ private:
 
     void checkTimerFired();
     void checkCompletenessNow();
+
+    void startCrossOriginParentSyntheticSameDocLoadEventTimer();
+    void crossOriginParentSyntheticSameDocLoadEventTimerFired();
 
     void loadSameDocumentItem(HistoryItem&);
     void loadDifferentDocumentItem(HistoryItem&, HistoryItem* fromItem, FrameLoadType, FormSubmissionCacheLoadPolicy, ShouldTreatAsContinuingLoad, ShouldRestoreFromBackForwardCache = ShouldRestoreFromBackForwardCache::Unspecified, PolicyAlreadyDecided = PolicyAlreadyDecided::No);
@@ -537,6 +542,7 @@ private:
     URL m_submittedFormURL;
 
     Timer m_checkTimer;
+    Timer m_crossOriginParentSyntheticSameDocLoadEventTimer;
     bool m_shouldCallCheckCompleted { false };
     bool m_shouldCallCheckLoadComplete { false };
 

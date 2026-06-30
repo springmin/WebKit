@@ -249,16 +249,17 @@ if (SWIFT_REQUIRED)
         "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-library-level spi>"
         "$<$<COMPILE_LANGUAGE:Swift>:-no-verify-emitted-module-interface>"
         "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-Xfrontend -disable-access-control>"
+        "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-Xfrontend -clang-header-expose-decls=has-expose-attr-or-stdlib>"
     )
 
-    if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
-        # iOS Swift compiles transitively load UIKit→UIKitCore→WebKit_Private,
-        # whose PCM build needs our project -Xcc flags. Explicit modules let
-        # libSwiftScan pre-build PCMs with the right context.
+    if (APPLE)
+        # Swift compiles transitively load system frameworks whose PCM builds
+        # need our project -Xcc flags. Explicit modules let libSwiftScan
+        # pre-build PCMs with the right context.
         set(WebGPU_SWIFT_EXPLICIT_MODULE_BUILD TRUE)
     endif ()
 
-    set(WebGPU_SWIFT_EMIT_CLANG_HEADER_MIN_ACCESS public)
+    set(WebGPU_SWIFT_EMIT_CLANG_HEADER_MIN_ACCESS internal)
 
     # FIXME(rdar://177840132): swiftc -emit-dependencies records imported
     # clang modulemaps, but sometimes skips individual C++ headers.

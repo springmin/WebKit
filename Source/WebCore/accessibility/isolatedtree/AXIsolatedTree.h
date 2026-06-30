@@ -453,7 +453,7 @@ public:
     void updateFrameGeometryAndScrollPositionIfNeeded(AXObjectCache&);
 #endif
 
-    AXIsolatedObject* rootNode() { AX_ASSERT(!isMainThread()); return m_rootNode.get(); }
+    AXIsolatedObject* rootNode() { AX_ASSERT(!isMainThread()); return objectForID(m_rootNodeID); }
     std::optional<AXID> pendingRootNodeID();
     RefPtr<AXIsolatedObject> rootWebArea();
     std::optional<AXID> focusedNodeID();
@@ -462,6 +462,8 @@ public:
     bool unsafeHasObjectForID(AXID axID) const;
     // Not threadsafe, only for debug snapshot use.
     std::optional<AXID> unsafeFocusedNodeID() const { return m_focusedNodeID; }
+    std::optional<AXID> unsafeRootNodeID() const { return m_rootNodeID; }
+
     inline AXIsolatedObject* objectForID(AXID axID) const
     {
         AX_ASSERT(!isMainThread());
@@ -480,6 +482,8 @@ public:
     struct CachedUnignoredChildren {
         Vector<Ref<AXCoreObject>> children;
         bool hasPotentialStitchable { false };
+        // true if any child hosts a cross-frame subtree (i.e. a LocalFrame).
+        bool hasCrossFrameChild { false };
     };
     HashMap<AXID, CachedUnignoredChildren>& cachedUnignoredChildrenMap() { AX_ASSERT(!isMainThread()); return m_cachedUnignoredChildren; }
 
@@ -749,7 +753,7 @@ private:
 
     // Only accessed on AX thread.
     HashMap<AXID, Ref<AXIsolatedObject>> m_readerThreadNodeMap;
-    RefPtr<AXIsolatedObject> m_rootNode;
+    Markable<AXID> m_rootNodeID;
 
     // Written to by main thread under lock, accessed and applied by AX thread.
     PendingChanges m_pendingChanges WTF_GUARDED_BY_LOCK(m_changeLogLock);

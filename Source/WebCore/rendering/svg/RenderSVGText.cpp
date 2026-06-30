@@ -46,10 +46,12 @@
 #include "RenderBoxInlines.h"
 #include "RenderElementStyleInlines.h"
 #include "RenderIterator.h"
+#include "RenderLayer.h"
 #include "RenderObjectInlines.h"
 #include "RenderSVGBlockInlines.h"
 #include "RenderSVGInline.h"
 #include "RenderSVGInlineText.h"
+#include "RenderSVGModelObject.h"
 #include "RenderSVGRoot.h"
 #include "RenderSVGTextPath.h"
 #include "SVGElementTypeHelpers.h"
@@ -338,7 +340,7 @@ void RenderSVGText::layout()
     // We update the transform now because updateScaledFont() needs it, but we do it a second time at the end of the layout,
     // since the transform reference box may change because of the font change.
     if (!isLayerBasedSVGEngineEnabled() && m_needsTransformUpdate) {
-        m_localTransform = textElement().animatedLocalTransform();
+        m_localTransform = protect(textElement())->animatedLocalTransform();
         updateCachedBoundariesInParents = true;
     }
 
@@ -348,7 +350,7 @@ void RenderSVGText::layout()
         ASSERT(m_layoutAttributes.isEmpty());
         collectLayoutAttributes(this, m_layoutAttributes);
         updateFontInAllDescendants(*this);
-        m_layoutAttributesBuilder.buildLayoutAttributesForForSubtree(*this);
+        m_layoutAttributesBuilder.buildLayoutAttributesForSubtree(*this);
 
         m_needsReordering = true;
         m_needsTextMetricsUpdate = false;
@@ -359,7 +361,7 @@ void RenderSVGText::layout()
         // update the on-screen font objects as well in all descendants.
         if (m_needsTextMetricsUpdate)
             updateFontInAllDescendants(*this);
-        m_layoutAttributesBuilder.buildLayoutAttributesForForSubtree(*this);
+        m_layoutAttributesBuilder.buildLayoutAttributesForSubtree(*this);
         m_needsReordering = true;
         m_needsTextMetricsUpdate = false;
         m_needsPositioningValuesUpdate = false;
@@ -433,7 +435,7 @@ void RenderSVGText::layout()
     } else {
         if (m_needsTransformUpdate) {
             if (previousReferenceBoxRect != transformReferenceBoxRect())
-                m_localTransform = textElement().animatedLocalTransform();
+                m_localTransform = protect(textElement())->animatedLocalTransform();
             m_needsTransformUpdate = false;
         }
         if (!updateCachedBoundariesInParents)
@@ -829,8 +831,11 @@ PositionWithAffinity RenderSVGText::positionForPoint(const LayoutPoint& pointInC
 
 bool RenderSVGText::requiresLayer() const
 {
-    if (document().settings().layerBasedSVGEngineEnabled())
-        return true;
+    if (document().settings().layerBasedSVGEngineEnabled()) {
+        if (document().settings().layerBasedSVGEngineForceLayerCreationEnabled())
+            return true;
+        return requiresLayerForSVGIntrinsicReasons();
+    }
     return false;
 }
 
@@ -910,7 +915,7 @@ void RenderSVGText::paintInlineChildren(PaintInfo& paintInfo, const LayoutPoint&
     if (paintInfo.phase != PaintPhase::Foreground && paintInfo.phase != PaintPhase::Selection)
         return;
 
-    bool isPrinting = document().printing();
+    bool isPrinting = protect(document())->printing();
     bool hasSelection = !isPrinting && selectionState() != RenderObject::HighlightState::None;
     bool shouldPaintSelectionHighlight = !(paintInfo.paintBehavior.contains(PaintBehavior::SkipSelectionHighlight));
 
@@ -1014,7 +1019,7 @@ void RenderSVGText::updatePositionAndOverflow(const FloatRect& boundaries)
 
         auto boundingRect = enclosingLayoutRect(m_objectBoundingBox);
         setLocation(boundingRect.location());
-        setSize(boundingRect.size());
+        setBorderBoxSize(boundingRect.size());
 
         auto overflowRect = visualOverflowRectEquivalent();
         if (auto& textShadow = style().textShadow(); !textShadow.isNone())
@@ -1026,7 +1031,7 @@ void RenderSVGText::updatePositionAndOverflow(const FloatRect& boundaries)
 
     auto boundingRect = enclosingLayoutRect(boundaries);
     setLocation(boundingRect.location());
-    setSize(boundingRect.size());
+    setBorderBoxSize(boundingRect.size());
     m_objectBoundingBox = boundingRect;
     ASSERT(m_objectBoundingBox == frameRect());
 }

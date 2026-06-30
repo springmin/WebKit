@@ -340,8 +340,26 @@ endmacro()
 
 # Private macro for setting the properties of a target.
 macro(_WEBKIT_TARGET_SETUP _target _logical_name)
-    if (USE_HEADER_MAPS AND ${_logical_name}_PRIVATE_INCLUDE_DIRECTORIES)
-        WEBKIT_MAKE_HEADER_MAP(${_target} "${CMAKE_CURRENT_SOURCE_DIR}" ${_logical_name}_PRIVATE_INCLUDE_DIRECTORIES)
+    if (USE_HEADER_MAPS)
+        WEBKIT_WRITE_HEADER_MAP(${_target}
+            DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/${_target}-project-headers.hmap
+            FILES ${${_target}_PROJECT_HEADERS}
+            QUOTED BRACKETED
+        )
+        WEBKIT_WRITE_HEADER_MAP(${_target}
+            DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/${_target}-framework-headers.hmap
+            FILES
+                ${${_target}_PUBLIC_FRAMEWORK_HEADERS} ${${_target}_PUBLIC_HEADERS}
+                ${${_target}_PRIVATE_FRAMEWORK_HEADERS} ${${_target}_PRIVATE_HEADERS}
+            QUOTED BRACKETED
+        )
+        include_directories(BEFORE
+            ${CMAKE_CURRENT_BINARY_DIR}/${_target}-project-headers.hmap
+            ${CMAKE_CURRENT_BINARY_DIR}/${_target}-framework-headers.hmap
+        )
+        target_include_directories(${_target} BEFORE PUBLIC
+            ${CMAKE_CURRENT_BINARY_DIR}/${_target}-framework-headers.hmap
+        )
     endif ()
     target_include_directories(${_target} PUBLIC "$<BUILD_INTERFACE:${${_logical_name}_INCLUDE_DIRECTORIES}>")
     target_include_directories(${_target} SYSTEM PRIVATE "$<BUILD_INTERFACE:${${_logical_name}_SYSTEM_INCLUDE_DIRECTORIES}>")
@@ -637,13 +655,40 @@ macro(WEBKIT_EXECUTABLE _target)
     endif ()
 endmacro()
 
+# Delete staged files not in FILES, so a renamed or removed header drops its old
+# copy instead of lingering and colliding as a duplicate in a Clang umbrella
+# module. Only safe when the calling step owns the destination exclusively.
+# `flattened` matches by basename when TRUE, by relative path otherwise.
+function(WEBKIT_PRUNE_STALE_DESTINATION destination flattened)
+    set(_expected)
+    foreach (file IN LISTS ARGN)
+        if (flattened)
+            get_filename_component(_rel ${file} NAME)
+        else ()
+            set(_rel ${file})
+        endif ()
+        list(APPEND _expected ${_rel})
+    endforeach ()
+    file(GLOB_RECURSE _existing RELATIVE ${destination} ${destination}/*)
+    foreach (_entry IN LISTS _existing)
+        if (NOT _entry IN_LIST _expected)
+            file(REMOVE ${destination}/${_entry})
+        endif ()
+    endforeach ()
+endfunction()
+
 function(WEBKIT_COPY_FILES target_name)
-    set(options FLATTENED NO_SYMLINK)
+    set(options FLATTENED NO_SYMLINK PRUNE_STALE)
     set(oneValueArgs DESTINATION)
     set(multiValueArgs FILES)
     cmake_parse_arguments(opt "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
     set(files ${opt_FILES})
     set(dst_files)
+
+    if (opt_PRUNE_STALE)
+        WEBKIT_PRUNE_STALE_DESTINATION(${opt_DESTINATION} "${opt_FLATTENED}" ${files})
+    endif ()
+
     foreach (file IN LISTS files)
         if (IS_ABSOLUTE ${file})
             set(src_file ${file})
@@ -680,7 +725,7 @@ function(WEBKIT_COPY_FILES target_name)
 endfunction()
 
 function(WEBKIT_SYMLINK_FILES target_name)
-    set(options FLATTENED)
+    set(options FLATTENED PRUNE_STALE)
     set(oneValueArgs DESTINATION)
     set(multiValueArgs FILES)
     cmake_parse_arguments(opt "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
@@ -688,21 +733,8 @@ function(WEBKIT_SYMLINK_FILES target_name)
     set(dst_files)
     file(MAKE_DIRECTORY ${opt_DESTINATION})
 
-    # Prune stale symlinks at configure time so dropping a header from FILES
-    # actually removes it from the staging dir (otherwise old symlinks linger
-    # and confuse umbrella modulemaps).
-    if (opt_FLATTENED)
-        set(_expected)
-        foreach (file IN LISTS files)
-            get_filename_component(_basename ${file} NAME)
-            list(APPEND _expected ${_basename})
-        endforeach ()
-        file(GLOB _existing RELATIVE ${opt_DESTINATION} ${opt_DESTINATION}/*)
-        foreach (_entry IN LISTS _existing)
-            if (NOT _entry IN_LIST _expected)
-                file(REMOVE ${opt_DESTINATION}/${_entry})
-            endif ()
-        endforeach ()
+    if (opt_PRUNE_STALE)
+        WEBKIT_PRUNE_STALE_DESTINATION(${opt_DESTINATION} "${opt_FLATTENED}" ${files})
     endif ()
 
     foreach (file IN LISTS files)
@@ -983,7 +1015,7 @@ function(_webkit_setup_swift_header_deps _target _stamp _header _resp)
             target_compile_definitions(${_target}_SwiftCompile PRIVATE $<TARGET_PROPERTY:${_target},COMPILE_DEFINITIONS>)
             target_include_directories(${_target}_SwiftCompile PRIVATE $<TARGET_PROPERTY:${_target},INCLUDE_DIRECTORIES>)
             # Emit the interop header from the helper only: it is the sole writer
-            # of WebKit-Swift-CPP.h.tmp in the legacy path and produces the
+            # of WebKit-Swift-Generated.h.tmp in the legacy path and produces the
             # swiftmodule the copy depends on, so the copy is ordered after the
             # single write. ${_target} deliberately does not emit it here.
             if (DEFINED ${_target}_SWIFT_EMIT_HEADER_FLAGS)
@@ -1113,12 +1145,13 @@ macro(WEBKIT_SETUP_SWIFT_AND_GENERATE_SWIFT_CPP_INTEROP_HEADER _target _module_n
         # found". -disable-sandbox skips the inner sandbox; the macros are
         # WebKit's own, so the isolation it provides isn't load-bearing here.
         list(APPEND _swift_options "-disable-sandbox")
-        # Implicit module builds share work via -module-cache-path; explicit
-        # builds were tried but strip project -Xcc -include/-I from per-module
-        # PCM compiles, which breaks the C++ interop modules' prefix header.
-        # Targets that need explicit modules (e.g. iOS Swift targets that
-        # transitively load UIKit→UIKitCore→WebKit_Private) can opt in via
+        # Explicit module builds (EMB) pre-build all Clang PCMs once via
+        # libSwiftScan, so each swift-frontend process reuses them rather than
+        # rebuilding from scratch. This is faster when many Swift source files
+        # import the same C++ interop modules. Targets opt in by setting
         # ${_target}_SWIFT_EXPLICIT_MODULE_BUILD before the macro call.
+        # All Apple targets (PAL/WebGPU/WebKit on iOS and Mac) use EMB;
+        # non-Apple builds rely on -module-cache-path for implicit sharing.
         if (${_target}_SWIFT_EXPLICIT_MODULE_BUILD)
             list(APPEND _swift_options "-explicit-module-build")
             # Force experimental clang attributes ON to match cached SwiftShims
@@ -1258,7 +1291,7 @@ macro(WEBKIT_SETUP_SWIFT_AND_GENERATE_SWIFT_CPP_INTEROP_HEADER _target _module_n
         add_custom_target(${_target}_SwiftRebuildTrigger DEPENDS "${_trigger_path}")
 
         if (NOT _skip_swift_cxx_header)
-            # WebKit-Swift-CPP.h.tmp must be written by exactly one target: the one
+            # WebKit-Swift-Generated.h.tmp must be written by exactly one target: the one
             # whose ${_module_name}.swiftmodule the copy command below depends on. A
             # second writer races the copy and fails it sporadically.
             # https://bugs.webkit.org/show_bug.cgi?id=316000

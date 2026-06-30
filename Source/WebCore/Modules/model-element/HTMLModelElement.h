@@ -63,6 +63,8 @@ class DOMPointReadOnly;
 class Event;
 class Exception;
 class FloatPoint;
+class FloatRect;
+class GraphicsContext;
 class GraphicsLayer;
 class LayoutPoint;
 class LayoutSize;
@@ -188,6 +190,8 @@ public:
 
     void sizeMayHaveChanged();
 
+    void paintCurrentFrameInContext(GraphicsContext&, const FloatRect&);
+
     size_t NODELETE memoryCost() const;
 #if ENABLE(RESOURCE_USAGE)
     size_t NODELETE externalMemoryCost() const;
@@ -275,6 +279,8 @@ private:
     void dragDidChange(WebCore::MouseRelatedEvent&);
     void dragDidEnd(WebCore::MouseRelatedEvent&);
 
+    void logInteractionDiagnostic();
+
     LayoutPoint flippedLocationInElementForMouseEvent(WebCore::MouseRelatedEvent&);
 #if USE(SYSTEM_PREVIEW)
     bool isPointInSystemPreviewBadge(const FloatPoint&) const;
@@ -327,6 +333,7 @@ private:
 
     URL m_sourceURL;
     CachedResourceHandle<CachedRawResource> m_resource;
+    String m_originalMIMEType;
     SharedBufferBuilder m_data;
     mutable std::atomic<size_t> m_dataMemoryCost { 0 };
     size_t m_reportedDataMemoryCost { 0 };

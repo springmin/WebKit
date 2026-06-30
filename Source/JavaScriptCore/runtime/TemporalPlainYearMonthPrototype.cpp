@@ -29,6 +29,7 @@
 
 #include "CalendarFields.h"
 #include "CalendarICUBridge.h"
+#include "ISOArithmetic.h"
 #include "IntlDateTimeFormat.h"
 #include "IntlObjectInlines.h"
 #include "JSCInlines.h"
@@ -133,7 +134,7 @@ static JSC::EncodedJSValue temporalPlainYearMonthPrototypeAddOrSubtract(JSGlobal
             return throwVMTypeError(globalObject, scope, "Temporal.PlainYearMonth.prototype.subtract called on value that's not a PlainYearMonth"_s);
     }
 
-    auto duration = TemporalDuration::toISO8601Duration(globalObject, callFrame->argument(0));
+    auto duration = TemporalDuration::toTemporalDurationRecord(globalObject, callFrame->argument(0));
     RETURN_IF_EXCEPTION(scope, { });
 
     TemporalOverflow overflow = toTemporalOverflow(globalObject, callFrame->argument(1));
@@ -294,14 +295,13 @@ JSC_DEFINE_HOST_FUNCTION(temporalPlainYearMonthPrototypeFuncToPlainDate, (JSGlob
 
     auto thisYear = yearMonth->year();
     auto thisMonth = yearMonth->month();
-    auto plainDateOptional =
-        TemporalDuration::regulateISODate(thisYear, thisMonth, itemDay.value(), TemporalOverflow::Constrain);
-    if (!plainDateOptional) [[unlikely]] {
+    auto plainDateResult = TemporalCore::regulateISODate(thisYear, thisMonth, itemDay.value(), TemporalOverflow::Constrain);
+    if (!plainDateResult) [[unlikely]] {
         throwRangeError(globalObject, scope, "Temporal.PlainYearMonth.prototype.toPlainDate: date is invalid"_s);
         return { };
     }
 
-    RELEASE_AND_RETURN(scope, JSValue::encode(TemporalPlainDate::tryCreateIfValid(globalObject, globalObject->plainDateStructure(), WTF::move(plainDateOptional.value()), yearMonth->calendarID())));
+    RELEASE_AND_RETURN(scope, JSValue::encode(TemporalPlainDate::tryCreateIfValid(globalObject, globalObject->plainDateStructure(), WTF::move(*plainDateResult), yearMonth->calendarID())));
 }
 
 // https://tc39.es/proposal-temporal/#sec-temporal.plainyearmonth.prototype.tostring
@@ -340,8 +340,15 @@ JSC_DEFINE_HOST_FUNCTION(temporalPlainYearMonthPrototypeFuncToLocaleString, (JSG
     if (!yearMonth) [[unlikely]]
         return throwVMTypeError(globalObject, scope, "Temporal.PlainYearMonth.prototype.toLocaleString called on value that's not a PlainYearMonth"_s);
 
-    auto* formatter = IntlDateTimeFormat::create(vm, globalObject->dateTimeFormatStructure());
-    formatter->initializeDateTimeFormat(globalObject, callFrame->argument(0), callFrame->argument(1), IntlDateTimeFormat::RequiredComponent::Date, IntlDateTimeFormat::Defaults::Date);
+    JSValue locales = callFrame->argument(0);
+    JSValue options = callFrame->argument(1);
+    IntlDateTimeFormat* formatter;
+    if (locales.isUndefined() && options.isUndefined())
+        formatter = globalObject->defaultDateFormat();
+    else {
+        formatter = IntlDateTimeFormat::create(vm, globalObject->dateTimeFormatStructure());
+        formatter->initializeDateTimeFormat(globalObject, locales, options, IntlDateTimeFormat::RequiredComponent::Date, IntlDateTimeFormat::Defaults::Date);
+    }
     RETURN_IF_EXCEPTION(scope, { });
 
     RELEASE_AND_RETURN(scope, JSValue::encode(formatter->format(globalObject, callFrame->thisValue())));

@@ -29,9 +29,12 @@
 #include "Attr.h"
 #include "CharacterData.h"
 #include "ContainerNode.h"
+#include "DOMEditor.h"
+#include "DOMPatchSupport.h"
 #include "Document.h"
 #include "DocumentInlines.h"
 #include "DocumentType.h"
+#include "Editing.h"
 #include "ElementInlines.h"
 #include "Event.h"
 #include "EventListener.h"
@@ -45,6 +48,7 @@
 #include "HTMLStyleElement.h"
 #include "HTMLTemplateElement.h"
 #include "InspectorDOMAgent.h"
+#include "InspectorHistory.h"
 #include "InspectorNodeFinder.h"
 #include "InstrumentingAgents.h"
 #include "JSEventListener.h"
@@ -155,6 +159,9 @@ FrameDOMAgent::~FrameDOMAgent() = default;
 
 void FrameDOMAgent::didCreateFrontendAndBackend()
 {
+    m_history = makeUnique<InspectorHistory>();
+    m_domEditor = makeUnique<DOMEditor>(*m_history);
+
     Ref { m_instrumentingAgents.get() }->setPersistentFrameDOMAgent(this);
 
     RefPtr frame = m_inspectedFrame.get();
@@ -164,6 +171,9 @@ void FrameDOMAgent::didCreateFrontendAndBackend()
 
 void FrameDOMAgent::willDestroyFrontendAndBackend(Inspector::DisconnectReason)
 {
+    m_domEditor.reset();
+    m_history.reset();
+
     Ref { m_instrumentingAgents.get() }->setPersistentFrameDOMAgent(nullptr);
     m_documentRequested = false;
     reset();
@@ -241,6 +251,33 @@ RefPtr<Node> FrameDOMAgent::assertNode(Inspector::Protocol::ErrorString& errorSt
 RefPtr<Element> FrameDOMAgent::assertElement(Inspector::Protocol::ErrorString& errorString, Inspector::Protocol::DOM::NodeId nodeId)
 {
     RefPtr node = assertNode(errorString, nodeId);
+    if (!node)
+        return nullptr;
+    RefPtr element = dynamicDowncast<Element>(*node);
+    if (!element)
+        errorString = "Node for given nodeId is not an element"_s;
+    return element;
+}
+
+RefPtr<Node> FrameDOMAgent::assertEditableNode(Inspector::Protocol::ErrorString& errorString, Inspector::Protocol::DOM::NodeId nodeId)
+{
+    RefPtr node = assertNode(errorString, nodeId);
+    if (!node)
+        return nullptr;
+    if (node->isInUserAgentShadowTree() && !m_allowEditingUserAgentShadowTrees) {
+        errorString = "Node for given nodeId is in a shadow tree"_s;
+        return nullptr;
+    }
+    if (node->isPseudoElement()) {
+        errorString = "Node for given nodeId is a pseudo-element"_s;
+        return nullptr;
+    }
+    return node;
+}
+
+RefPtr<Element> FrameDOMAgent::assertEditableElement(Inspector::Protocol::ErrorString& errorString, Inspector::Protocol::DOM::NodeId nodeId)
+{
+    RefPtr node = assertEditableNode(errorString, nodeId);
     if (!node)
         return nullptr;
     RefPtr element = dynamicDowncast<Element>(*node);
@@ -486,6 +523,8 @@ void FrameDOMAgent::setDocument(Document* document)
 
 void FrameDOMAgent::reset()
 {
+    if (m_history)
+        m_history->reset();
     discardBindings();
     m_document = nullptr;
     m_searchResults.clear();
@@ -1160,6 +1199,252 @@ Ref<Inspector::Protocol::DOM::EventListener> FrameDOMAgent::buildObjectForEventL
     if (disabled)
         value->setDisabled(disabled);
     return value;
+}
+
+Inspector::CommandResult<void> FrameDOMAgent::setAttributeValue(int nodeId, const String& name, const String& value)
+{
+    Inspector::Protocol::ErrorString errorString;
+
+    RefPtr element = assertEditableElement(errorString, nodeId);
+    if (!element)
+        return makeUnexpected(errorString);
+
+    if (!m_domEditor->setAttribute(*element, AtomString { name }, AtomString { value }, errorString))
+        return makeUnexpected(errorString);
+
+    return { };
+}
+
+Inspector::CommandResult<void> FrameDOMAgent::setAttributesAsText(int nodeId, const String& text, const String& name)
+{
+    Inspector::Protocol::ErrorString errorString;
+
+    RefPtr element = assertEditableElement(errorString, nodeId);
+    if (!element)
+        return makeUnexpected(errorString);
+
+    Ref parsedElement = createHTMLElement(protect(element->document()), HTMLNames::spanTag);
+    auto result = parsedElement.get().setInnerHTML(makeString("<span "_s, text, "></span>"_s));
+    if (result.hasException())
+        return makeUnexpected(InspectorDOMAgent::toErrorString(result.releaseException()));
+
+    RefPtr child = parsedElement->firstChild();
+    if (!child)
+        return makeUnexpected("Could not parse given text"_s);
+
+    RefPtr childElement = dynamicDowncast<Element>(*child);
+    if (!childElement)
+        return makeUnexpected("Could not parse given text"_s);
+
+    if (!childElement->hasAttributes() && !!name) {
+        if (!m_domEditor->removeAttribute(*element, AtomString { name }, errorString))
+            return makeUnexpected(errorString);
+        return { };
+    }
+
+    bool foundOriginalAttribute = false;
+    for (auto& attribute : childElement->attributes()) {
+        auto attributeName = attribute.name().toAtomString();
+        foundOriginalAttribute = foundOriginalAttribute || attributeName == name;
+        if (!m_domEditor->setAttribute(*element, attributeName, attribute.value(), errorString))
+            return makeUnexpected(errorString);
+    }
+
+    if (!foundOriginalAttribute && name.find(deprecatedIsNotSpaceOrNewline) != notFound) {
+        if (!m_domEditor->removeAttribute(*element, AtomString { name }, errorString))
+            return makeUnexpected(errorString);
+    }
+
+    return { };
+}
+
+Inspector::CommandResult<void> FrameDOMAgent::removeAttribute(int nodeId, const String& name)
+{
+    Inspector::Protocol::ErrorString errorString;
+
+    RefPtr element = assertEditableElement(errorString, nodeId);
+    if (!element)
+        return makeUnexpected(errorString);
+
+    if (!m_domEditor->removeAttribute(*element, AtomString { name }, errorString))
+        return makeUnexpected(errorString);
+
+    return { };
+}
+
+Inspector::CommandResult<void> FrameDOMAgent::removeNode(int nodeId)
+{
+    Inspector::Protocol::ErrorString errorString;
+
+    RefPtr node = assertEditableNode(errorString, nodeId);
+    if (!node)
+        return makeUnexpected(errorString);
+
+    RefPtr parentNode = node->parentNode();
+    if (!parentNode)
+        return makeUnexpected("Cannot remove detached node"_s);
+
+    if (!m_domEditor->removeChild(*parentNode, *node, errorString))
+        return makeUnexpected(errorString);
+
+    return { };
+}
+
+Inspector::CommandResult<int> FrameDOMAgent::setNodeName(int nodeId, const String& tagName)
+{
+    Inspector::Protocol::ErrorString errorString;
+
+    RefPtr oldNode = assertElement(errorString, nodeId);
+    if (!oldNode)
+        return makeUnexpected(errorString);
+
+    auto createElementResult = protect(oldNode->document())->createElementForBindings(AtomString { tagName });
+    if (createElementResult.hasException())
+        return makeUnexpected(InspectorDOMAgent::toErrorString(createElementResult.releaseException()));
+
+    auto newElement = createElementResult.releaseReturnValue();
+
+    newElement->cloneAttributesFromElement(*oldNode);
+
+    RefPtr<Node> child;
+    while ((child = oldNode->firstChild())) {
+        if (!m_domEditor->insertBefore(newElement, *child, 0, errorString))
+            return makeUnexpected(errorString);
+    }
+
+    RefPtr<ContainerNode> parent = oldNode->parentNode();
+    if (!m_domEditor->insertBefore(*parent, newElement.copyRef(), protect(oldNode->nextSibling()).get(), errorString))
+        return makeUnexpected(errorString);
+    if (!m_domEditor->removeChild(*parent, *oldNode, errorString))
+        return makeUnexpected(errorString);
+
+    auto resultNodeId = pushNodePathToFrontend(errorString, newElement.ptr());
+    if (m_childrenRequested.contains(nodeId))
+        pushChildNodesToFrontend(resultNodeId);
+
+    return resultNodeId;
+}
+
+Inspector::CommandResult<void> FrameDOMAgent::setOuterHTML(int nodeId, const String& outerHTML)
+{
+    Inspector::Protocol::ErrorString errorString;
+
+    if (!nodeId) {
+        if (!m_document)
+            return makeUnexpected("Internal error: missing document"_s);
+        DOMPatchSupport { *m_domEditor, *m_document }.patchDocument(outerHTML);
+        return { };
+    }
+
+    RefPtr node = assertEditableNode(errorString, nodeId);
+    if (!node)
+        return makeUnexpected(errorString);
+
+    Ref document = node->document();
+    if (!document->isHTMLDocument() && !document->isXMLDocument())
+        return makeUnexpected("Document of node for given nodeId is not HTML/XML"_s);
+
+    Node* newNode = nullptr;
+    if (!m_domEditor->setOuterHTML(*node, outerHTML, newNode, errorString))
+        return makeUnexpected(errorString);
+
+    if (!newNode)
+        return { };
+
+    auto newId = pushNodePathToFrontend(errorString, newNode);
+
+    if (m_childrenRequested.contains(nodeId))
+        pushChildNodesToFrontend(newId);
+
+    return { };
+}
+
+Inspector::CommandResult<void> FrameDOMAgent::insertAdjacentHTML(int nodeId, const String& position, const String& html)
+{
+    Inspector::Protocol::ErrorString errorString;
+
+    RefPtr node = assertEditableNode(errorString, nodeId);
+    if (!node)
+        return makeUnexpected(errorString);
+
+    RefPtr element = dynamicDowncast<Element>(*node);
+    if (!element)
+        return makeUnexpected("Node for given nodeId is not an element"_s);
+
+    if (!m_domEditor->insertAdjacentHTML(*element, position, html, errorString))
+        return makeUnexpected(errorString);
+
+    return { };
+}
+
+Inspector::CommandResult<void> FrameDOMAgent::setNodeValue(int nodeId, const String& value)
+{
+    Inspector::Protocol::ErrorString errorString;
+
+    RefPtr node = assertEditableNode(errorString, nodeId);
+    if (!node)
+        return makeUnexpected(errorString);
+
+    RefPtr text = dynamicDowncast<Text>(*node);
+    if (!text)
+        return makeUnexpected("Node for given nodeId is not text"_s);
+
+    if (!m_domEditor->replaceWholeText(*text, value, errorString))
+        return makeUnexpected(errorString);
+
+    return { };
+}
+
+Inspector::CommandResult<int> FrameDOMAgent::moveTo(int nodeId, int targetNodeId, std::optional<int>&& insertBeforeNodeId)
+{
+    Inspector::Protocol::ErrorString errorString;
+
+    RefPtr node = assertEditableNode(errorString, nodeId);
+    if (!node)
+        return makeUnexpected(errorString);
+
+    RefPtr targetElement = assertEditableElement(errorString, targetNodeId);
+    if (!targetElement)
+        return makeUnexpected(errorString);
+
+    RefPtr<Node> anchorNode;
+    if (insertBeforeNodeId && *insertBeforeNodeId) {
+        anchorNode = assertEditableNode(errorString, *insertBeforeNodeId);
+        if (!anchorNode)
+            return makeUnexpected(errorString);
+        if (anchorNode->parentNode() != targetElement)
+            return makeUnexpected("Given insertBeforeNodeId must be a child of given targetNodeId"_s);
+    }
+
+    if (!m_domEditor->insertBefore(*targetElement, *node, anchorNode.get(), errorString))
+        return makeUnexpected(errorString);
+
+    return pushNodePathToFrontend(errorString, node.get());
+}
+
+Inspector::CommandResult<void> FrameDOMAgent::undo()
+{
+    auto result = m_history->undo();
+    if (result.hasException())
+        return makeUnexpected(InspectorDOMAgent::toErrorString(result.releaseException()));
+
+    return { };
+}
+
+Inspector::CommandResult<void> FrameDOMAgent::redo()
+{
+    auto result = m_history->redo();
+    if (result.hasException())
+        return makeUnexpected(InspectorDOMAgent::toErrorString(result.releaseException()));
+
+    return { };
+}
+
+Inspector::CommandResult<void> FrameDOMAgent::markUndoableState()
+{
+    m_history->markUndoableState();
+
+    return { };
 }
 
 } // namespace WebCore

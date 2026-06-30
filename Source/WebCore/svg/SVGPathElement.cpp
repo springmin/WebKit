@@ -118,11 +118,11 @@ void SVGPathElement::attributeChanged(const QualifiedName& name, const AtomStrin
     if (name == SVGNames::dAttr) {
         auto& cache = PathSegListCache::singleton();
         if (newValue.isEmpty())
-            m_pathSegList->baseVal()->clearByteStreamData();
+            protect(m_pathSegList)->baseVal()->clearByteStreamData();
         else if (auto data = cache.get(newValue))
-            m_pathSegList->baseVal()->updateByteStreamData(WTF::move(data.value()));
-        else if (m_pathSegList->baseVal()->parse(newValue))
-            cache.add(newValue, m_pathSegList->baseVal()->existingPathByteStream().data());
+            protect(m_pathSegList)->baseVal()->updateByteStreamData(WTF::move(data.value()));
+        else if (protect(m_pathSegList)->baseVal()->parse(newValue))
+            cache.add(newValue, protect(m_pathSegList)->baseVal()->existingPathByteStream().data());
         else
             protect(protect(document())->svgExtensions())->reportError(makeString("Problem parsing d=\""_s, newValue, "\""_s));
     }
@@ -289,7 +289,7 @@ void SVGPathElement::collectDPresentationalHint(MutableStyleProperties& style)
     ASSERT(document().settings().cssDPropertyEnabled());
     // In the case of the `d` property, we want to avoid providing a string value since it will require
     // the path data to be parsed again and path data can be unwieldy.
-    auto property = cssPropertyIdForSVGAttributeName(SVGNames::dAttr, document().settings());
+    auto property = cssPropertyIdForSVGAttributeName(SVGNames::dAttr);
     // The fill rule value passed here is not relevant for the `d` property.
     auto cssPathValue = CSSPathValue::create(CSS::PathFunction { CSS::Keyword::Nonzero { }, CSS::Path::Data { Ref { m_pathSegList }->currentPathByteStream() } });
     addPropertyToPresentationalHintStyle(style, property, WTF::move(cssPathValue));

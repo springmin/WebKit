@@ -777,7 +777,12 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
     _impl->showWritingTools(tool);
 }
 
-#endif
+- (BOOL)allowsWritingToolsAffordance
+{
+    return _impl->shouldAllowWritingToolsAffordance();
+}
+
+#endif // ENABLE(WRITING_TOOLS)
 
 #if ENABLE(DRAG_SUPPORT)
 ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
@@ -1189,6 +1194,41 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         return NO;
     return _impl->hasScrolledContentsUnderTitlebar();
 }
+
+- (BOOL)respondsToSelector:(SEL)selector
+{
+#if ENABLE(SCROLL_POCKET_IN_FULLSCREEN)
+    if (selector == @selector(setFullScreenTitlebarOverlayHeight:))
+        return [self _scrollPocketInFullscreenEnabled];
+#endif
+    return [super respondsToSelector:selector];
+}
+
+#if ENABLE(SCROLL_POCKET_IN_FULLSCREEN)
+
+- (CGFloat)fullScreenTitlebarOverlayHeight
+{
+    if (![self _scrollPocketInFullscreenEnabled])
+        return 0;
+
+    if (!_impl)
+        return 0;
+
+    return _impl->fullScreenTitlebarOverlayHeight();
+}
+
+- (void)setFullScreenTitlebarOverlayHeight:(CGFloat)fullScreenTitlebarOverlayHeight
+{
+    if (![self _scrollPocketInFullscreenEnabled])
+        return;
+
+    if (!_impl)
+        return;
+
+    _impl->setFullScreenTitlebarOverlayHeight(fullScreenTitlebarOverlayHeight);
+}
+
+#endif
 
 #pragma mark – NSAdaptiveImageGlyph
 

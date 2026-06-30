@@ -338,7 +338,7 @@ bool IntersectionObserver::removeTargetRegistration(Element& target)
 
 void IntersectionObserver::removeAllTargets()
 {
-    for (auto& target : m_observationTargets) {
+    for (Ref target : m_observationTargets) {
         bool removed = removeTargetRegistration(target);
         ASSERT_UNUSED(removed, removed);
     }
@@ -459,8 +459,13 @@ static std::optional<LayoutRect> computeClippedRectInRootContentsSpace(const Lay
     if (!absoluteClippedRect)
         return std::nullopt;
 
-    // If the renderer is in the main frame, there are no more frames to traverse to, so stop here.
-    if (enclosingFrame->isMainFrame())
+    // Stop here if there are no more parent frames to traverse to.
+    RefPtr enclosingFrameParent = enclosingFrame->parent();
+    if (!enclosingFrameParent)
+        return absoluteClippedRect;
+
+    RefPtr enclosingFrameParentView = enclosingFrameParent->virtualView();
+    if (!enclosingFrameParentView)
         return absoluteClippedRect;
 
     // The computed visible rect is in the coordinate space of enclosingFrame.
@@ -491,12 +496,7 @@ static std::optional<LayoutRect> computeClippedRectInRootContentsSpace(const Lay
         return computeClippedRectInRootContentsSpace(*absoluteClippedRect, targetSecurityOrigin, ownerRenderer.get(), scrollMargin);
     }
 
-    // We already checked above that enclosingFrame is not a main frame,
-    // so it MUST have a parent.
-    RefPtr enclosingFrameParent = enclosingFrame->parent();
-    ASSERT(enclosingFrameParent);
-
-    absoluteClippedRect->moveBy(enclosingFrameParent->virtualView()->childFrameOwnerContentBoxLocation(*enclosingFrame));
+    absoluteClippedRect->moveBy(enclosingFrameParentView->childFrameOwnerContentBoxLocation(*enclosingFrame));
     return computeClippedRectInRootContentsSpace(*absoluteClippedRect, targetSecurityOrigin, enclosingFrame.get(), WTF::move(scrollMargin));
 }
 
@@ -608,7 +608,7 @@ auto IntersectionObserver::computeIntersectionState(const IntersectionObserverRe
             else if (rootRenderer->hasNonVisibleOverflow())
                 intersectionState.rootBounds = rootRenderer->paddingBoxRect();
             else
-                intersectionState.rootBounds = { FloatPoint(), rootRenderer->size() };
+                intersectionState.rootBounds = { FloatPoint(), rootRenderer->borderBoxSize() };
 
             return;
         }
@@ -684,7 +684,7 @@ auto IntersectionObserver::computeIntersectionState(const IntersectionObserverRe
             return result->clippedOverflowRect;
         }
 
-        return computeClippedRectInRootContentsSpace(localTargetBounds, target.document().securityOrigin(), targetRenderer, scrollMarginBox());
+        return computeClippedRectInRootContentsSpace(localTargetBounds, protect(protect(target)->document().securityOrigin()), targetRenderer, scrollMarginBox());
     }();
 
     auto rootLocalIntersectionRect = intersectionState.rootBounds;
@@ -857,8 +857,8 @@ std::optional<ReducedResolutionSeconds> IntersectionObserver::nowTimestamp() con
         auto* context = m_callback->scriptExecutionContext();
         if (!context)
             return std::nullopt;
-        auto& document = downcast<Document>(*context);
-        window = document.window();
+        Ref document = downcast<Document>(*context);
+        window = document->window();
         if (!window)
             return std::nullopt;
     }

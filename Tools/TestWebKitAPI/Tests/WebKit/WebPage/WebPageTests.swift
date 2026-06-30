@@ -99,6 +99,24 @@ struct WebPageTests {
         #expect(actions[1].request.url!.absoluteString == "http://webkit.org/#fragment")
     }
 
+    @Test(arguments: [true, false])
+    func globalPrivacyControlStatusForNavigation(enabled: Bool) async throws {
+        let decider = TestNavigationDecider()
+        decider.preferencesMutation = { preferences in
+            preferences.globalPrivacyControlStatus = enabled
+        }
+
+        let page = WebPage(navigationDecider: decider)
+        try await page.load(html: "<body></body>").wait()
+
+        let result = try await page.callJavaScript(returning: Bool.self) {
+            """
+            return navigator.globalPrivacyControl;
+            """
+        }
+        #expect(result == enabled)
+    }
+
     @Test
     func javaScriptEvaluation() async throws {
         let page = WebPage()
@@ -134,7 +152,7 @@ struct WebPageTests {
     func clearContentWorld() async throws {
         let worldConfiguration = WKContentWorldConfiguration()
         worldConfiguration.nodeSerializationEnabled = true
-        let world = WKContentWorld.world(with: worldConfiguration)
+        let world = WKContentWorld.world(configuration: worldConfiguration)
 
         let page = WebPage()
         try await page.load(html: "<body></body>").wait()

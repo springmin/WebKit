@@ -30,7 +30,11 @@
 
 #include "Logging.h"
 #include "MediaDeviceRoute.h"
+#include "MediaDeviceRouteController.h"
 #include "MediaPlaybackTargetWirelessPlayback.h"
+#include "MediaSelectionOption.h"
+#include "MediaStrategy.h"
+#include "PlatformStrategies.h"
 #include <pal/avfoundation/MediaTimeAVFoundation.h>
 #include <wtf/BlockPtr.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -70,6 +74,10 @@ private:
 
 void MediaPlayerPrivateWirelessPlayback::registerMediaEngine(MediaEngineRegistrar registrar)
 {
+    if (hasPlatformStrategies() && !platformStrategies()->mediaStrategy()->wirelessPlaybackMediaPlayerEnabled())
+        return;
+    if (!mockMediaDeviceRouteControllerEnabled() && RemoteMediaPlayerSupport::registerRemoteEngineIfAvailable(registrar, MediaPlayerEnums::MediaEngineIdentifier::WirelessPlayback, PlatformMediaDecodingType::FileOrHLS))
+        return;
     registrar(makeUnique<MediaPlayerFactoryWirelessPlayback>());
 }
 
@@ -261,7 +269,7 @@ void MediaPlayerPrivateWirelessPlayback::pause()
 bool MediaPlayerPrivateWirelessPlayback::hasAudio() const
 {
     if (RefPtr route = this->route())
-        return route->hasAudio();
+        return !route->audioOptions().isEmpty();
     return false;
 }
 
@@ -429,6 +437,15 @@ void MediaPlayerPrivateWirelessPlayback::playbackErrorDidChange(MediaDeviceRoute
 
     if (route.playbackError())
         setNetworkState(route.ready() ? MediaPlayer::NetworkState::DecodeError : MediaPlayer::NetworkState::FormatError);
+}
+
+void MediaPlayerPrivateWirelessPlayback::audioOptionsDidChange(MediaDeviceRoute& route)
+{
+    ASSERT(&route == this->route());
+    ALWAYS_LOG(LOGIDENTIFIER, route.audioOptions().size());
+
+    if (RefPtr player = m_player.get())
+        player->characteristicChanged();
 }
 
 void MediaPlayerPrivateWirelessPlayback::currentPlaybackPositionDidChange(MediaDeviceRoute& route)

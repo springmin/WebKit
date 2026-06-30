@@ -81,19 +81,8 @@ struct MediaPlaybackSourceError {
     const String localizedDescription;
 };
 
-struct MediaSelectionOption {
-    enum class Type : uint8_t {
-        Audio,
-        Legible,
-    };
-
-    const String displayName;
-    const String identifier;
-    const Type type;
-    const String extendedLanguageTag;
-};
-
 class MediaDeviceRoute;
+struct MediaSelectionOption;
 
 class MediaDeviceRouteClient : public AbstractRefCountedAndCanMakeWeakPtr<MediaDeviceRouteClient> {
 public:
@@ -103,7 +92,7 @@ public:
     virtual void readyDidChange(MediaDeviceRoute&) { }
     virtual void bufferingDidChange(MediaDeviceRoute&) { }
     virtual void playbackErrorDidChange(MediaDeviceRoute&) { }
-    virtual void hasAudioDidChange(MediaDeviceRoute&) { }
+    virtual void audioOptionsDidChange(MediaDeviceRoute&) { }
     virtual void currentPlaybackPositionDidChange(MediaDeviceRoute&) { }
     virtual void playingDidChange(MediaDeviceRoute&) { }
     virtual void playbackSpeedDidChange(MediaDeviceRoute&) { }
@@ -132,7 +121,7 @@ public:
     bool ready() const;
     bool buffering() const;
     std::optional<MediaPlaybackSourceError> playbackError() const;
-    bool hasAudio() const;
+    Vector<MediaSelectionOption> audioOptions() const;
     MediaTime currentPlaybackPosition() const;
     bool playing() const;
     float playbackSpeed() const;

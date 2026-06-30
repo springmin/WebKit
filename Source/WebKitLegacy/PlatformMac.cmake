@@ -12,114 +12,28 @@ list(APPEND WebKitLegacy_PRIVATE_LIBRARIES
 
 list(APPEND WebKitLegacy_SOURCES
     mac/DefaultDelegates/WebDefaultEditingDelegate.m
-    mac/DefaultDelegates/WebDefaultPolicyDelegate.mm
-    mac/DefaultDelegates/WebDefaultUIDelegate.mm
 
-    mac/History/BackForwardList.mm
-    mac/History/BinaryPropertyList.cpp
-    mac/History/HistoryPropertyList.mm
-    mac/History/WebHistory.mm
-    mac/History/WebHistoryItem.mm
     mac/History/WebURLsWithTitles.m
 
-    mac/Misc/WebCache.mm
-    mac/Misc/WebCoreStatistics.mm
-    mac/Misc/WebDownload.mm
-    mac/Misc/WebElementDictionary.mm
-    mac/Misc/WebIconDatabase.mm
     mac/Misc/WebKitErrors.m
-    mac/Misc/WebKitLogInitialization.mm
     mac/Misc/WebKitLogging.m
-    mac/Misc/WebKitNSStringExtras.mm
     mac/Misc/WebKitStatistics.m
-    mac/Misc/WebKitVersionChecks.mm
-    mac/Misc/WebLocalizableStrings.mm
-    mac/Misc/WebLocalizableStringsInternal.mm
     mac/Misc/WebNSControlExtras.m
-    mac/Misc/WebNSDataExtras.mm
     mac/Misc/WebNSDictionaryExtras.m
     mac/Misc/WebNSEventExtras.m
-    mac/Misc/WebNSFileManagerExtras.mm
     mac/Misc/WebNSImageExtras.m
-    mac/Misc/WebNSObjectExtras.mm
-    mac/Misc/WebNSPasteboardExtras.mm
     mac/Misc/WebNSPrintOperationExtras.m
-    mac/Misc/WebNSURLExtras.mm
     mac/Misc/WebNSURLRequestExtras.m
-    mac/Misc/WebNSUserDefaultsExtras.mm
     mac/Misc/WebNSViewExtras.m
     mac/Misc/WebNSWindowExtras.m
-    mac/Misc/WebStringTruncator.mm
-    mac/Misc/WebUserContentURLPattern.mm
 
     mac/Panels/WebAuthenticationPanel.m
     mac/Panels/WebPanelAuthenticationHandler.m
 
-    mac/Plugins/WebPluginPackage.mm
-
-    mac/Storage/WebDatabaseManager.mm
-    mac/Storage/WebDatabaseManagerClient.mm
-    mac/Storage/WebDatabaseProvider.mm
-    mac/Storage/WebDatabaseQuotaManager.mm
-    mac/Storage/WebStorageManager.mm
-    mac/Storage/WebStorageTrackerClient.mm
-
-    mac/WebCoreSupport/CorrectionPanel.mm
-    mac/WebCoreSupport/LegacyHistoryItemClient.mm
-    mac/WebCoreSupport/PopupMenuMac.mm
-    mac/WebCoreSupport/SearchPopupMenuMac.mm
-    mac/WebCoreSupport/WebAlternativeTextClient.mm
-    mac/WebCoreSupport/WebChromeClient.mm
-    mac/WebCoreSupport/WebContextMenuClient.mm
-    mac/WebCoreSupport/WebDragClient.mm
-    mac/WebCoreSupport/WebEditorClient.mm
-    mac/WebCoreSupport/WebFrameNetworkingContext.mm
-    mac/WebCoreSupport/WebGeolocationClient.mm
-    mac/WebCoreSupport/WebInspectorClient.mm
     mac/WebCoreSupport/WebJavaScriptTextInputPanel.m
-    mac/WebCoreSupport/WebKitFullScreenListener.mm
-    mac/WebCoreSupport/WebMediaKeySystemClient.mm
-    mac/WebCoreSupport/WebNotificationClient.mm
-    mac/WebCoreSupport/WebOpenPanelResultListener.mm
-    mac/WebCoreSupport/WebPaymentCoordinatorClient.mm
-    mac/WebCoreSupport/WebPlatformStrategies.mm
-    mac/WebCoreSupport/WebPluginInfoProvider.mm
-    mac/WebCoreSupport/WebProgressTrackerClient.mm
-    mac/WebCoreSupport/WebSecurityOrigin.mm
-    mac/WebCoreSupport/WebSelectionServiceController.mm
-    mac/WebCoreSupport/WebValidationMessageClient.mm
-    mac/WebCoreSupport/WebVisitedLinkStore.mm
 
-    mac/WebInspector/WebInspectorFrontend.mm
-    mac/WebInspector/WebNodeHighlight.mm
-    mac/WebInspector/WebNodeHighlightView.mm
-    mac/WebInspector/WebNodeHighlighter.mm
-
-    mac/WebView/WebArchive.mm
-    mac/WebView/WebDelegateImplementationCaching.mm
-    mac/WebView/WebDeviceOrientation.mm
-    mac/WebView/WebDeviceOrientationProviderMock.mm
-    mac/WebView/WebDocumentLoaderMac.mm
-    mac/WebView/WebDynamicScrollBarsView.mm
     mac/WebView/WebFeature.m
     mac/WebView/WebFormDelegate.m
-    mac/WebView/WebGeolocationPosition.mm
-    mac/WebView/WebHTMLRepresentation.mm
-    mac/WebView/WebIndicateLayer.mm
-    mac/WebView/WebJSPDFDoc.mm
-    mac/WebView/WebMediaPlaybackTargetPicker.mm
-    mac/WebView/WebNavigationData.mm
-    mac/WebView/WebNotification.mm
-    mac/WebView/WebPDFDocumentExtras.mm
-    mac/WebView/WebPolicyDelegate.mm
-    mac/WebView/WebPreferences.mm
-    mac/WebView/WebPreferencesDefaultValues.mm
-    mac/WebView/WebResource.mm
-    mac/WebView/WebTextCompletionController.mm
-    mac/WebView/WebTextIterator.mm
-    mac/WebView/WebVideoFullscreenController.mm
-    mac/WebView/WebViewData.mm
-    mac/WebView/WebWindowAnimation.mm
 )
 
 set(WebKitLegacy_LEGACY_FORWARDING_HEADERS_FILES
@@ -534,17 +448,18 @@ set(WebKitLegacy_LEGACY_FORWARDING_HEADERS_FILES
     mac/WebView/WebWindowAnimation.h
 )
 
-foreach (_file ${WebKitLegacy_LEGACY_FORWARDING_HEADERS_FILES})
-    get_filename_component(_name "${_file}" NAME)
-    set(_target_filename "${WebKitLegacy_FRAMEWORK_HEADERS_DIR}/WebKitLegacy/${_name}")
-    if (NOT EXISTS ${_target_filename})
-        file(WRITE ${_target_filename} "#import \"${_file}\"")
-    endif ()
-endforeach ()
+# Add these to the public header map.
+set(WebKitLegacy_PRIVATE_FRAMEWORK_HEADERS ${WebKitLegacy_LEGACY_FORWARDING_HEADERS_FILES})
 
-# WK2 code imports WebKitLegacy headers via <WebKit/...> (e.g. _WKFeature.h -> <WebKit/WebFeature.h>).
-# Symlink WebKit/ -> WebKitLegacy/ so both prefixes resolve from the same headers dir.
-file(CREATE_LINK "${WebKitLegacy_FRAMEWORK_HEADERS_DIR}/WebKitLegacy"
-                 "${WebKitLegacy_FRAMEWORK_HEADERS_DIR}/WebKit" SYMBOLIC)
+if (USE_HEADER_MAPS)
+    WEBKIT_WRITE_HEADER_MAP(WebKit
+        DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/WebKit-forwarding-headers.hmap
+        FILES ${WebKitLegacy_LEGACY_FORWARDING_HEADERS_FILES}
+        BRACKETED
+    )
+    set(WebKitLegacy_INTERFACE_INCLUDE_DIRECTORIES
+        ${CMAKE_CURRENT_BINARY_DIR}/WebKit-forwarding-headers.hmap
+    )
+endif ()
 
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -compatibility_version 1 -current_version ${WEBKIT_MAC_VERSION} -framework SecurityInterface")

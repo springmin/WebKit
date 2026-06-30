@@ -221,6 +221,7 @@ public:
     void clearMaps()
     {
         m_maps.clear();
+        m_latin1Tables.clear();
     }
 
     const std::span<BoyerMooreBitmap::Map::WordType> tryReuseBoyerMooreBitmap(const BoyerMooreBitmap::Map& map) const
@@ -232,8 +233,15 @@ public:
         return { };
     }
 
+    const uint8_t* addLatin1Table(const CharacterClass::ByteTable& table)
+    {
+        m_latin1Tables.append(makeUniqueRef<CharacterClass::ByteTable>(table));
+        return m_latin1Tables.last()->data.data();
+    }
+
 private:
     Vector<UniqueRef<BoyerMooreBitmap::Map>> m_maps;
+    Vector<UniqueRef<CharacterClass::ByteTable>> m_latin1Tables;
 };
 
 class YarrCodeBlock final : public YarrBoyerMooreData {
@@ -428,12 +436,7 @@ private:
     std::optional<JITFailureReason> m_failureReason;
 };
 
-enum class JITCompileMode : uint8_t {
-    MatchOnly,
-    IncludeSubpatterns,
-    InlineTest
-};
-void jitCompile(YarrPattern&, StringView patternString, CharSize, std::optional<StringView> sampleString, VM*, YarrCodeBlock& jitObject, JITCompileMode);
+void jitCompile(YarrPattern&, StringView patternString, CharSize, std::optional<StringView> sampleString, VM*, YarrCodeBlock& jitObject, ExecutionMode);
 
 #if ENABLE(YARR_JIT_REGEXP_TEST_INLINE)
 

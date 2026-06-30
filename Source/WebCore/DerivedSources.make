@@ -1990,6 +1990,7 @@ all : \
     StyleBuilderGenerated.cpp \
     StyleComputedStyleProperties.cpp \
     StyleComputedStyleProperties.h \
+    StyleComputedStyleProperties+ConstructionInlines.h \
     StyleComputedStyleProperties+GettersInlines.h \
     StyleComputedStyleProperties+InitialInlines.h \
     StyleComputedStyleProperties+SettersInlines.h \
@@ -2040,6 +2041,7 @@ CSS_PROPERTY_NAME_FILES = \
     StyleBuilderGenerated.cpp \
     StyleComputedStyleProperties.cpp \
     StyleComputedStyleProperties.h \
+    StyleComputedStyleProperties+ConstructionInlines.h \
     StyleComputedStyleProperties+GettersInlines.h \
     StyleComputedStyleProperties+InitialInlines.h \
     StyleComputedStyleProperties+SettersInlines.h \
@@ -2340,6 +2342,7 @@ ModernMediaControls.js : $(MODERN_MEDIA_CONTROLS_SCRIPTS)
 USER_AGENT_SCRIPTS = \
     ModernMediaControls.js \
 	$(WebCore)/Modules/modern-media-controls/media/YouTubeCaptionQuirk.js \
+	$(WebCore)/Modules/modern-media-controls/media/CNNCaptionQuirk.js \
 #
 
 USER_AGENT_SCRIPTS_FILES = \

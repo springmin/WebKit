@@ -116,20 +116,20 @@ public:
 
     // Logical getters and setters for 'test-group' properties of type 'axis'.
     inline Style::Number<> logicalTestLogicalPropertyGroupPhysicalHorizontal(WritingMode) const;
-    inline Style::Number<> logicalTestLogicalPropertyGroupPhysicalVertical(WritingMode) const;
     inline Style::Number<> logicalTestLogicalPropertyGroupPhysicalHorizontal() const;
-    inline Style::Number<> logicalTestLogicalPropertyGroupPhysicalVertical() const;
     inline void setLogicalTestLogicalPropertyGroupPhysicalHorizontal(Style::Number<>);
+    inline Style::Number<> logicalTestLogicalPropertyGroupPhysicalVertical(WritingMode) const;
+    inline Style::Number<> logicalTestLogicalPropertyGroupPhysicalVertical() const;
     inline void setLogicalTestLogicalPropertyGroupPhysicalVertical(Style::Number<>);
 
 protected:
     ComputedStyleProperties(ComputedStyleProperties&&) = default;
     ComputedStyleProperties& operator=(ComputedStyleProperties&&) = default;
 
-    ComputedStyleProperties(CreateDefaultStyleTag tag) : ComputedStyleBase { tag } { }
-    ComputedStyleProperties(const ComputedStyleProperties& other, CloneTag tag) : ComputedStyleBase { other, tag } { }
+    inline ComputedStyleProperties(CreateDefaultStyleTag);
+    inline ComputedStyleProperties(const ComputedStyleProperties&, CloneTag);
 
-    ComputedStyleProperties(ComputedStyleProperties& a, ComputedStyleProperties&& b) : ComputedStyleBase { a, WTF::move(b) } { }
+    inline ComputedStyleProperties(ComputedStyleProperties&, ComputedStyleProperties&&);
 };
 
 template<> struct ColorPropertyTraits<PropertyNameConstant<CSSPropertyTestColor>> {

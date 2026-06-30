@@ -397,6 +397,11 @@ bool InspectorInstrumentation::forcePseudoStateImpl(InstrumentingAgents& instrum
 {
     if (CheckedPtr cssAgent = instrumentingAgents.enabledCSSAgent())
         return cssAgent->forcePseudoState(element, pseudoState);
+
+    if (RefPtr frame = element.document().frame()) {
+        if (CheckedPtr frameCSSAgent = frame->inspectorController().instrumentingAgents().enabledFrameCSSAgent())
+            return frameCSSAgent->forcePseudoState(element, pseudoState);
+    }
     return false;
 }
 
@@ -854,7 +859,7 @@ void InspectorInstrumentation::didCommitLoadImpl(InstrumentingAgents& instrument
             cssAgent->reset();
 
         if (CheckedPtr domAgent = instrumentingAgents.persistentDOMAgent())
-            domAgent->setDocument(frame.document());
+            domAgent->setDocument(protect(frame.document()));
 
         if (auto* layerTreeAgent = instrumentingAgents.enabledLayerTreeAgent())
             layerTreeAgent->reset();
@@ -887,7 +892,7 @@ void InspectorInstrumentation::didCommitLoadImpl(InstrumentingAgents& instrument
         animationAgent->frameNavigated(frame);
 
     if (CheckedPtr domAgent = instrumentingAgents.persistentDOMAgent())
-        domAgent->didCommitLoad(frame.document());
+        domAgent->didCommitLoad(protect(frame.document()));
 
     if (frame.isMainFrame()) {
         if (CheckedPtr pageTimelineAgent = instrumentingAgents.trackingPageTimelineAgent())
@@ -1120,7 +1125,7 @@ void InspectorInstrumentation::didEnqueueFirstContentfulPaintImpl(InstrumentingA
 void InspectorInstrumentation::didEnqueueLargestContentfulPaintImpl(InstrumentingAgents& instrumentingAgents, const LargestContentfulPaint& entry)
 {
     if (auto* timelineAgent = instrumentingAgents.trackingTimelineAgent())
-        timelineAgent->didEnqueueLargestContentfulPaint(entry.element(), entry.size());
+        timelineAgent->didEnqueueLargestContentfulPaint(protect(entry.element()), entry.size());
 }
 
 void InspectorInstrumentation::consoleStartRecordingCanvasImpl(InstrumentingAgents& instrumentingAgents, CanvasRenderingContext& context, JSC::JSGlobalObject& exec, JSC::JSObject* options)
@@ -1166,10 +1171,16 @@ void InspectorInstrumentation::didCreateWebSocketImpl(InstrumentingAgents& instr
         networkAgent->didCreateWebSocket(identifier, requestURL);
 }
 
-void InspectorInstrumentation::willSendWebSocketHandshakeRequestImpl(InstrumentingAgents& instrumentingAgents, WebSocketChannelIdentifier identifier, const ResourceRequest& request)
+void InspectorInstrumentation::willSendWebSocketHandshakeRequestImpl(InstrumentingAgents& instrumentingAgents, WebSocketChannelIdentifier identifier, ResourceRequest& request)
 {
     if (CheckedPtr networkAgent = instrumentingAgents.enabledNetworkAgent())
         networkAgent->willSendWebSocketHandshakeRequest(identifier, request);
+}
+
+void InspectorInstrumentation::didSendWebSocketHandshakeRequestImpl(InstrumentingAgents& instrumentingAgents, WebSocketChannelIdentifier identifier, const ResourceRequest& request)
+{
+    if (CheckedPtr networkAgent = instrumentingAgents.enabledNetworkAgent())
+        networkAgent->didSendWebSocketHandshakeRequest(identifier, request);
 }
 
 void InspectorInstrumentation::didReceiveWebSocketHandshakeResponseImpl(InstrumentingAgents& instrumentingAgents, WebSocketChannelIdentifier identifier, const ResourceResponse& response)

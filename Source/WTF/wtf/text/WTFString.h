@@ -356,8 +356,8 @@ inline bool operator==(const String& a, const String& b) { return equal(a.impl()
 inline bool operator==(const String& a, ASCIILiteral b) { return equal(a.impl(), b); }
 template<size_t inlineCapacity> inline bool operator==(const String& a, const Vector<char, inlineCapacity>& b) { return b == a; }
 
-bool equalIgnoringASCIICase(const String&, const String&);
-bool equalIgnoringASCIICase(const String&, ASCIILiteral);
+bool NODELETE equalIgnoringASCIICase(const String&, const String&);
+bool NODELETE equalIgnoringASCIICase(const String&, ASCIILiteral);
 
 bool equalLettersIgnoringASCIICase(const String&, ASCIILiteral);
 bool startsWithLettersIgnoringASCIICase(const String&, ASCIILiteral);
@@ -594,12 +594,12 @@ inline bool equalLettersIgnoringASCIICase(const String& string, ASCIILiteral lit
     return equalLettersIgnoringASCIICase(string.impl(), literal);
 }
 
-inline bool equalIgnoringASCIICase(const String& a, const String& b)
+inline bool NODELETE equalIgnoringASCIICase(const String& a, const String& b)
 {
     return equalIgnoringASCIICase(a.impl(), b.impl());
 }
 
-inline bool equalIgnoringASCIICase(const String& a, ASCIILiteral b)
+inline bool NODELETE equalIgnoringASCIICase(const String& a, ASCIILiteral b)
 {
     return equalIgnoringASCIICase(a.impl(), b);
 }

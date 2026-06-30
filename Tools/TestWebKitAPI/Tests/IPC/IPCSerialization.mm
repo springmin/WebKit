@@ -28,6 +28,7 @@
 #import "ArgumentCodersCocoa.h"
 #import "CoreIPCCFDictionary.h"
 #import "CoreIPCError.h"
+#import "CoreIPCNSURLCredential.h"
 #import "CoreIPCNSURLRequest.h"
 #import "CoreIPCPKPayment.h"
 #import "CoreIPCPKPaymentMethod.h"
@@ -1849,6 +1850,69 @@ TEST(IPCSerialization, NSURLRequestNSURLProtocolProperties)
     runTestNS({ request.get() });
 }
 
+TEST(IPCSerialization, NSURLRequestArbitraryAppProperties)
+{
+    // App-supplied properties via NSURLProtocol +setProperty:forKey:inRequest: that are
+    // not in the typed allowlist must still round-trip through IPC, but only when they
+    // are plist-primitive values (NSNumber/NSString/NSData) and the key is not in a
+    // reserved CFNetwork/Foundation/WebKit/Apple namespace.
+
+    RetainPtr request = adoptNS([[NSMutableURLRequest alloc] initWithURL:[NSURL URLWithString:@"https://webkit.org/"]]);
+
+    // Allowed app-supplied entries: number, string, bool (NSNumber), data.
+    [NSURLProtocol setProperty:@"hello" forKey:@"com.example.appName" inRequest:request.get()];
+    [NSURLProtocol setProperty:@42 forKey:@"com.example.requestCount" inRequest:request.get()];
+    [NSURLProtocol setProperty:@YES forKey:@"com.example.featureFlag" inRequest:request.get()];
+    RetainPtr<NSData> blob = [NSData dataWithBytes:"\x01\x02\x03\x04" length:4];
+    [NSURLProtocol setProperty:blob.get() forKey:@"com.example.blob" inRequest:request.get()];
+
+    // Disallowed values: complex container types must be dropped on the wire.
+    [NSURLProtocol setProperty:@{ @"nested": @1 } forKey:@"com.example.dictValue" inRequest:request.get()];
+    [NSURLProtocol setProperty:@[ @"a", @"b" ] forKey:@"com.example.arrayValue" inRequest:request.get()];
+
+    // Disallowed key: reserved-prefix keys an app should not be able to spoof over IPC.
+    [NSURLProtocol setProperty:@"injected" forKey:@"_kCFFutureInternalProperty" inRequest:request.get()];
+    [NSURLProtocol setProperty:@"injected" forKey:@"NSURLRequestFutureInternalProperty" inRequest:request.get()];
+    [NSURLProtocol setProperty:@"injected" forKey:@"com.apple.something-private" inRequest:request.get()];
+
+    WebKit::CoreIPCNSURLRequest wrapper(request.get());
+    RetainPtr reconstructed = dynamic_objc_cast<NSURLRequest>(wrapper.toID().get());
+    EXPECT_TRUE(reconstructed);
+
+    EXPECT_TRUE([[NSURLProtocol propertyForKey:@"com.example.appName" inRequest:reconstructed.get()] isEqualToString:@"hello"]);
+    EXPECT_EQ([[NSURLProtocol propertyForKey:@"com.example.requestCount" inRequest:reconstructed.get()] intValue], 42);
+    EXPECT_TRUE([[NSURLProtocol propertyForKey:@"com.example.featureFlag" inRequest:reconstructed.get()] boolValue]);
+    EXPECT_TRUE([[NSURLProtocol propertyForKey:@"com.example.blob" inRequest:reconstructed.get()] isEqualToData:blob.get()]);
+
+    EXPECT_NULL([NSURLProtocol propertyForKey:@"com.example.dictValue" inRequest:reconstructed.get()]);
+    EXPECT_NULL([NSURLProtocol propertyForKey:@"com.example.arrayValue" inRequest:reconstructed.get()]);
+
+    EXPECT_NULL([NSURLProtocol propertyForKey:@"_kCFFutureInternalProperty" inRequest:reconstructed.get()]);
+    EXPECT_NULL([NSURLProtocol propertyForKey:@"NSURLRequestFutureInternalProperty" inRequest:reconstructed.get()]);
+    EXPECT_NULL([NSURLProtocol propertyForKey:@"com.apple.something-private" inRequest:reconstructed.get()]);
+
+    // Full wire-format round-trip on a request containing only the allowed entries —
+    // runTestNS asserts that the original and the round-tripped request compare equal,
+    // so we cannot include the keys we expect to be stripped above.
+    RetainPtr cleanRequest = adoptNS([[NSMutableURLRequest alloc] initWithURL:[NSURL URLWithString:@"https://webkit.org/"]]);
+    [NSURLProtocol setProperty:@"hello" forKey:@"com.example.appName" inRequest:cleanRequest.get()];
+    [NSURLProtocol setProperty:@42 forKey:@"com.example.requestCount" inRequest:cleanRequest.get()];
+    [NSURLProtocol setProperty:@YES forKey:@"com.example.featureFlag" inRequest:cleanRequest.get()];
+    [NSURLProtocol setProperty:blob.get() forKey:@"com.example.blob" inRequest:cleanRequest.get()];
+    runTestNS({ cleanRequest.get() });
+}
+
+TEST(IPCSerialization, NSURLRequestAttribution)
+{
+    WebKit::CoreIPCNSURLRequestData requestData;
+    requestData.url = WebKit::CoreIPCURL([NSURL URLWithString:@"https://webkit.org/"]);
+    requestData.attribution = WebKit::NSURLRequestAttribution::User;
+
+    RetainPtr request = dynamic_objc_cast<NSURLRequest>(WebKit::CoreIPCNSURLRequest(WTF::move(requestData)).toID().get());
+    RetainPtr reconstructed = dynamic_objc_cast<NSURLRequest>(WebKit::CoreIPCNSURLRequest(request.get()).toID().get());
+    EXPECT_EQ([reconstructed attribution], NSURLRequestAttributionUser);
+}
+
 #endif // PLATFORM(COCOA) && HAVE(WK_SECURE_CODING_NSURLREQUEST)
 
 #if USE(AVFOUNDATION) && PLATFORM(MAC)
@@ -2012,6 +2076,59 @@ TEST(IPCSerialization, DDScannerResultPlist)
     EXPECT_TRUE(done);
 }
 #endif // HAVE(WK_SECURE_CODING_DATA_DETECTORS)
+
+#if HAVE(WK_SECURE_CODING_NSURLCREDENTIAL)
+
+@interface NSURLCredential (WKSecureCodingForTesting)
+- (instancetype)_initWithWebKitPropertyListData:(NSDictionary *)plist;
+- (NSDictionary *)_webKitPropertyListData;
+@end
+
+TEST(IPCSerialization, NSURLCredentialKerberosFlags)
+{
+    RetainPtr credential = adoptNS([[NSURLCredential alloc] _initWithWebKitPropertyListData:@{
+        @"type": @(kURLCredentialKerberosTicket),
+        @"uuid": @"uuid",
+        @"flags": @{ @"name": @"value" },
+    }]);
+
+    IPC::Encoder encoder(IPC::MessageName::IPCTester_AsyncPing, 0);
+    encoder << WebKit::CoreIPCNSURLCredential { credential.get() };
+    auto decoder = IPC::Decoder::create(encoder.span(), encoder.releaseAttachments());
+    auto decoded = decoder->decode<WebKit::CoreIPCNSURLCredentialData>();
+    EXPECT_FALSE(decoded->flags->isEmpty());
+}
+
+TEST(IPCSerialization, NSURLCredentialAttributes)
+{
+    RetainPtr credential = adoptNS([[NSURLCredential alloc] _initWithWebKitPropertyListData:@{
+        @"type": @(kURLCredentialInternetPassword),
+        @"persistence": @(kCFURLCredentialPersistenceForSession),
+        @"attributes": @{ @"name": @"value" },
+    }]);
+
+    IPC::Encoder encoder(IPC::MessageName::IPCTester_AsyncPing, 0);
+    encoder << WebKit::CoreIPCNSURLCredential { credential.get() };
+    auto decoder = IPC::Decoder::create(encoder.span(), encoder.releaseAttachments());
+    auto decoded = decoder->decode<WebKit::CoreIPCNSURLCredentialData>();
+    EXPECT_EQ(decoded->attributes->size(), 1u);
+}
+
+TEST(IPCSerialization, NSURLCredentialAttributesToID)
+{
+    using Attributes = WebKit::CoreIPCNSURLCredentialData::Attributes;
+
+    WebKit::CoreIPCNSURLCredentialData credentialData;
+    credentialData.type = WebKit::CoreIPCNSURLCredentialType::Password;
+    credentialData.attributes = Vector<Attributes> { { WebKit::CoreIPCString(@"key"), WebKit::CoreIPCString(@"value") } };
+
+    WebKit::CoreIPCNSURLCredential wrapper(WTF::move(credentialData));
+    RetainPtr reconstructed = dynamic_objc_cast<NSURLCredential>(wrapper.toID().get());
+    RetainPtr attributes = dynamic_objc_cast<NSDictionary>([[reconstructed _webKitPropertyListData] objectForKey:@"attributes"]);
+    EXPECT_TRUE([[attributes objectForKey:@"key"] isEqual:@"value"]);
+}
+
+#endif // HAVE(WK_SECURE_CODING_NSURLCREDENTIAL)
 
 @interface PKPaymentMerchantSession ()
 - (instancetype)initWithMerchantIdentifier:(NSString *)merchantIdentifier

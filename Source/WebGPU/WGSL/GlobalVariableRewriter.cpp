@@ -404,8 +404,13 @@ void RewriteGlobalVariables::visit(AST::AssignmentStatement& statement)
 {
     Packing lhsPacking = pack(Packing::Either, statement.lhs());
     ASSERT(lhsPacking != Packing::Either);
-    if (lhsPacking == Packing::PackedVec3)
-        lhsPacking = Packing::Either;
+    if (lhsPacking == Packing::PackedVec3) {
+        auto* lhsType = statement.lhs().inferredType();
+        if (auto* ref = std::get_if<Types::Reference>(lhsType))
+            lhsType = ref->element;
+        if (std::holds_alternative<Types::Vector>(*lhsType))
+            lhsPacking = Packing::Either;
+    }
     pack(lhsPacking, statement.rhs());
 }
 
@@ -588,6 +593,8 @@ Packing RewriteGlobalVariables::getPacking(AST::IndexAccessExpression& expressio
     if (auto* pointerType = std::get_if<Types::Pointer>(baseType))
         baseType = pointerType->element;
     if (std::holds_alternative<Types::Vector>(*baseType))
+        return Packing::Unpacked;
+    if (std::holds_alternative<Types::Matrix>(*baseType))
         return Packing::Unpacked;
     ASSERT(std::holds_alternative<Types::Array>(*baseType));
     auto& arrayType = std::get<Types::Array>(*baseType);
@@ -918,6 +925,16 @@ void RewriteGlobalVariables::packResource(AST::Variable& global)
         packStructResource(global, structType);
         return;
     }
+
+    if (auto* matrixType = std::get_if<Types::Matrix>(resolvedType)) {
+        if (matrixType->rows == 3) {
+            m_shaderModule.setUsesPackedVec3();
+            m_shaderModule.setUsesPackVector();
+            m_shaderModule.setUsesUnpackVector();
+            m_shaderModule.replace(&global.role(), AST::VariableRole::PackedResource);
+        }
+        return;
+    }
 }
 
 void RewriteGlobalVariables::packStructResource(AST::Variable& global, const Types::Struct* structType)
@@ -991,6 +1008,14 @@ const Type* RewriteGlobalVariables::packType(const Type* type)
     if (auto* vectorType = std::get_if<Types::Vector>(type)) {
         if (vectorType->size == 3) {
             m_shaderModule.setUsesPackedVec3();
+            return type;
+        }
+    }
+    if (auto* matrixType = std::get_if<Types::Matrix>(type)) {
+        if (matrixType->rows == 3) {
+            m_shaderModule.setUsesPackedVec3();
+            m_shaderModule.setUsesPackVector();
+            m_shaderModule.setUsesUnpackVector();
             return type;
         }
     }
@@ -2553,29 +2578,23 @@ AST::Statement::List RewriteGlobalVariables::storeInitialValue(const UsedPrivate
 void RewriteGlobalVariables::storeInitialValue(AST::Expression& target, AST::Statement::List& statements, unsigned arrayDepth)
 {
     const auto& zeroInitialize = [&]() {
-        // This piece of code generation relies on 2 implementation details from the metal serializer:
-        // - The callee's name won't be used if the call is set to constructor
-        // - There's a special case to handle the case where the left-hand side
-        //   of the assignment doesn't have a type, so we can erase it
-        auto& callee = m_shaderModule.astBuilder().construct<AST::IdentifierExpression>(SourceSpan::empty(), AST::Identifier::make("__initialize"_s));
-        callee.m_inferredType = target.inferredType();
+        m_shaderModule.setUsesZeroWorkgroupVar();
+
+        auto& callee = m_shaderModule.astBuilder().construct<AST::IdentifierExpression>(SourceSpan::empty(), AST::Identifier::make("__wgslZeroWorkgroupVar"_s));
+        callee.m_inferredType = m_shaderModule.types().voidType();
 
         auto& call = m_shaderModule.astBuilder().construct<AST::CallExpression>(
             SourceSpan::empty(),
             callee,
-            AST::Expression::List { }
+            AST::Expression::List { target }
         );
-        call.m_inferredType = target.inferredType();
-        call.m_isConstructor = true;
+        call.m_inferredType = m_shaderModule.types().voidType();
 
-        target.m_inferredType = nullptr;
-
-        auto& assignmentStatement = m_shaderModule.astBuilder().construct<AST::AssignmentStatement>(
+        auto& callStatement = m_shaderModule.astBuilder().construct<AST::CallStatement>(
             SourceSpan::empty(),
-            target,
             call
         );
-        statements.append(AST::Statement::Ref(assignmentStatement));
+        statements.append(AST::Statement::Ref(callStatement));
     };
 
     auto* type = target.inferredType();

@@ -409,9 +409,9 @@ public:
     inline Document* ownerDocument() const;
 
     // Returns the document associated with this node. A document node returns itself.
-    inline Document& document() const; // Defined in NodeDocument.h
+    inline Document& NODELETE document() const; // Defined in NodeDocument.h
 
-    TreeScope& treeScope() const
+    TreeScope& NODELETE treeScope() const
     {
         ASSERT(m_treeScope);
         return *m_treeScope;
@@ -506,7 +506,7 @@ public:
     virtual void removingSteps(RemovalType, ContainerNode& oldParentOfRemovedTree);
 
     // https://dom.spec.whatwg.org/#concept-node-move-ext
-    virtual void movingSteps(bool, ContainerNode&) { };
+    virtual void movingSteps(bool, ContainerNode&);
 
     void updateShadowIncludingRootForSubtree();
 

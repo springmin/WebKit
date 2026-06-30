@@ -463,7 +463,7 @@ void GraphicsContext::clipRoundedRect(const FloatRoundedRect& rect)
 
 void GraphicsContext::clipOutRoundedRect(const FloatRoundedRect& rect)
 {
-    if (!rect.isRounded()) {
+    if (!rect.hasNonZeroRadii()) {
         clipOut(rect.rect());
         return;
     }
@@ -486,18 +486,19 @@ void GraphicsContext::fillRect(const FloatRect& rect, Gradient& gradient)
 
 void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, CompositeOperator op, BlendMode blendMode)
 {
-    CompositeOperator previousOperator = compositeOperation();
+    auto previousCompositeMode = compositeMode();
     setCompositeOperation(op, blendMode);
     fillRect(rect, color);
-    setCompositeOperation(previousOperator);
+    setCompositeMode(previousCompositeMode);
 }
 
 void GraphicsContext::fillRoundedRect(const FloatRoundedRect& rect, const Color& color, BlendMode blendMode)
 {
-    if (rect.isRounded()) {
+    if (rect.hasNonZeroRadii()) {
+        auto previousCompositeMode = compositeMode();
         setCompositeOperation(compositeOperation(), blendMode);
         fillRoundedRectImpl(rect, color);
-        setCompositeOperation(compositeOperation());
+        setCompositeMode(previousCompositeMode);
     } else
         fillRect(rect.rect(), color, compositeOperation(), blendMode);
 }
@@ -550,13 +551,7 @@ void GraphicsContext::strokeArc(const PathArc& arc)
 
 void GraphicsContext::strokeLine(const PathDataLine& line)
 {
-#if ENABLE(INLINE_PATH_DATA)
     auto path = Path({ PathSegment { PathDataLine { { line.start() }, { line.end() } } } });
-#else
-    Path path;
-    path.moveTo(line.start());
-    path.addLineTo(line.end());
-#endif
     strokePath(path);
 }
 
@@ -621,11 +616,13 @@ FloatRect GraphicsContext::computeLineBoundsAndAntialiasingModeForText(const Flo
     }
 
     FloatPoint devicePoint = transform.mapPoint(rect.location());
-    // Visual overflow might occur here due to integral roundf/ceilf. visualOverflowForDecorations adjusts the overflow value for underline decoration.
-    FloatPoint deviceOrigin = FloatPoint(roundf(devicePoint.x()), ceilf(devicePoint.y()));
-    if (auto inverse = transform.inverse())
-        origin = inverse.value().mapPoint(deviceOrigin);
-    return FloatRect(origin, FloatSize(rect.width(), thickness));
+    // Visual overflow might occur here due to integral roundf/floorf/ceilf. visualOverflowForDecorations adjusts the overflow value for underline decoration.
+    if (auto inverse = transform.inverse()) {
+        // Snap away from the decorated text (toward increasing local y).
+        auto snappedDeviceY = transform.d() < 0 ? floorf(devicePoint.y()) : ceilf(devicePoint.y());
+        origin = inverse.value().mapPoint(FloatPoint { roundf(devicePoint.x()), snappedDeviceY });
+    }
+    return { origin, FloatSize { rect.width(), thickness } };
 }
 
 float GraphicsContext::dashedLineCornerWidthForStrokeWidth(float strokeWidth) const

@@ -90,7 +90,7 @@ static WebCore::IntRect screenRectOfContents(WebCore::Element& element)
     IntRect contentsRect = renderer->absoluteBoundingBoxRect();
     if (contentsRect.height() <= 1 || contentsRect.width() <= 1) {
         LayoutRect topLevelRect;
-        contentsRect = snappedIntRect(renderer->paintingRootRect(topLevelRect));
+        contentsRect = snappedIntRect(renderer->subtreePaintRootRect(topLevelRect));
     }
 
     if (contentsRect.isEmpty())
@@ -774,7 +774,7 @@ void WebFullScreenManager::requestExitFullScreen()
 
     RefPtr localMainFrame = m_page->localMainFrame();
     RefPtr topDocument = localMainFrame ? localMainFrame->document() : nullptr;
-    if (!topDocument || !protect(topDocument->fullscreen())->fullscreenElement()) {
+    if (topDocument && !protect(topDocument->fullscreen())->fullscreenElement()) {
         ALWAYS_LOG(LOGIDENTIFIER, "top document not in fullscreen, closing");
         close();
         return;

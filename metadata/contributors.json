@@ -3789,12 +3789,11 @@
    },
    {
       "emails" : [
-         "ian.grunert@gmail.com",
-         "ian@andromeda.net"
+         "ian.grunert@gmail.com"
       ],
       "github" : "iangrunert",
       "name" : "Ian Grunert",
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [
@@ -3898,6 +3897,14 @@
       ],
       "github" : "asiagho",
       "name" : "Isi Agho"
+   },
+   {
+      "emails" : [
+         "iroy@apple.com",
+         "issacroy05@gmail.com"
+      ],
+      "github" : "TheBoyRoy05",
+      "name" : "Issac Roy"
    },
    {
       "emails" : [
@@ -4389,7 +4396,7 @@
       "nicks" : [
          "jesxilin"
       ],
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [
@@ -5599,6 +5606,7 @@
    },
    {
       "emails" : [
+         "info.aeslilly@gmail.com",
          "lilly_le@apple.com"
       ],
       "github" : "codedbycupidity",

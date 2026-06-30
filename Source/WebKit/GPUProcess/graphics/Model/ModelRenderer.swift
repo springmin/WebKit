@@ -21,7 +21,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 // THE POSSIBILITY OF SUCH DAMAGE.
 
-#if ENABLE_GPU_PROCESS_MODEL && canImport(RealityCoreDeformation, _version: 23.0.2) && canImport(USDKit, _version: 106.0.2) && arch(arm64)
+#if ENABLE_GPU_PROCESS_MODEL && canImport(RealityCoreDeformation, _version: 23.0.2) && canImport(ShaderGraph, _version: 159.0.3) && arch(arm64)
 
 import QuartzCore
 import USDKit
@@ -46,7 +46,6 @@ final class Renderer {
     private static let cameraDistance: Float = 0.5
     private var effectiveCameraDistance: Float = Renderer.cameraDistance
     private var fovY: Float = 60 * .pi / 180
-    private var clearColor: MTLClearColor = .init(red: 1, green: 1, blue: 1, alpha: 1)
     var tonemapEnabled: Bool = false
     var rasterSampleCount: Int = 1
     let memoryOwner: task_id_token_t
@@ -212,11 +211,7 @@ final class Renderer {
         renderer.cameras[0].position = cameraPosition
         renderer.cameras[0].rotation = cameraRotation
         renderer.cameras[0].projection = projection
-        if tonemapEnabled {
-            renderer.output.clearColor = MTLClearColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 0.0)
-        } else {
-            renderer.output.clearColor = clearColor
-        }
+        renderer.output.clearColor = MTLClearColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 0.0)
         renderer.output.color = .init(texture: texture)
         try renderer.setMeshInstances(meshInstances, at: 0)
 
@@ -272,10 +267,6 @@ final class Renderer {
 
     func setFOV(_ fovYRadians: Float) {
         fovY = fovYRadians
-    }
-
-    func setBackgroundColor(_ color: simd_float3) {
-        clearColor = MTLClearColor(red: Double(color.x), green: Double(color.y), blue: Double(color.z), alpha: 1.0)
     }
 }
 

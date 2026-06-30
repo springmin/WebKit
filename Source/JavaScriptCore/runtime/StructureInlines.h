@@ -33,11 +33,13 @@
 #include "PropertyTable.h"
 #include "StringPrototype.h"
 #include "StructureArrayStorageInlines.h"
+#include "StructureCache.h"
 #include "StructureChain.h"
 #include "StructureCreateInlines.h"
 #include "StructureInlinesLight.h"
 #include "StructureRareDataInlines.h"
 #include "SymbolPrototype.h"
+#include "WeakGCMapInlines.h"
 #include "WebAssemblyGCStructure.h"
 #include "WriteBarrierInlines.h"
 #include <wtf/Threading.h>
@@ -701,6 +703,24 @@ inline void Structure::clearCachedPrototypeChain()
         return;
     rareData()->clearCachedPropertyNameEnumerator();
 }
+
+inline StructureFireDetail::StructureFireDetail(const Structure* structure)
+    : m_structure(structure)
+{
+}
+
+inline StructureTransitionTable::~StructureTransitionTable()
+{
+    if (!isUsingSingleSlot())
+        delete map();
+}
+
+inline StructureCache::StructureCache(VM& vm)
+    : m_structures(vm)
+{
+}
+
+inline StructureCache::~StructureCache() = default;
 
 } // namespace JSC
 

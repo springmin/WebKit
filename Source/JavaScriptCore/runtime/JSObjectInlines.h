@@ -52,6 +52,41 @@ inline JSCell* getJSFunction(JSValue value)
     return nullptr;
 }
 
+inline JSValue JSObject::getPrototypeDirect() const
+{
+    return structure()->storedPrototype(this);
+}
+
+inline JSValue JSObject::getPrototype(JSGlobalObject* globalObject)
+{
+    if (!structure()->typeInfo().overridesGetPrototype()) [[likely]]
+        return getPrototypeDirect();
+    return methodTable()->getPrototype(this, globalObject);
+}
+
+inline bool JSValue::put(JSGlobalObject* globalObject, PropertyName propertyName, JSValue value, PutPropertySlot& slot)
+{
+    if (!isCell()) [[unlikely]]
+        return putToPrimitive(globalObject, propertyName, value, slot);
+
+    return asCell()->methodTable()->put(asCell(), globalObject, propertyName, value, slot);
+}
+
+inline bool JSValue::putByIndex(JSGlobalObject* globalObject, unsigned propertyName, JSValue value, bool shouldThrow)
+{
+    if (!isCell()) [[unlikely]]
+        return putToPrimitiveByIndex(globalObject, propertyName, value, shouldThrow);
+
+    return asCell()->methodTable()->putByIndex(asCell(), globalObject, propertyName, value, shouldThrow);
+}
+
+ALWAYS_INLINE JSValue JSValue::getPrototype(JSGlobalObject* globalObject) const
+{
+    if (isObject())
+        return asObject(asCell())->getPrototype(globalObject);
+    return synthesizePrototype(globalObject);
+}
+
 inline Structure* JSObject::createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
 {
     return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
@@ -1412,8 +1447,11 @@ inline bool JSObject::trySetIndexQuickly(VM& vm, unsigned i, JSValue v, ArrayPro
         if (i >= butterfly->vectorLength())
             return false;
         butterfly->contiguous().at(this, i).setWithoutWriteBarrier(v);
-        if (i >= butterfly->publicLength())
+        if (i >= butterfly->publicLength()) {
             butterfly->setPublicLength(i + 1);
+            if (arrayProfile)
+                arrayProfile->setMayStoreHole();
+        }
         vm.writeBarrier(this, v);
         return true;
     }
@@ -1430,16 +1468,23 @@ inline bool JSObject::trySetIndexQuickly(VM& vm, unsigned i, JSValue v, ArrayPro
             return true;
         }
         butterfly->contiguousDouble().at(this, i) = value;
-        if (i >= butterfly->publicLength())
+        if (i >= butterfly->publicLength()) {
             butterfly->setPublicLength(i + 1);
+            if (arrayProfile)
+                arrayProfile->setMayStoreHole();
+        }
         return true;
     }
     case NonArrayWithArrayStorage:
-    case ArrayWithArrayStorage:
-        if (i >= butterfly->vectorLength())
+    case ArrayWithArrayStorage: {
+        ArrayStorage* storage = butterfly->arrayStorage();
+        if (i >= storage->vectorLength())
             return false;
+        if (arrayProfile && !storage->m_vector[i])
+            arrayProfile->setMayStoreHole();
         setIndexQuicklyForArrayStorageIndexingType(vm, i, v);
         return true;
+    }
     case NonArrayWithSlowPutArrayStorage:
     case ArrayWithSlowPutArrayStorage:
         if (i >= butterfly->arrayStorage()->vectorLength() || !butterfly->arrayStorage()->m_vector[i])

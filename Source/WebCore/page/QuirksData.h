@@ -31,6 +31,7 @@
 namespace WebCore {
 
 struct QuirksData {
+    bool isAirIndiaExpress : 1 { false };
     bool isAmazon : 1 { false };
     bool isBankOfAmerica : 1 { false };
     bool isBestBuy : 1 { false };
@@ -80,9 +81,13 @@ struct QuirksData {
 #if ENABLE(TWO_PHASE_CLICKS)
         MayNeedToIgnoreContentObservation,
 #endif
+        NeedsAirIndiaExpressLayeringQuirk,
         NeedsBodyScrollbarWidthNoneDisabledQuirk,
         NeedsCanPlayAfterSeekedQuirk,
         NeedsChromeMediaControlsPseudoElementQuirk,
+#if PLATFORM(COCOA)
+        NeedsCNNCaptionQuirk,
+#endif
         NeedsLogoutCookieCleanupQuirk,
 #if PLATFORM(IOS_FAMILY)
         NeedsAmazonDesignMenuViewportUnitQuirk,
@@ -150,6 +155,9 @@ struct QuirksData {
 #if ENABLE(VIDEO_PRESENTATION_MODE)
         RequiresUserGestureToLoadInPictureInPictureQuirk,
         RequiresUserGestureToPauseInPictureInPictureQuirk,
+#endif
+#if ENABLE(FULLSCREEN_API)
+        RequiresUserGestureToPlayInFullscreenQuirk,
 #endif
         ReturnNullPictureInPictureElementDuringFullscreenChangeQuirk,
 #if PLATFORM(IOS_FAMILY)

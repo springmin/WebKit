@@ -62,8 +62,20 @@ void SkiaBackingStore::update(const FloatSize& size, float scale, CoordinatedBac
     for (const auto& tileUpdate : update.tilesToUpdate()) {
         auto it = m_tiles.find(tileUpdate.tileID);
         ASSERT(it != m_tiles.end());
-        it->value.update(tileUpdate.dirtyRect, tileUpdate.tileRect, tileUpdate.buffer);
+        it->value.scheduleUpdate(tileUpdate.dirtyRect, tileUpdate.tileRect, tileUpdate.buffer);
+        m_hasPendingTileUpdates = true;
     }
+}
+
+void SkiaBackingStore::processPendingTileUpdates()
+{
+    if (!m_hasPendingTileUpdates)
+        return;
+
+    for (auto& tile : m_tiles.values())
+        tile.processPendingUpdateIfNeeded();
+
+    m_hasPendingTileUpdates = false;
 }
 
 static inline bool allTileEdgesExposed(const FloatRect& totalRect, const FloatRect& tileRect)
@@ -92,15 +104,21 @@ void SkiaBackingStore::paintToCanvas(SkCanvas& canvas, const SkPaint& paint)
     }
 }
 
-Vector<SkCanvas::ImageSetEntry> SkiaBackingStore::buildImageSet(size_t matrixIndex, float opacity, bool enableAntialias) const
+Vector<SkCanvas::ImageSetEntry> SkiaBackingStore::buildImageSet(SkCanvas& canvas, const SkMatrix& ctm, size_t matrixIndex, float opacity, bool enableAntialias) const
 {
     if (m_tiles.isEmpty())
         return { };
 
     FloatRect layerRect = { { }, m_size };
 
+    SkAutoCanvasRestore autoRestore(&canvas, true);
+    canvas.concat(ctm);
+
     Vector<SkCanvas::ImageSetEntry> images;
     for (auto& tile : m_tiles.values()) {
+        if (canvas.quickReject(tile.rect()))
+            continue;
+
         const auto& image = tile.image();
         if (!image)
             continue;
@@ -116,6 +134,18 @@ void SkiaBackingStore::drawDebugBorders(SkCanvas& canvas, const SkPaint& paint)
 {
     for (const auto& tile : m_tiles.values())
         canvas.drawRect(SkRect(tile.rect()), paint);
+}
+
+void SkiaBackingStore::Tile::scheduleUpdate(const IntRect& dirtyRect, const IntRect& tileRect, CoordinatedTileBuffer& buffer)
+{
+    m_pendingUpdates.append({ tileRect, dirtyRect, Ref { buffer } });
+}
+
+void SkiaBackingStore::Tile::processPendingUpdateIfNeeded()
+{
+    for (auto& pendingUpdate : m_pendingUpdates)
+        update(pendingUpdate.dirtyRect, pendingUpdate.tileRect, pendingUpdate.buffer.get());
+    m_pendingUpdates.clear();
 }
 
 void SkiaBackingStore::Tile::ensureTexture(const IntSize& size, CoordinatedTileBuffer& buffer)

@@ -220,7 +220,7 @@ bool RenderFragmentedFlow::absoluteQuadsForBox(Vector<FloatQuad>& quads, bool* w
     if (!hasValidFragmentInfo())
         return false;
 
-    auto boxRect = FloatRect { { }, box.size() };
+    auto boxRect = FloatRect { { }, box.borderBoxSize() };
     auto boxRectInFlowCoordinates = LayoutRect { box.localToContainerQuad(boxRect, this).boundingBox() };
 
     RenderFragmentContainer* startFragment = nullptr;
@@ -247,7 +247,7 @@ bool RenderFragmentedFlow::boxIsFragmented(const RenderBox& box) const
 {
     ASSERT(hasValidFragmentInfo());
 
-    auto boxRect = FloatRect { { }, box.size() };
+    auto boxRect = FloatRect { { }, box.borderBoxSize() };
     auto boxRectInFlowCoordinates = LayoutRect { box.localToContainerQuad(boxRect, this).boundingBox() };
 
     RenderFragmentContainer* startFragment = nullptr;
@@ -781,7 +781,7 @@ LayoutUnit RenderFragmentedFlow::offsetFromLogicalTopOfFirstFragment(const Rende
     // Use container() rather than containingBlock() since containingBlock()
     // skips non-RenderBlock ancestors like RenderTableSection.
     CheckedPtr<const RenderBox> currentBox = currentBlock;
-    LayoutRect blockRect(0_lu, 0_lu, currentBox->width(), currentBox->height());
+    LayoutRect blockRect(0_lu, 0_lu, currentBox->borderBoxWidth(), currentBox->borderBoxHeight());
     auto nextBoxContainer = [](const RenderElement& renderer) -> const RenderElement* {
         auto* container = renderer.container();
         // Skip non-box ancestors like RenderInline that don't contribute offsets.
@@ -800,9 +800,9 @@ LayoutUnit RenderFragmentedFlow::offsetFromLogicalTopOfFirstFragment(const Rende
             // and we have to take into account both the container and current block flipping modes
             if (containerBox->writingMode().isBlockFlipped()) {
                 if (containerBox->isHorizontalWritingMode())
-                    blockRect.setY(currentBox->height() - blockRect.maxY());
+                    blockRect.setY(currentBox->borderBoxHeight() - blockRect.maxY());
                 else
-                    blockRect.setX(currentBox->width() - blockRect.maxX());
+                    blockRect.setX(currentBox->borderBoxWidth() - blockRect.maxX());
             }
             currentBox->flipForWritingMode(blockRect);
         }

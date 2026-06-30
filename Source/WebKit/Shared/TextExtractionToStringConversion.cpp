@@ -27,6 +27,7 @@
 #include "TextExtractionToStringConversion.h"
 
 #include <WebCore/HTMLNames.h>
+#include <WebCore/ICUSearcher.h>
 #include <WebCore/TextExtractionTypes.h>
 #include <wtf/EnumSet.h>
 #include <wtf/JSONValues.h>
@@ -34,6 +35,9 @@
 #include <wtf/Scope.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <unicode/ubrk.h>
+#include <unicode/uchar.h>
+#include <unicode/unorm2.h>
+#include <unicode/utf16.h>
 #include <wtf/text/CharacterProperties.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
@@ -90,6 +94,9 @@ static String truncateByWordCount(StringView text, uint64_t wordLimit, const Vec
     auto truncateComponent = [wordLimit](auto&& component, const Vector<CharacterRange>& localLinkRanges) -> String {
         if (component.isEmpty())
             return emptyString();
+
+        if (!wordLimit)
+            return makeString(u"…"_str);
 
         auto* iterator = WTF::wordBreakIterator(component);
         if (!iterator)
@@ -365,6 +372,7 @@ struct TextExtractionLine {
     unsigned enclosingBlockNumber { 0 };
     unsigned superscriptLevel { 0 };
     unsigned visualBlockContainerNumber { 0 };
+    std::optional<String> nodeIdentifier { };
 };
 
 static bool shouldEmitFullStopBetweenLines(const TextExtractionLine& previous, const String& previousText, const TextExtractionLine& line, const String& text)
@@ -407,6 +415,90 @@ static bool shouldEmitExtraSpace(char16_t previousCharacter, char16_t nextCharac
 
 enum class HasAdjacentLinkAfter : bool { No, Yes };
 
+static String lineWithoutNodeIdentifier(const String&, const std::optional<String>&);
+
+struct FoldedTextResult {
+    String text;
+    Vector<unsigned> sourceOffsetByFoldedIndex;
+};
+
+static FoldedTextResult foldForReplacement(const String& source)
+{
+    auto quoteFolded = foldQuoteMarks(source);
+
+    UErrorCode status = U_ZERO_ERROR;
+    auto* normalizer = unorm2_getNFDInstance(&status);
+    ASSERT(U_SUCCESS(status));
+
+    StringBuilder builder;
+    builder.reserveCapacity(quoteFolded.length());
+    Vector<unsigned> sourceOffsetByFoldedIndex;
+    sourceOffsetByFoldedIndex.reserveCapacity(quoteFolded.length() + 1);
+
+    auto appendCodePoint = [&](StringView chunk, unsigned originalStart) {
+        auto folded = chunk.toString().foldCase();
+        if (folded.containsOnlyASCII()) {
+            for (unsigned i = 0; i < folded.length(); ++i) {
+                builder.append(folded[i]);
+                sourceOffsetByFoldedIndex.append(originalStart);
+            }
+            return;
+        }
+
+        auto upconverted = StringView { folded }.upconvertedCharacters();
+        auto foldedSpan = upconverted.span();
+
+        std::array<char16_t, 16> stackBuffer;
+        Vector<char16_t> heapBuffer;
+        std::span<const char16_t> decomposed;
+        status = U_ZERO_ERROR;
+        int32_t needed = unorm2_normalize(normalizer, foldedSpan.data(), foldedSpan.size(), stackBuffer.data(), stackBuffer.size(), &status);
+        if (U_SUCCESS(status))
+            decomposed = std::span { stackBuffer }.first(static_cast<size_t>(needed));
+        else {
+            ASSERT(status == U_BUFFER_OVERFLOW_ERROR);
+            heapBuffer.grow(needed);
+            status = U_ZERO_ERROR;
+            unorm2_normalize(normalizer, foldedSpan.data(), foldedSpan.size(), heapBuffer.mutableSpan().data(), heapBuffer.size(), &status);
+            ASSERT(U_SUCCESS(status));
+            decomposed = heapBuffer.span();
+        }
+
+        for (size_t i = 0; i < decomposed.size();) {
+            char32_t codePoint = 0;
+            U16_NEXT(decomposed, i, decomposed.size(), codePoint);
+            if (u_charType(codePoint) == U_NON_SPACING_MARK)
+                continue;
+
+            if (U_IS_BMP(codePoint)) {
+                builder.append(static_cast<char16_t>(codePoint));
+                sourceOffsetByFoldedIndex.append(originalStart);
+            } else {
+                builder.append(U16_LEAD(codePoint));
+                sourceOffsetByFoldedIndex.append(originalStart);
+                builder.append(U16_TRAIL(codePoint));
+                sourceOffsetByFoldedIndex.append(originalStart);
+            }
+        }
+    };
+
+    auto quoteFoldedView = StringView { quoteFolded };
+    for (unsigned i = 0; i < quoteFoldedView.length();) {
+        unsigned start = i;
+        char32_t codePoint;
+        U16_NEXT(quoteFoldedView, i, quoteFoldedView.length(), codePoint);
+        appendCodePoint(quoteFoldedView.substring(start, i - start), start);
+    }
+    sourceOffsetByFoldedIndex.append(quoteFolded.length());
+
+    return { builder.toString(), WTF::move(sourceOffsetByFoldedIndex) };
+}
+
+String foldTextForReplacement(const String& source)
+{
+    return foldForReplacement(source).text;
+}
+
 class TextExtractionAggregator : public RefCounted<TextExtractionAggregator> {
     WTF_MAKE_NONCOPYABLE(TextExtractionAggregator);
     WTF_MAKE_TZONE_ALLOCATED(TextExtractionAggregator);
@@ -423,8 +515,7 @@ public:
     {
         addNativeMenuItemsIfNeeded();
         addVersionNumberIfNeeded();
-
-        m_completion({ takeResults(), m_filteredOutAnyText, std::exchange(m_shortenedURLStrings, { }), std::exchange(m_textToContainerMap, { }) });
+        m_completion({ takeResults(), m_filteredOutAnyText, std::exchange(m_shortenedURLStrings, { }), std::exchange(m_textToContainerMap, { }), std::exchange(m_lineContents, { }) });
     }
 
     String takeResults()
@@ -460,6 +551,14 @@ public:
         }
 
         if (useTextTreeOutput() || useHTMLOutput()) {
+            if (useTextTreeOutput()) {
+                m_lineContents = m_lines.map([](auto& stringAndLine) {
+                    return TextExtractionLineContent {
+                        lineWithoutNodeIdentifier(stringAndLine.first, stringAndLine.second.nodeIdentifier),
+                        stringAndLine.second.nodeIdentifier
+                    };
+                });
+            }
             return makeStringByJoining(m_lines.map([](auto& stringAndLine) {
                 return stringAndLine.first;
             }), "\n"_s);
@@ -513,7 +612,7 @@ public:
         if (components.isEmpty())
             return;
 
-        auto [lineIndex, indentLevel, enclosingBlockNumber, superscriptLevel, visualBlockContainerNumber] = line;
+        auto [lineIndex, indentLevel, enclosingBlockNumber, superscriptLevel, visualBlockContainerNumber, nodeIdentifier] = line;
         if (lineIndex >= m_lines.size()) {
             ASSERT_NOT_REACHED();
             return;
@@ -617,9 +716,38 @@ public:
 
     void applyReplacements(String& text)
     {
-        for (auto& [original, replacement] : m_options.replacementStrings)
-            text = makeStringByReplacingAll(text, original, replacement);
+        if (m_options.replacementStrings.isEmpty())
+            return;
+
+        auto folded = foldForReplacement(text);
+        StringBuilder result;
+        result.reserveCapacity(text.length());
+        unsigned cursor = 0;
+        while (cursor < folded.text.length()) {
+            bool matched = false;
+            for (auto& [foldedKey, replacement] : m_options.replacementStrings) {
+                if (foldedKey.length() > folded.text.length() - cursor)
+                    continue;
+                if (StringView { folded.text }.substring(cursor, foldedKey.length()) != foldedKey)
+                    continue;
+
+                result.append(replacement);
+                cursor += foldedKey.length();
+                matched = true;
+                break;
+            }
+
+            if (matched)
+                continue;
+
+            unsigned originalStart = folded.sourceOffsetByFoldedIndex[cursor];
+            unsigned originalEnd = folded.sourceOffsetByFoldedIndex[cursor + 1];
+            result.append(StringView { text }.substring(originalStart, originalEnd - originalStart));
+            ++cursor;
+        }
+        text = result.toString();
     }
+
 
     void truncateTextByWordLimitIfNeeded(String& text, const Vector<CharacterRange>& linkCharacterRanges = { }, HasAdjacentLinkAfter hasAdjacentLinkAfter = HasAdjacentLinkAfter::No)
     {
@@ -830,6 +958,7 @@ private:
 
     const TextExtractionOptions m_options;
     Vector<std::pair<String, TextExtractionLine>> m_lines;
+    Vector<TextExtractionLineContent> m_lineContents;
     Vector<String, 1> m_urlStringStack;
     unsigned m_superscriptLevel { 0 };
     unsigned m_strikethroughLevel { 0 };
@@ -1276,6 +1405,21 @@ static String quoteValue(const String& value, bool conditionalQuoting)
 
 enum class IncludeRectForParentItem : bool { No, Yes };
 
+static String lineWithoutNodeIdentifier(const String& line, const std::optional<String>& identifier)
+{
+    if (!identifier)
+        return line;
+
+    auto token = makeString("uid="_s, *identifier);
+    size_t location = line.find(token);
+    if (location == notFound)
+        return line;
+
+    unsigned start = static_cast<unsigned>(location);
+    unsigned end = start + token.length();
+    return makeString(StringView { line }.left(start), StringView { line }.substring(end));
+}
+
 static Vector<String> partsForItem(const TextExtraction::Item& item, const TextExtractionAggregator& aggregator, IncludeRectForParentItem includeRectForParentItem)
 {
     Vector<String> parts;
@@ -1443,10 +1587,12 @@ static void addPartsForText(const TextExtraction::TextItemData& textItem, Vector
     });
 }
 
-static void addPartsForItem(const TextExtraction::Item& item, std::optional<NodeIdentifier>&& enclosingNode, const TextExtractionLine& line, TextExtractionAggregator& aggregator, IncludeRectForParentItem includeRectForParentItem, HasAdjacentLinkAfter hasAdjacentLinkAfter = HasAdjacentLinkAfter::No)
+static void addPartsForItem(const TextExtraction::Item& item, std::optional<NodeIdentifier>&& enclosingNode, TextExtractionLine line, TextExtractionAggregator& aggregator, IncludeRectForParentItem includeRectForParentItem, HasAdjacentLinkAfter hasAdjacentLinkAfter = HasAdjacentLinkAfter::No)
 {
     Vector<String> parts;
     bool streamlined = aggregator.useTextTreeOutput();
+    if (item.nodeIdentifier)
+        line.nodeIdentifier = aggregator.stringForIdentifiers(item.frameIdentifier, *item.nodeIdentifier);
     WTF::switchOn(item.data,
         [&](const TextExtraction::ContainerType& containerType) {
             auto containerString = containerTypeString(containerType);
@@ -1941,7 +2087,41 @@ static void addTextRepresentationRecursive(const TextExtraction::Item& item, std
         }
     }
 
+    std::optional<size_t> inlinedTextChildIndex;
+    std::optional<size_t> elidedTextChildIndex;
+    if (aggregator.useTextTreeOutput() && item.children.size() > 1 && (containerType == TextExtraction::ContainerType::Button || item.hasData<TextExtraction::LinkItemData>())) {
+        size_t textChildCount = 0;
+        size_t firstTextChildIndex = 0;
+        for (size_t i = 0; i < item.children.size(); ++i) {
+            if (item.children[i].hasData<TextExtraction::TextItemData>()) {
+                if (!textChildCount)
+                    firstTextChildIndex = i;
+                ++textChildCount;
+            }
+        }
+
+        if (textChildCount == 1) {
+            auto& textChild = item.children[firstTextChildIndex];
+            if (auto textData = textChild.dataAs<TextExtraction::TextItemData>()) {
+                auto trimmed = textData->content.trim(isASCIIWhitespace);
+                aggregator.collectTextMapping(trimmed, item.frameIdentifier, identifier, item.nodeIdentifier ? ExtractedNodeInfo::IsInteractive::Yes : ExtractedNodeInfo::IsInteractive::No);
+                if (childTextNodeIsRedundant(aggregator, item, trimmed))
+                    elidedTextChildIndex = firstTextChildIndex;
+                else {
+                    inlinedTextChildIndex = firstTextChildIndex;
+                    addPartsForItem(textChild, std::optional { identifier }, line, aggregator, includeRectForParentItem);
+                }
+            }
+        }
+    }
+
     for (size_t i = 0; i < item.children.size(); ++i) {
+        if (inlinedTextChildIndex && i == *inlinedTextChildIndex)
+            continue;
+
+        if (elidedTextChildIndex && i == *elidedTextChildIndex)
+            continue;
+
         auto& child = item.children[i];
         bool childHasLinkAfter = i + 1 < item.children.size() && item.children[i + 1].hasData<TextExtraction::LinkItemData>();
         addTextRepresentationRecursive(child, std::optional { identifier }, depth + 1, aggregator, childHasLinkAfter ? HasAdjacentLinkAfter::Yes : HasAdjacentLinkAfter::No);

@@ -32,7 +32,7 @@
 #include "PlatformRenderTheme.h"
 #include "RenderBlock.h"
 #include "RenderTheme.h"
-#include "StyleComputedStyleBase+ConstructionInlines.h"
+#include "StyleComputedStyle+ConstructionInlines.h"
 #include "StyleCustomPropertyRegistry.h"
 #include "StyleLineHeight.h"
 #include "StylePrimitiveNumericTypes+Evaluation.h"
@@ -101,22 +101,7 @@ static_assert(sizeof(ComputedStyle) == sizeof(SameSizeAsComputedStyle), "Compute
 ComputedStyle::ComputedStyle(ComputedStyle&&) = default;
 ComputedStyle& ComputedStyle::operator=(ComputedStyle&&) = default;
 
-inline ComputedStyle::ComputedStyle(CreateDefaultStyleTag tag)
-    : ComputedStyleProperties { tag }
-{
-}
-
-inline ComputedStyle::ComputedStyle(const ComputedStyle& other, CloneTag tag)
-    : ComputedStyleProperties { other, tag }
-{
-}
-
-inline ComputedStyle::ComputedStyle(ComputedStyle& a, ComputedStyle&& b)
-    : ComputedStyleProperties { a, WTF::move(b) }
-{
-}
-
-ComputedStyle& ComputedStyle::defaultStyleSingleton()
+SUPPRESS_NODELETE ComputedStyle& ComputedStyle::defaultStyleSingleton()
 {
     static NeverDestroyed<ComputedStyle> style { CreateDefaultStyle };
     return style;
@@ -137,7 +122,7 @@ std::unique_ptr<ComputedStyle> ComputedStyle::createPtrWithRegisteredInitialValu
     return clonePtr(registry.initialValuePrototypeStyle());
 }
 
-ComputedStyle ComputedStyle::clone(const ComputedStyle& style)
+SUPPRESS_NODELETE ComputedStyle ComputedStyle::clone(const ComputedStyle& style)
 {
     return ComputedStyle(style, Clone);
 }
@@ -175,7 +160,7 @@ ComputedStyle ComputedStyle::createStyleInheritingFromPseudoStyle(const Computed
     return style;
 }
 
-ComputedStyle ComputedStyle::replace(ComputedStyle&& newStyle)
+SUPPRESS_NODELETE ComputedStyle ComputedStyle::replace(ComputedStyle&& newStyle)
 {
     return ComputedStyle { *this, WTF::move(newStyle) };
 }
@@ -200,6 +185,11 @@ void ComputedStyle::inheritFrom(const ComputedStyle& inheritParent)
 
     if (m_svgData != inheritParent.m_svgData)
         m_svgData.access().inheritFrom(inheritParent.m_svgData.get());
+}
+
+bool ComputedStyle::isListItemType() const
+{
+    return display().isListItemType();
 }
 
 void ComputedStyle::inheritIgnoringCustomPropertiesFrom(const ComputedStyle& inheritParent)
@@ -604,11 +594,11 @@ Style::LineWidth ComputedStyle::usedColumnRuleWidth() const
     return columnRuleWidth();
 }
 
-Style::Length<> ComputedStyle::usedOutlineOffset() const
+Style::Length<CSS::AllUnzoomed> ComputedStyle::usedOutlineOffset() const
 {
     auto& outline = this->outline();
     if (outline.outlineOffset.isInternalInset())
-        return Style::Length<> { -Style::evaluate<float>(usedOutlineWidth(), Style::ZoomNeeded { }) };
+        return Style::Length<CSS::AllUnzoomed> { -usedOutlineWidth().unresolvedValue() };
     return *outline.outlineOffset.tryLength();
 }
 
@@ -618,58 +608,58 @@ Style::LineWidth ComputedStyle::usedOutlineWidth() const
     if (static_cast<OutlineStyle>(outline.outlineStyle) == OutlineStyle::None)
         return 0_css_px;
     if (static_cast<OutlineStyle>(outline.outlineStyle) == OutlineStyle::Auto)
-        return Style::LineWidth { RenderTheme::singleton().platformFocusRingWidth() * usedZoom() };
+        return Style::LineWidth { RenderTheme::singleton().platformFocusRingWidth() };
     return outline.outlineWidth;
 }
 
-float ComputedStyle::usedOutlineSize() const
+float ComputedStyle::usedOutlineSize(Style::ZoomFactor zoom, float deviceScaleFactor) const
 {
-    return std::max(0.0f, Style::evaluate<float>(usedOutlineWidth(), Style::ZoomNeeded { }) + Style::evaluate<float>(usedOutlineOffset(), Style::ZoomNeeded { }));
+    return std::max(0.0f, Style::evaluate<float>(usedOutlineWidth(), zoom, deviceScaleFactor) + Style::evaluate<float>(usedOutlineOffset(), zoom));
 }
 
 // MARK: - Derived Values
 
 template<typename OutsetValue>
-static LayoutUnit computeOutset(const OutsetValue& outsetValue, LayoutUnit borderWidth)
+static LayoutUnit computeOutset(const OutsetValue& outsetValue, const Style::LineWidth& borderWidth, Style::ZoomFactor zoom, float deviceScaleFactor)
 {
     return WTF::switchOn(outsetValue,
         [&](const typename OutsetValue::Number& number) {
-            return LayoutUnit(number.value * borderWidth);
+            return LayoutUnit(Style::evaluate<LayoutUnit>(borderWidth, zoom, deviceScaleFactor) * number.value);
         },
         [&](const typename OutsetValue::Length& length) {
-            return LayoutUnit(length.resolveZoom(Style::ZoomNeeded { }));
+            return Style::evaluate<LayoutUnit>(length, Style::ZoomNeeded { });
         }
     );
 }
 
-LayoutBoxExtent ComputedStyle::imageOutsets(const Style::BorderImage& image) const
+static LayoutBoxExtent computeOutsets(const auto& outsets, const auto& borderWidths, Style::ZoomFactor zoom, float deviceScaleFactor)
 {
     return {
-        computeOutset(image.outset().values.top(), Style::evaluate<LayoutUnit>(usedBorderTopWidth(), Style::ZoomNeeded { })),
-        computeOutset(image.outset().values.right(), Style::evaluate<LayoutUnit>(usedBorderRightWidth(), Style::ZoomNeeded { })),
-        computeOutset(image.outset().values.bottom(), Style::evaluate<LayoutUnit>(usedBorderBottomWidth(), Style::ZoomNeeded { })),
-        computeOutset(image.outset().values.left(), Style::evaluate<LayoutUnit>(usedBorderLeftWidth(), Style::ZoomNeeded { })),
+        computeOutset(outsets.top(), borderWidths.top(), zoom, deviceScaleFactor),
+        computeOutset(outsets.right(), borderWidths.right(), zoom, deviceScaleFactor),
+        computeOutset(outsets.bottom(), borderWidths.bottom(), zoom, deviceScaleFactor),
+        computeOutset(outsets.left(), borderWidths.left(), zoom, deviceScaleFactor),
     };
 }
 
-LayoutBoxExtent ComputedStyle::imageOutsets(const Style::MaskBorder& image) const
+LayoutBoxExtent ComputedStyle::imageOutsets(const Style::BorderImage& image, float deviceScaleFactor) const
 {
-    return {
-        computeOutset(image.outset().values.top(), Style::evaluate<LayoutUnit>(usedBorderTopWidth(), Style::ZoomNeeded { })),
-        computeOutset(image.outset().values.right(), Style::evaluate<LayoutUnit>(usedBorderRightWidth(), Style::ZoomNeeded { })),
-        computeOutset(image.outset().values.bottom(), Style::evaluate<LayoutUnit>(usedBorderBottomWidth(), Style::ZoomNeeded { })),
-        computeOutset(image.outset().values.left(), Style::evaluate<LayoutUnit>(usedBorderLeftWidth(), Style::ZoomNeeded { })),
-    };
+    return computeOutsets(image.outset().values, usedBorderWidths(), usedZoomForLength(), deviceScaleFactor);
 }
 
-LayoutBoxExtent ComputedStyle::borderImageOutsets() const
+LayoutBoxExtent ComputedStyle::imageOutsets(const Style::MaskBorder& image, float deviceScaleFactor) const
 {
-    return imageOutsets(borderImage());
+    return computeOutsets(image.outset().values, usedBorderWidths(), usedZoomForLength(), deviceScaleFactor);
 }
 
-LayoutBoxExtent ComputedStyle::maskBorderOutsets() const
+LayoutBoxExtent ComputedStyle::borderImageOutsets(float deviceScaleFactor) const
 {
-    return imageOutsets(maskBorder());
+    return imageOutsets(borderImage(), deviceScaleFactor);
+}
+
+LayoutBoxExtent ComputedStyle::maskBorderOutsets(float deviceScaleFactor) const
+{
+    return imageOutsets(maskBorder(), deviceScaleFactor);
 }
 
 // MARK: - Logical

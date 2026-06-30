@@ -41,9 +41,10 @@
 #include "RenderObjectInlines.h"
 #include "RenderView.h"
 #include "SVGElementInlines.h"
+#include "SVGElementTypeHelpers.h"
 #include "SVGGraphicsElement.h"
-#include "SVGNames.h"
 #include "SVGResourcesCache.h"
+#include "SVGUseElement.h"
 #include "ShadowRoot.h"
 #include <wtf/TZoneMallocInlines.h>
 
@@ -97,14 +98,14 @@ const RenderElement* LegacyRenderSVGModelObject::pushMappingToContainer(const Re
     return SVGRenderSupport::pushMappingToContainer(*this, ancestorToStopAt, geometryMap);
 }
 
-static void adjustRectForOutlineAndShadow(const LegacyRenderSVGModelObject& renderer, LayoutRect& rect, const Style::ZoomFactor& zoomFactor)
+static void adjustRectForOutlineAndShadow(const LegacyRenderSVGModelObject& renderer, LayoutRect& rect)
 {
     auto shadowRect = rect;
     if (auto& boxShadow = renderer.style().boxShadow(); !boxShadow.isNone())
-        Style::adjustRectForShadow(shadowRect, boxShadow, zoomFactor);
+        Style::adjustRectForShadow(shadowRect, boxShadow, renderer.style().usedZoomForLength());
 
     auto outlineRect = rect;
-    auto outlineSize = LayoutUnit { renderer.outlineStyleForRepaint().usedOutlineSize() };
+    auto outlineSize = LayoutUnit { renderer.outlineStyleForRepaint().usedOutlineSize(renderer.outlineStyleForRepaint().usedZoomForLength(), renderer.outlineStyleForRepaint().deviceScaleFactor()) };
     if (outlineSize)
         outlineRect.inflate(outlineSize);
 
@@ -113,11 +114,11 @@ static void adjustRectForOutlineAndShadow(const LegacyRenderSVGModelObject& rend
 
 // Copied from RenderBox, this method likely requires further refactoring to work easily for both SVG and CSS Box Model content.
 // FIXME: This may also need to move into SVGRenderSupport as the RenderBox version depends
-// on borderBoundingBox() which SVG RenderBox subclases (like SVGRenderBlock) do not implement.
+// on borderBoundingBox() which SVG RenderBox subclasses (like SVGRenderBlock) do not implement.
 LayoutRect LegacyRenderSVGModelObject::outlineBoundsForRepaint(const RenderLayerModelObject* repaintContainer, const RenderGeometryMap*) const
 {
     LayoutRect box = enclosingLayoutRect(repaintRectInLocalCoordinates());
-    adjustRectForOutlineAndShadow(*this, box, style().usedZoomForLength());
+    adjustRectForOutlineAndShadow(*this, box);
 
     FloatQuad containerRelativeQuad = localToContainerQuad(FloatRect(box), repaintContainer);
     return LayoutRect(snapRectToDevicePixels(LayoutRect(containerRelativeQuad.boundingBox()), protect(document())->deviceScaleFactor()));
@@ -206,7 +207,7 @@ static bool NODELETE legacyIntersectsAllowingEmpty(const FloatRect& r, const Flo
 // image, line, path, polygon, polyline, rect, text and use.
 static bool NODELETE legacyIsGraphicsElement(const RenderElement& renderer)
 {
-    return renderer.isLegacyRenderSVGShape() || renderer.isRenderSVGText() || renderer.isLegacyRenderSVGImage() || renderer.element()->hasTagName(SVGNames::useTag);
+    return renderer.isLegacyRenderSVGShape() || renderer.isRenderSVGText() || renderer.isLegacyRenderSVGImage() || is<SVGUseElement>(renderer.element());
 }
 
 // The SVG addFocusRingRects() method adds rects in local coordinates so the default absoluteFocusRingQuads

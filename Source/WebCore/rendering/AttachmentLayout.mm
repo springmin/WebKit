@@ -228,12 +228,12 @@ static CGFloat attachmentDynamicTypeScaleFactor()
 AttachmentLayout::AttachmentLayout(const RenderAttachment& attachment, AttachmentLayoutStyle)
 {
     excludeTypographicLeading = true;
-    attachmentRect = FloatRect(0, 0, attachment.width().toFloat(), attachment.height().toFloat());
+    attachmentRect = FloatRect(0, 0, attachment.borderBoxWidth().toFloat(), attachment.borderBoxHeight().toFloat());
     wrappingWidth = attachmentWrappingTextMaximumWidth * attachmentDynamicTypeScaleFactor();
     widthPadding = attachmentRect.width();
 
     hasProgress = getAttachmentProgress(attachment, progress);
-    String title = attachment.attachmentElement().attachmentTitleForDisplay();
+    String title = protect(attachment.attachmentElement())->attachmentTitleForDisplay();
     String action = attachment.attachmentElement().attachmentActionForDisplay();
     String subtitle = attachment.attachmentElement().attachmentSubtitleForDisplay();
 
@@ -245,7 +245,7 @@ AttachmentLayout::AttachmentLayout(const RenderAttachment& attachment, Attachmen
     }
 
     if (action.isEmpty() && !hasProgress) {
-        attachment.attachmentElement().requestIconIfNeededWithSize(FloatSize());
+        protect(attachment.attachmentElement())->requestIconIfNeededWithSize(FloatSize());
         FloatSize iconSize = attachment.attachmentElement().iconSize();
         icon = attachment.attachmentElement().icon();
         

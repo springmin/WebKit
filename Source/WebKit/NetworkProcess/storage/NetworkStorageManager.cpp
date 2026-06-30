@@ -1573,6 +1573,20 @@ void NetworkStorageManager::resume()
     workQueue().resume();
 }
 
+void NetworkStorageManager::setWebProcessSuspended(WebCore::ProcessIdentifier processIdentifier, bool isSuspended)
+{
+    ASSERT(RunLoop::isMain());
+
+    if (m_closed)
+        return;
+
+    workQueue().dispatch([this, protectedThis = Ref { *this }, processIdentifier, isSuspended] {
+        assertIsCurrent(workQueue());
+        if (RefPtr connectionToClient = m_idbStorageRegistry->existingConnectionToClient(processIdentifier))
+            connectionToClient->setClientProcessSuspended(isSuspended);
+    });
+}
+
 void NetworkStorageManager::handleLowMemoryWarning()
 {
     ASSERT(RunLoop::isMain());
@@ -2096,7 +2110,10 @@ void NetworkStorageManager::commitTransaction(IPC::Connection& connection, const
 void NetworkStorageManager::didFinishHandlingVersionChangeTransaction(IPC::Connection& ipcConnection, WebCore::IDBDatabaseConnectionIdentifier databaseConnectionIdentifier, const WebCore::IDBResourceIdentifier& transactionIdentifier)
 {
     if (RefPtr databaseConnection = m_idbStorageRegistry->connection(databaseConnectionIdentifier, ipcConnection)) {
-        MESSAGE_CHECK(databaseConnection->checkedDatabase()->isVersionChangeTransactionFinishingOrFinished(transactionIdentifier), ipcConnection);
+        if (!databaseConnection->checkedDatabase()->isVersionChangeTransactionFinishingOrFinished(transactionIdentifier)) {
+            RELEASE_LOG_FAULT(IndexedDB, "NetworkStorageManager::didFinishHandlingVersionChangeTransaction: version change transaction %" PUBLIC_LOG_STRING " is not finishing or finished", transactionIdentifier.loggingString().utf8().data());
+            return;
+        }
         databaseConnection->didFinishHandlingVersionChange(transactionIdentifier);
     }
 }
@@ -2176,6 +2193,13 @@ void NetworkStorageManager::renameIndex(IPC::Connection& connection, const WebCo
 void NetworkStorageManager::putOrAdd(IPC::Connection& connection, const WebCore::IDBRequestData& requestData, const WebCore::IDBKeyData& keyData, const WebCore::IDBValue& value, const WebCore::IndexIDToIndexKeyMap& indexKeys, WebCore::IndexedDB::ObjectStoreOverwriteMode overwriteMode)
 {
     assertIsCurrent(workQueue());
+    // keyData is used as a key in IDBKeyData-keyed containers (e.g. the
+    // MemoryObjectStore key/value HashMap). A null or Invalid variant would
+    // collide with IDBKeyDataHashTraits's empty-value sentinel. Placeholders
+    // are the legitimate exception: IDBTransaction::putOrAdd sends a
+    // placeholder (nullptr_t + isPlaceholder=true) for auto-generated keys,
+    // which are replaced server-side before the key reaches the HashMap.
+    MESSAGE_CHECK(keyData.isPlaceholder() || keyData.isValid(), connection);
     RefPtr transaction = idbTransaction(requestData, connection);
     if (!transaction)
         return;

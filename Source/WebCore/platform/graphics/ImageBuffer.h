@@ -163,7 +163,7 @@ public:
     WEBCORE_EXPORT IntSize backendSize() const;
 
     virtual void ensureBackendCreated() const { ensureBackend(); }
-    bool hasBackend() { return !!backend(); }
+    bool hasBackend() const { return !!backend(); }
 
     WEBCORE_EXPORT void transferToNewContext(const ImageBufferCreationContext&);
 
@@ -275,6 +275,7 @@ public:
     virtual ~SerializedImageBuffer() = default;
 
     virtual size_t memoryCost() const = 0;
+    virtual std::unique_ptr<SerializedImageBuffer> clone() const { return nullptr; }
 
     WEBCORE_EXPORT static RefPtr<ImageBuffer> sinkIntoImageBuffer(std::unique_ptr<SerializedImageBuffer>, GraphicsClient* = nullptr);
 

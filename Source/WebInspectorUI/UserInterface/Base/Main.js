@@ -131,6 +131,8 @@ WI.loaded = function()
         WI.deviceSettingsManager = new WI.DeviceSettingsManager,
     ];
 
+    WI.domUndoCoordinator = new WI.DOMUndoCoordinator;
+
     // Register for events.
     WI.debuggerManager.addEventListener(WI.DebuggerManager.Event.Paused, WI._debuggerDidPause, WI);
     WI.debuggerManager.addEventListener(WI.DebuggerManager.Event.Resumed, WI._debuggerDidResume, WI);
@@ -2987,16 +2989,12 @@ WI._redoKeyboardShortcut = function(event)
 
 WI.undo = function()
 {
-    let target = WI.assumingMainTarget();
-    if (target.hasCommand("DOM.undo"))
-        target.DOMAgent.undo();
+    WI.domUndoCoordinator.undo();
 };
 
 WI.redo = function()
 {
-    let target = WI.assumingMainTarget();
-    if (target.hasCommand("DOM.redo"))
-        target.DOMAgent.redo();
+    WI.domUndoCoordinator.redo();
 };
 
 WI.highlightRangesWithStyleClass = function(element, resultRanges, styleClass, changes)

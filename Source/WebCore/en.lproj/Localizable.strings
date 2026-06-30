@@ -43,6 +43,9 @@
 /* Forced text track display name format that includes the language and/or locale (e.g. 'English Forced'). */
 "%@ Forced (text track)" = "%@ Forced";
 
+/* Generated text track display name format that includes the language and/or locale (e.g. 'English Generated'). */
+"%@ Generated (text track)" = "%@ Generated";
+
 /* visible name of the GPU process. The argument is the application name. */
 "%@ Graphics and Media" = "%@ Graphics and Media";
 
@@ -634,6 +637,9 @@
 /* WKWebExtensionErrorInvalidActionIcon description for failing to load single image for browser_action or page_action */
 "Failed to load image for `default_icon` in the `browser_action` or `page_action` manifest entry." = "Failed to load image for `default_icon` in the `browser_action` or `page_action` manifest entry.";
 
+/* WKWebExtensionErrorInvalidManifestEntry description for icon with unsupported image format */
+"Failed to load image for path “%@”. The image is not in a supported format." = "Failed to load image for path “%@”. The image is not in a supported format.";
+
 /* WKWebExtensionErrorInvalidActionIcon description for failing to load images for action only */
 "Failed to load images in `default_icon` for the `action` manifest entry." = "Failed to load images in `default_icon` for the `action` manifest entry.";
 
@@ -678,6 +684,9 @@
 
 /* WebKitErrorFrameLoadInterruptedByPolicyChange description */
 "Frame load interrupted" = "Frame load interrupted";
+
+/* Display name for text track kind 'generated'. */
+"Generated (text track)" = "Generated";
 
 /* Title of the Go button for zoomed form controls. */
 "Go" = "Go";

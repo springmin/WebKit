@@ -214,7 +214,6 @@ MESSAGE_RECEIVERS = \
 	WebProcess/GPU/webrtc/SampleBufferDisplayLayer \
 	WebProcess/GPU/media/AudioVideoRendererRemoteMessageReceiver \
 	WebProcess/GPU/media/MediaPlayerPrivateRemote \
-	WebProcess/GPU/media/MediaSourcePrivateRemoteMessageReceiver \
 	WebProcess/GPU/media/RemoteAudioHardwareListener \
 	WebProcess/GPU/media/RemoteAudioSession \
 	WebProcess/GPU/media/RemoteAudioSourceProviderManager \
@@ -224,7 +223,6 @@ MESSAGE_RECEIVERS = \
 	WebProcess/GPU/media/RemoteLegacyCDMSession \
 	WebProcess/GPU/media/RemoteMediaResourceLoaderProxy \
 	WebProcess/GPU/media/RemoteRemoteCommandListener \
-	WebProcess/GPU/media/SourceBufferPrivateRemoteMessageReceiver \
 	WebProcess/GPU/media/ios/RemoteMediaSessionHelper \
 	WebProcess/GPU/webrtc/RemoteVideoFrameObjectHeapProxyProcessor \
 	WebProcess/WebStorage/StorageAreaMap \
@@ -342,9 +340,7 @@ MESSAGE_RECEIVERS = \
 	GPUProcess/media/RemoteMediaPlayerProxy \
 	GPUProcess/media/RemoteMediaResourceLoader \
 	GPUProcess/media/RemoteVideoFrameObjectHeap \
-	GPUProcess/media/RemoteMediaSourceProxy \
 	GPUProcess/media/RemoteRemoteCommandListenerProxy \
-	GPUProcess/media/RemoteSourceBufferProxy \
 	ModelProcess/ModelConnectionToWebProcess \
 	ModelProcess/ModelProcess \
 	ModelProcess/ModelProcessModelPlayerManagerProxy \
@@ -766,6 +762,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/ImageOptions.serialization.in \
 	Shared/InspectorExtensionTypes.serialization.in \
 	Shared/InspectorNetworkTypes.serialization.in \
+	Shared/InspectorPageTypes.serialization.in \
 	Shared/IPCTester.serialization.in \
 	Shared/ios/DynamicViewportSizeUpdate.serialization.in \
 	Shared/ios/HardwareKeyboardState.serialization.in \
@@ -829,6 +826,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/WebCoreArgumentCodersMedia.serialization.in \
 	Shared/WebCoreArgumentCodersNetwork.serialization.in \
 	Shared/WebCoreArgumentCodersPayment.serialization.in \
+	Shared/WebCoreArgumentCodersPlatform.serialization.in \
 	Shared/WebCoreArgumentCodersStorage.serialization.in \
 	Shared/WebCoreFont.serialization.in \
 	Shared/WebEvent.serialization.in \
@@ -853,6 +851,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/WebsitePoliciesData.serialization.in \
 	Shared/WebsitePopUpPolicy.serialization.in \
 	Shared/WebsitePushAndNotificationsEnabledPolicy.serialization.in \
+	Shared/WriteWebArchiveToPasteBoardResult.serialization.in \
 	Shared/ApplePay/ApplePayPaymentSetupFeatures.serialization.in \
 	Shared/ApplePay/PaymentSetupConfiguration.serialization.in \
 	Shared/Databases/IndexedDB/WebIDBResult.serialization.in \
@@ -998,18 +997,32 @@ WEBCORE_SERIALIZATION_DESCRIPTION_FILES = \
 
 WEBCORE_SERIALIZATION_DESCRIPTION_FILES_FULLPATH := $(foreach I,$(WEBCORE_SERIALIZATION_DESCRIPTION_FILES),$(WebCorePrivateHeaders)/$I)
 
-all : IPC/GeneratedSerializers.h IPC/GeneratedSerializersShared.mm IPC/GeneratedSerializersSharedExtensions.mm IPC/GeneratedSerializersSharedWebGPU.mm IPC/GeneratedSerializersSharedWebCoreArgumentCodersAuth.mm IPC/GeneratedSerializersSharedWebCoreArgumentCodersMedia.mm IPC/GeneratedSerializersSharedWebCoreArgumentCodersNetwork.mm IPC/GeneratedSerializersSharedWebCoreArgumentCodersPayment.mm IPC/GeneratedSerializersSharedWebCoreArgumentCodersStorage.mm IPC/GeneratedSerializersWebProcess.mm IPC/GeneratedSerializersGPUProcess.mm IPC/GeneratedSerializersNetworkProcess.mm IPC/GeneratedSerializersPlatform.mm IPC/GeneratedSerializersModelProcess.mm IPC/GeneratedSerializersUIProcess.mm IPC/GeneratedSerializersCommon.mm IPC/GeneratedWebKitSecureCoding.h IPC/GeneratedWebKitSecureCoding.mm IPC/SerializedTypeInfo.mm IPC/WebKitPlatformGeneratedSerializers.mm
+all : IPC/GeneratedSerializers.h IPC/GeneratedSerializersExtra.h IPC/GeneratedSerializersShared0.mm IPC/GeneratedSerializersShared1.mm IPC/GeneratedSerializersSharedAPI.mm IPC/GeneratedSerializersSharedCocoa.mm IPC/GeneratedSerializersSharedEditorState.mm IPC/GeneratedSerializersSharedExtensions.mm IPC/GeneratedSerializersSharedModel.mm IPC/GeneratedSerializersSharedRemoteLayerTree.mm IPC/GeneratedSerializersSharedWebCoreArgumentCodersAuth.mm IPC/GeneratedSerializersSharedWebCoreArgumentCodersMedia.mm IPC/GeneratedSerializersSharedWebCoreArgumentCodersNetwork.mm IPC/GeneratedSerializersSharedWebCoreArgumentCodersPayment.mm IPC/GeneratedSerializersSharedWebCoreArgumentCodersPlatform.mm IPC/GeneratedSerializersSharedWebCoreArgumentCodersStorage.mm IPC/GeneratedSerializersSharedWebCoreFont.mm IPC/GeneratedSerializersSharedWebEvent.mm IPC/GeneratedSerializersSharedWebGL.mm IPC/GeneratedSerializersSharedWebGPU.mm IPC/GeneratedSerializersSharedWebPageCreationParameters.mm IPC/GeneratedSerializersSharedWebProcessCreationParameters.mm IPC/GeneratedSerializersSharedXR.mm IPC/GeneratedSerializersWebProcess.mm IPC/GeneratedSerializersGPUProcess.mm IPC/GeneratedSerializersNetworkProcess.mm IPC/GeneratedSerializersPlatform.mm IPC/GeneratedSerializersModelProcess.mm IPC/GeneratedSerializersUIProcess.mm IPC/GeneratedSerializersCommon.mm IPC/GeneratedWebKitSecureCoding.h IPC/GeneratedWebKitSecureCoding.mm IPC/SerializedTypeInfo.mm IPC/WebKitPlatformGeneratedSerializers.mm
 
 GENERATED_SERIALIZERS_OUTPUT_FILES = \
     IPC/GeneratedSerializers.h \
-    IPC/GeneratedSerializersShared.mm \
+    IPC/GeneratedSerializersExtra.h \
+    IPC/GeneratedSerializersShared0.mm \
+    IPC/GeneratedSerializersShared1.mm \
+    IPC/GeneratedSerializersSharedAPI.mm \
+    IPC/GeneratedSerializersSharedCocoa.mm \
+    IPC/GeneratedSerializersSharedEditorState.mm \
     IPC/GeneratedSerializersSharedExtensions.mm \
-    IPC/GeneratedSerializersSharedWebGPU.mm \
+    IPC/GeneratedSerializersSharedModel.mm \
+    IPC/GeneratedSerializersSharedRemoteLayerTree.mm \
     IPC/GeneratedSerializersSharedWebCoreArgumentCodersAuth.mm \
     IPC/GeneratedSerializersSharedWebCoreArgumentCodersMedia.mm \
     IPC/GeneratedSerializersSharedWebCoreArgumentCodersNetwork.mm \
     IPC/GeneratedSerializersSharedWebCoreArgumentCodersPayment.mm \
+    IPC/GeneratedSerializersSharedWebCoreArgumentCodersPlatform.mm \
     IPC/GeneratedSerializersSharedWebCoreArgumentCodersStorage.mm \
+    IPC/GeneratedSerializersSharedWebCoreFont.mm \
+    IPC/GeneratedSerializersSharedWebEvent.mm \
+    IPC/GeneratedSerializersSharedWebGL.mm \
+    IPC/GeneratedSerializersSharedWebGPU.mm \
+    IPC/GeneratedSerializersSharedWebPageCreationParameters.mm \
+    IPC/GeneratedSerializersSharedWebProcessCreationParameters.mm \
+    IPC/GeneratedSerializersSharedXR.mm \
     IPC/GeneratedSerializersWebProcess.mm \
     IPC/GeneratedSerializersGPUProcess.mm \
     IPC/GeneratedSerializersNetworkProcess.mm \
@@ -1096,12 +1109,9 @@ all : JSWebExtensionAPIUnified.mm $(EXTENSION_INTERFACES:%=JS%.h) $(EXTENSION_IN
 
 ifeq ($(USE_INTERNAL_SDK),YES)
 WEBKIT_ADDITIONS_SWIFT_FILES = \
-	NSGlassEffectView+Extras.swift \
 	TestWebKitAPILibraryAdditions.swift \
 	UIWindowScene+Extras.swift \
-	WebViewRepresentable+Extras.swift \
-	WKDeferringGestureRecognizerExtras.swift \
-	WKWebView+WKBannerViewOverlay.swift \
+	AppKitGesturesExtras.swift \
 	WKWebView+SystemTextExtraction.swift \
 	WKSExperienceController+Transitions.swift \
 #
